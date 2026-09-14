@@ -52,12 +52,12 @@ from backend import actualizador
 
 
 def resource_path(nombre_carpeta):
-    """Ruta a una carpeta de recursos empaquetados (templates/, static/).
-    Cuando el programa corre como .exe de un solo archivo (--onefile),
-    PyInstaller extrae esos recursos a una carpeta TEMPORAL distinta en
-    cada arranque (sys._MEIPASS); en modo normal (python servidor_web.py)
-    es simplemente la carpeta donde está este archivo."""
-    base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+    """Ruta a una carpeta de recursos (templates/, static/). Con el
+    lanzador nuevo, servidor_web.py SIEMPRE corre desde la carpeta de
+    código externa y actualizable (ver lanzador.py/backend/actualizador.py),
+    nunca desde adentro del .exe — así que basta con mirar al lado de
+    este mismo archivo, tanto en modo normal como empaquetado."""
+    base = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(base, nombre_carpeta)
 
 

@@ -85,16 +85,36 @@ def sembrar_si_hace_falta():
 
 
 def main():
-    sembrar_si_hace_falta()
-    destino = carpeta_codigo()
+    try:
+        sembrar_si_hace_falta()
+        destino = carpeta_codigo()
 
-    # Se agrega la carpeta de código externa como el PRIMER lugar donde
-    # Python busca módulos, para que "import servidor_web" cargue la
-    # copia externa y actualizable (no una copia vieja empacada).
-    sys.path.insert(0, destino)
+        # Se agrega la carpeta de código externa como el PRIMER lugar donde
+        # Python busca módulos, para que "import servidor_web" cargue la
+        # copia externa y actualizable (no una copia vieja empacada).
+        sys.path.insert(0, destino)
 
-    servidor_web = importlib.import_module("servidor_web")
-    servidor_web.iniciar_app()
+        servidor_web = importlib.import_module("servidor_web")
+        servidor_web.iniciar_app()
+    except Exception as e:
+        # Si algo falla aquí (sembrado, import, o el arranque en sí), el
+        # proceso NO debe quedarse vivo en silencio sin mostrar nada (eso
+        # es justo lo más difícil de diagnosticar: queda en el
+        # Administrador de tareas pero no aparece ninguna ventana). Se
+        # muestra el error real en un cuadro de diálogo de Windows.
+        import traceback
+        detalle = traceback.format_exc()
+        try:
+            import ctypes
+            ctypes.windll.user32.MessageBoxW(
+                0,
+                f"El programa no pudo arrancar.\n\nError: {e}\n\nDetalle técnico:\n{detalle[-1200:]}",
+                "Automatización RNDC - Error al iniciar",
+                0x10,
+            )
+        except Exception:
+            print("ERROR AL INICIAR:", detalle)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
