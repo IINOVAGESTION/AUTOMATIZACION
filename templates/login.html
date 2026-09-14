@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<title>Innova Automático - Ingresar</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Inter', 'Segoe UI', Roboto, Arial, sans-serif;
+    margin: 0; min-height: 100vh;
+    display: flex; justify-content: center; align-items: center;
+    background: radial-gradient(circle at 50% 0%, #242220 0%, #1c1b19 70%);
+  }
+  .caja {
+    background: #1e1c1a; padding: 2.5rem 2.25rem; border-radius: 14px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6); width: 340px;
+    border: 1px solid #2a2a2a; text-align: center;
+  }
+  .logo-mark {
+    width: 60px; height: 60px; margin: 0 auto 1rem; border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .logo-mark svg { width: 34px; height: 34px; }
+  .marca { text-align: left; }
+  h1 { font-size: 1.35rem; margin: 0; color: #ff6a00; letter-spacing: 0.02em; font-weight: 700; }
+  .subtitulo { color: #9a9a9a; font-size: 0.78rem; margin-bottom: 1.75rem; letter-spacing: 0.01em; }
+  label { display: block; font-size: 0.8rem; font-weight: 600; color: #c9c9c9; margin: 0.9rem 0 0.3rem; text-align: left; }
+  input {
+    width: 100%; padding: 0.65rem 0.8rem; border: 1.5px solid #333; border-radius: 8px;
+    font-size: 0.95rem; transition: border-color 0.2s, box-shadow 0.2s; background: #242220; color: #e8e3d9;
+  }
+  input:focus { outline: none; border-color: #ff6a00; background: #1f1f1f; box-shadow: 0 0 0 3px rgba(255,106,0,0.14); }
+  button {
+    width: 100%; padding: 0.8rem; margin-top: 1.75rem;
+    background: #ff6a00; color: #1c1b19; border: none;
+    border-radius: 8px; cursor: pointer; font-size: 0.95rem; font-weight: 600;
+    box-shadow: 0 6px 20px -4px rgba(255,106,0,0.4);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+    letter-spacing: 0.01em;
+  }
+  button:hover { background: #ff8534; transform: translateY(-1px); box-shadow: 0 8px 24px -4px rgba(255,106,0,0.5); }
+  button:active { transform: translateY(0); }
+  .error {
+    background: #2a1a10; color: #ff8a65; font-size: 0.85rem; border: 1px solid #4a2a1a;
+    padding: 0.6rem 0.8rem; border-radius: 8px; margin-bottom: 1rem; text-align: left;
+  }
+</style>
+</head>
+<body>
+  <div class="caja">
+    <div class="logo-mark"><img src="{{ url_for('static', filename='logo.png') }}" alt="Innova" style="height:100%; width:auto;"></div>
+    <h1>INNOVA</h1>
+    <div class="subtitulo">Logística Empresarial S.A.S</div>
+    {% if error %}<div class="error">{{ error }}</div>{% endif %}
+    <form method="post">
+      <label>Usuario</label>
+      <input type="text" name="usuario" required autofocus>
+      <label>Contraseña</label>
+      <input type="password" name="password" required>
+      <button type="submit">Entrar</button>
+    </form>
+  </div>
+</body>
+</html>

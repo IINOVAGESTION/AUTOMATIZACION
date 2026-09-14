@@ -1,0 +1,1244 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<title>RNDC Automático</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Inter', 'Segoe UI', Roboto, Arial, sans-serif;
+    background: #1c1b19; margin: 0; padding-bottom: 3rem; color: #ddd8cd;
+  }
+  .topbar {
+    background: #1a1918; color: white; padding: 1rem 2rem; display: flex; align-items: center; gap: 0.85rem;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.5); border-bottom: 1px solid #2a2a2a;
+  }
+  .logo-mark {
+    width: 38px; height: 38px; border-radius: 9px; display: flex; align-items: center; justify-content: center;
+  }
+  .logo-mark svg { width: 22px; height: 22px; }
+  .topbar h1 { font-size: 1.05rem; margin: 0; font-weight: 700; color: #ff6a00; letter-spacing: 0.01em; }
+  .topbar .subtitulo { font-size: 0.75rem; color: #9a9a9a; margin-top: 1px; letter-spacing: 0.05em; }
+  .contenedor { max-width: 100%; margin: 1.5rem auto; padding: 0 2rem; }
+  .panel-stats {
+    display: flex; align-items: stretch; gap: 0; margin-bottom: 1.25rem;
+    background: #1e1c1a; border: 1px solid #2a2822; border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3); overflow: hidden;
+  }
+  .stat-card {
+    flex: 1; padding: 0.65rem 1rem; display: flex; align-items: baseline; gap: 0.5rem;
+    border-right: 1px solid #2a2822;
+  }
+  .stat-card:last-child { border-right: none; }
+  .stat-label { font-size: 0.72rem; color: #8a8a8a; margin: 0; white-space: nowrap; }
+  .stat-valor { font-size: 1.05rem; font-weight: 700; color: #ff6a00; margin: 0; }
+  .stat-valor.stat-danger { color: #ff6b6b; }
+  @media (max-width: 700px) { .panel-stats { flex-wrap: wrap; } .stat-card { flex: 1 1 45%; border-right: none; border-bottom: 1px solid #2a2822; } }
+  .caja {
+    background: #1e1c1a; border-radius: 14px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.3), 0 16px 40px -12px rgba(0,0,0,0.55);
+    padding: 2rem 2.25rem 2.5rem; border: 1px solid #2a2822;
+  }
+  .seccion { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid #262626; }
+  .seccion:first-of-type { margin-top: 0.5rem; padding-top: 0; border-top: none; }
+  h2 {
+    font-size: 1.05rem; letter-spacing: -0.01em;
+    color: #ff6a00; margin: 0 0 1.1rem 0; font-weight: 600;
+    display: flex; align-items: center; gap: 0.6rem;
+  }
+  h2::before { content: ""; width: 3px; height: 16px; border-radius: 2px; background: #ff6a00; }
+  .seccion h2 { cursor: pointer; user-select: none; }
+  .seccion h2::after {
+    content: "▾"; margin-left: auto; color: #8a8a8a; font-size: 0.9rem;
+    transition: transform 0.2s;
+  }
+  .seccion.colapsada h2 { margin-bottom: 0; }
+  .seccion.colapsada h2::after { transform: rotate(-90deg); }
+  .seccion.colapsada > *:not(h2) { display: none !important; }
+  label { display: block; margin: 0.9rem 0 0.35rem; font-weight: 600; font-size: 0.82rem; color: #b8b8b8; }
+  input[type=text], input[type=password], input[type=number], input[type=date], textarea {
+    width: 100%; padding: 0.55rem 0.75rem; border: 1.5px solid #333; border-radius: 8px;
+    font-size: 0.92rem; background: #242220; color: #e8e3d9; transition: border-color 0.2s, background 0.2s;
+    font-family: inherit; resize: vertical;
+  }
+  input[type=date]::-webkit-calendar-picker-indicator { filter: invert(0.7); cursor: pointer; }
+  input:focus, textarea:focus { outline: none; border-color: #ff6a00; background: #1f1f1f; box-shadow: 0 0 0 3px rgba(255,106,0,0.14); }
+  .fila { display: flex; gap: 1.25rem; flex-wrap: wrap; }
+  .fila > div { flex: 1; min-width: 200px; }
+  .parada {
+    border: 1.5px solid #333; padding: 1rem 1.1rem; border-radius: 10px;
+    margin-bottom: 0.9rem; background: #242220; position: relative;
+  }
+  .etiqueta-viaje {
+    display: inline-block; background: rgba(255,106,0,0.18); color: #ff6a00;
+    font-weight: 700; font-size: 0.85rem; padding: 0.25rem 0.7rem; border-radius: 6px;
+  }
+  .fila-paradas { display: flex; gap: 1.25rem; align-items: flex-start; flex-wrap: wrap; }
+  .fila-paradas > .parada-columna { flex: 1; min-width: 220px; }
+  #lista_paradas { display: contents; }
+  .parada-ligera {
+    flex: 1; min-width: 220px; border: 1.5px solid #333; padding: 0.9rem 1rem;
+    border-radius: 10px; background: #211f1d; position: relative;
+  }
+  .etiqueta-parada { display: block; color: #ff6a00; font-weight: 700; font-size: 0.72rem; margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 0.03em; }
+  .tarjeta-agregar-parada {
+    flex: 1; min-width: 180px; border: 1.5px dashed #3a3733; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center; min-height: 90px;
+    color: #918c80; cursor: pointer; font-size: 0.85rem; font-weight: 600; text-align: center;
+    transition: border-color 0.15s, color 0.15s; background: transparent;
+  }
+  .tarjeta-agregar-parada:hover { border-color: #ff6a00; color: #ff6a00; }
+  .nit-desplegable {
+    margin-top: 0.5rem; font-size: 0.78rem;
+  }
+  .nit-desplegable summary {
+    cursor: pointer; color: #8a8a8a; user-select: none; list-style: none;
+  }
+  .nit-desplegable summary::-webkit-details-marker { display: none; }
+  .nit-desplegable summary::before { content: "▸ "; }
+  .nit-desplegable[open] summary::before { content: "▾ "; }
+  .nit-desplegable summary:hover { color: #ff6a00; }
+  .nit-desplegable .contenido-nit {
+    margin-top: 0.5rem; padding: 0.5rem 0.6rem; background: #211f1d; border-radius: 6px; border: 1px solid #2a2a2a;
+  }
+  .check-multiparada {
+    display: flex; align-items: center; gap: 0.5rem; font-weight: 600; font-size: 0.9rem;
+    background: #241d08; border: 1px solid #4a3a10; padding: 0.7rem 1rem; border-radius: 8px;
+    margin-top: 0.5rem; color: #ff6a00; cursor: pointer;
+  }
+  .check-multiparada input { width: auto; }
+  button {
+    background: #ff6a00; color: #1c1b19; border: none;
+    padding: 0.85rem 2.1rem; border-radius: 9px; cursor: pointer; font-size: 0.95rem;
+    font-weight: 600; margin-top: 2rem; box-shadow: 0 6px 20px -4px rgba(255,106,0,0.4);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+    letter-spacing: 0.01em;
+  }
+  button:hover { background: #ff8534; transform: translateY(-1px); box-shadow: 0 8px 24px -4px rgba(255,106,0,0.5); }
+  button:active { transform: translateY(0); box-shadow: 0 3px 10px -2px rgba(255,106,0,0.4); }
+  button.secundario {
+    background: transparent; color: #ddd8cd; padding: 0.5rem 1rem; font-size: 0.82rem;
+    margin-top: 0.5rem; box-shadow: none; font-weight: 500; border: 1px solid #3a3733;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  button.secundario:hover { background: #29271f; border-color: #4a463f; transform: none; box-shadow: none; }
+  #paradas.oculto, #simple.oculto { display: none; }
+  #paradas.modo-ida-y-regreso .boton-quitar-parada,
+  #paradas.modo-ida-y-regreso .tarjeta-agregar-parada { display: none; }
+  small { color: #8a8a8a; display: block; margin-top: 0.4rem; font-size: 0.8rem; }
+  .nota-opcional {
+    background: #242220; border-left: 3px solid #ff6a00; padding: 0.5rem 0.8rem;
+    font-size: 0.8rem; color: #b0b0b0; border-radius: 4px; margin-top: 0.5rem;
+  }
+  .fila-verificar { display: flex; gap: 0.5rem; align-items: center; }
+  .fila-verificar input { flex: 1; }
+  .fila-verificar button { margin-top: 0; white-space: nowrap; }
+  .resultado-verificar { display: block; margin-top: 0.35rem; font-size: 0.85rem; font-weight: 600; }
+  .resultado-verificar.si { color: #3fb950; }
+  .resultado-verificar.no { color: #ff6b6b; }
+  .resultado-verificar.cargando { color: #ff6a00; }
+  .campo-clave {
+    background: rgba(255, 106, 0, 0.14) !important;
+    border: 1.5px solid #ff6a00 !important;
+    color: #f3ead2 !important;
+    font-weight: 600;
+  }
+  .campo-clave:focus { background: rgba(255, 106, 0, 0.22) !important; }
+  .pestanas-tipo-viaje {
+    display: flex; gap: 0.35rem; margin: 0 0 1.5rem; border-bottom: 1.5px solid #2a2822;
+    overflow-x: auto;
+  }
+  .pestana-tipo {
+    background: transparent; border: none; border-bottom: 2.5px solid transparent;
+    padding: 0.75rem 1.1rem; cursor: pointer; transition: color 0.15s, border-color 0.15s;
+    user-select: none; display: flex; align-items: center; gap: 0.5rem; white-space: nowrap;
+  }
+  .pestana-tipo:hover { color: #ff6a00; }
+  .pestana-tipo .tarjeta-icono { font-size: 1.05rem; margin: 0; }
+  .pestana-tipo .tarjeta-titulo { font-size: 0.88rem; font-weight: 700; color: #918c80; }
+  .pestana-tipo:hover .tarjeta-titulo { color: #ff6a00; }
+  .pestana-tipo.seleccionada { border-bottom-color: #ff6a00; }
+  .pestana-tipo.seleccionada .tarjeta-titulo { color: #ff6a00; }
+  @media (max-width: 600px) { .pestana-tipo .tarjeta-sub { display: none; } }
+  .nit-bajo-ciudad { margin-top: 0.5rem; padding: 0.5rem 0.6rem; background: #211f1d; border-radius: 6px; border: 1px solid #2a2a2a; }
+  .nit-bajo-ciudad > label { margin: 0 0 0.35rem; font-size: 0.72rem; color: #8a8a8a; }
+  .nit-bajo-ciudad .fila-verificar select { max-width: 90px; padding: 0.4rem 0.3rem; font-size: 0.78rem; }
+  .nit-bajo-ciudad .fila-verificar input { font-size: 0.82rem; padding: 0.45rem 0.6rem; }
+  .nit-bajo-ciudad .fila-verificar button { padding: 0.4rem 0.6rem; font-size: 0.78rem; }
+  .ayuda-icono {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 15px; height: 15px; border-radius: 50%; background: #242220;
+    border: 1px solid #444; color: #999; font-size: 10px; font-style: italic;
+    cursor: help; position: relative; margin-left: 5px; font-weight: 700;
+    vertical-align: middle;
+  }
+  .ayuda-icono:hover { border-color: #ff6a00; color: #ff6a00; }
+  .ayuda-icono:hover::after {
+    content: attr(data-tip);
+    position: absolute; bottom: 135%; left: 50%; transform: translateX(-50%);
+    background: #242220; border: 1px solid #ff6a00; color: #ddd8cd;
+    padding: 8px 11px; border-radius: 6px; font-size: 0.75rem; font-weight: 400;
+    font-style: normal; white-space: normal; width: 230px; z-index: 20;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.5); line-height: 1.4;
+  }
+  .ayuda-icono:hover::before {
+    content: ""; position: absolute; bottom: 118%; left: 50%; transform: translateX(-50%);
+    border: 5px solid transparent; border-top-color: #ff6a00; z-index: 20;
+  }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="logo-mark"><img src="{{ url_for('static', filename='logo.png') }}" alt="Innova" style="height:100%; width:auto;"></div>
+  <div>
+    <h1>INNOVA <span style="font-size:0.65rem; color:#666; font-weight:400;">v{{ VERSION_APP }}</span></h1>
+    <div class="subtitulo">Logística Empresarial S.A.S &middot; Automatización RNDC</div>
+  </div>
+  <a href="{{ url_for('ver_cola') }}" style="margin-left:auto; color:#ff6a00; text-decoration:none; font-size:0.85rem; font-weight:700; border:1px solid #ff6a00; padding:0.5rem 1rem; border-radius:7px;">📋 Ver fila de viajes</a>
+</div>
+
+{% if actualizacion and actualizacion.hay_nueva %}
+<div style="max-width:920px; margin:1rem auto 0; padding:0 1.5rem;">
+  <div style="display:flex; align-items:center; gap:12px; background:rgba(255,106,0,0.14); border:1.5px solid #ff6a00; border-radius:10px; padding:0.9rem 1.2rem;">
+    <span style="font-size:1.3rem;">🔔</span>
+    <span style="flex:1; font-size:0.9rem; color:#ff6a00;">Hay una versión nueva disponible (v{{ actualizacion.version }}). La tuya es v{{ VERSION_APP }}.</span>
+    <a href="{{ actualizacion.enlace }}" target="_blank" style="background:#ff6a00; color:#1c1b19; text-decoration:none; font-weight:700; font-size:0.85rem; padding:0.55rem 1.1rem; border-radius:7px; white-space:nowrap;">⬇ Descargar</a>
+  </div>
+</div>
+{% endif %}
+
+<div class="contenedor">
+
+<div class="panel-stats">
+  <div class="stat-card">
+    <p class="stat-label">Viajes hoy</p>
+    <p class="stat-valor">{{ stats.hoy }}</p>
+  </div>
+  <div class="stat-card">
+    <p class="stat-label">Últimos 7 días</p>
+    <p class="stat-valor">{{ stats.semana }}</p>
+  </div>
+  <div class="stat-card">
+    <p class="stat-label">Con error (7 días)</p>
+    <p class="stat-valor {{ 'stat-danger' if stats.con_error > 0 else '' }}">{{ stats.con_error }}</p>
+  </div>
+  <div class="stat-card">
+    <p class="stat-label">Tiempo promedio</p>
+    <p class="stat-valor">{{ stats.promedio_seg }}s</p>
+  </div>
+</div>
+
+<div class="caja">
+
+  <form method="post" action="{{ url_for('ejecutar') }}" id="formulario">
+
+    <input type="hidden" name="TipoViaje" id="tipo_viaje" value="{{ v.get('TipoViaje', 'Normal') }}">
+    <div class="pestanas-tipo-viaje" role="tablist">
+      <button type="button" class="pestana-tipo {{ 'seleccionada' if v.get('TipoViaje', 'Normal') == 'Normal' else '' }}" data-tipo="Normal" onclick="elegirTipoViaje('Normal')" role="tab">
+        <span class="tarjeta-icono">🚚</span>
+        <span class="tarjeta-titulo">Normal</span>
+      </button>
+      <button type="button" class="pestana-tipo {{ 'seleccionada' if v.get('TipoViaje') == 'IdaYRegreso' else '' }}" data-tipo="IdaYRegreso" onclick="elegirTipoViaje('IdaYRegreso')" role="tab">
+        <span class="tarjeta-icono">↩️</span>
+        <span class="tarjeta-titulo">Ida y Regreso</span>
+      </button>
+      <button type="button" class="pestana-tipo {{ 'seleccionada' if v.get('TipoViaje') == 'Multiparada' else '' }}" data-tipo="Multiparada" onclick="elegirTipoViaje('Multiparada')" role="tab">
+        <span class="tarjeta-icono">🔀</span>
+        <span class="tarjeta-titulo">Multiparada</span>
+      </button>
+      <button type="button" class="pestana-tipo {{ 'seleccionada' if v.get('TipoViaje') == 'Cola' else '' }}" data-tipo="Cola" onclick="elegirTipoViaje('Cola')" role="tab">
+        <span class="tarjeta-icono">📋</span>
+        <span class="tarjeta-titulo">Récord</span>
+      </button>
+    </div>
+
+    <div class="seccion">
+    <div style="display:flex; align-items:center; justify-content:space-between;">
+      <h2 style="margin-bottom:0;" onclick="toggleSeccion(this)">Datos generales</h2>
+      <details class="nit-desplegable" id="campo_fecha_opcional" style="margin:0;">
+        <summary>Fecha (opcional)</summary>
+        <div class="contenido-nit" style="min-width:220px;">
+          <div><label style="margin-top:0;">Fecha de Expedición</label><input type="date" name="FechaExpedicionFecha" id="input_fecha_expedicion" tabindex="26"></div>
+        </div>
+        <small>Deja vacío para usar hoy. El pago siempre queda 5 días después de esta fecha, automáticamente.</small>
+      </details>
+    </div>
+
+    <div class="fila" style="margin-top:1rem;">
+      <div id="campo_cliente">
+        <label>Cliente<span class="ayuda-icono" data-tip="La persona o empresa que pidió este manifiesto (no es el remitente ni el destinatario, sino quien contrató el servicio).">i</span></label>
+        <input type="text" name="Cliente" value="{{ v.get('Cliente', '') }}" tabindex="8">
+      </div>
+      <div>
+        <label>Consecutivo</label>
+        <div id="campo_consecutivo">
+          <input type="text" name="Consecutivo" id="input_consecutivo" value="{{ v.get('Consecutivo', '') }}" class="campo-clave" tabindex="1" oninput="verificarConsecutivo()">
+        </div>
+        <span id="aviso_consecutivo" style="display:none; align-items:center; gap:6px; background:rgba(255,106,0,0.14); border:1px solid #ff6a00; border-radius:6px; padding:6px 10px; margin-top:6px; font-size:0.82rem; color:#ff6a00;"></span>
+      </div>
+      <div id="campo_placa"><label>Placa</label><input type="text" name="Placa" id="input_placa" value="{{ v.get('Placa', '') }}" class="campo-clave" tabindex="2" oninput="sugerirConductor()"></div>
+      <div><label>Placa Remolque (solo tractocamión)<span class="ayuda-icono" data-tip="Si el vehículo es un tractocamión (lleva remolque), escribe aquí su placa. Esto también hace que se calcule automáticamente un pago adicional llamado FOPAT.">i</span></label><input type="text" name="Placa_Remolque" value="{{ v.get('Placa_Remolque', '') }}" tabindex="3"></div>
+    </div>
+    <span id="aviso_conductor_sugerido" style="display:none; align-items:center; gap:8px; background:rgba(255,106,0,0.14); border:1px solid #ff6a00; border-radius:6px; padding:6px 10px; margin-bottom:0.75rem; font-size:0.82rem; color:#ff6a00;"></span>
+
+    <div id="simple">
+      <div class="fila">
+        <div>
+          <label>Origen</label>
+          <input type="text" name="Origen" value="{{ v.get('Origen', '') }}" list="lista_ciudades" class="campo-clave" tabindex="4">
+          <div class="nit-bajo-ciudad">
+            <label>NIT/Cédula del Remitente (opcional)<span class="ayuda-icono" data-tip="Algunos clientes piden que el remitente aparezca con SU PROPIO NIT/cédula en vez del NIT fijo de la empresa. Déjalo vacío para usar el fijo de siempre.">i</span></label>
+            <div class="fila-verificar">
+              <select name="TipoID_Remitente_Cliente" tabindex="21">
+                <option value="" {{ 'selected' if v.get('TipoID_Remitente_Cliente', '') == '' else '' }}>Fijo</option>
+                <option value="C" {{ 'selected' if v.get('TipoID_Remitente_Cliente') == 'C' else '' }}>Cédula</option>
+                <option value="N" {{ 'selected' if v.get('TipoID_Remitente_Cliente') == 'N' else '' }}>Nit</option>
+                <option value="P" {{ 'selected' if v.get('TipoID_Remitente_Cliente') == 'P' else '' }}>Pasaporte</option>
+                <option value="E" {{ 'selected' if v.get('TipoID_Remitente_Cliente') == 'E' else '' }}>C.Extr.</option>
+                <option value="T" {{ 'selected' if v.get('TipoID_Remitente_Cliente') == 'T' else '' }}>T.I.</option>
+              </select>
+              <input type="text" name="NIT_Remitente_Cliente" id="input_nit_remitente" value="{{ v.get('NIT_Remitente_Cliente', '') }}" tabindex="22" placeholder="NIT/CC">
+              <button type="button" class="secundario" onclick="verificarPersona('input_nit_remitente', 'resultado_nit_remitente', document.querySelector('select[name=TipoID_Remitente_Cliente]').value || 'N')">🔍</button>
+            </div>
+            <span id="resultado_nit_remitente" class="resultado-verificar"></span>
+          </div>
+        </div>
+        <div>
+          <label>Destino</label>
+          <input type="text" name="Destino" value="{{ v.get('Destino', '') }}" list="lista_ciudades" class="campo-clave" tabindex="5">
+          <div class="nit-bajo-ciudad">
+            <label>NIT/Cédula del Destinatario (opcional)<span class="ayuda-icono" data-tip="Algunos clientes piden que el destinatario aparezca con SU PROPIO NIT/cédula en vez del NIT fijo de la empresa. Déjalo vacío para usar el fijo de siempre.">i</span></label>
+            <div class="fila-verificar">
+              <select name="TipoID_Destinatario_Cliente" tabindex="23">
+                <option value="" {{ 'selected' if v.get('TipoID_Destinatario_Cliente', '') == '' else '' }}>Fijo</option>
+                <option value="C" {{ 'selected' if v.get('TipoID_Destinatario_Cliente') == 'C' else '' }}>Cédula</option>
+                <option value="N" {{ 'selected' if v.get('TipoID_Destinatario_Cliente') == 'N' else '' }}>Nit</option>
+                <option value="P" {{ 'selected' if v.get('TipoID_Destinatario_Cliente') == 'P' else '' }}>Pasaporte</option>
+                <option value="E" {{ 'selected' if v.get('TipoID_Destinatario_Cliente') == 'E' else '' }}>C.Extr.</option>
+                <option value="T" {{ 'selected' if v.get('TipoID_Destinatario_Cliente') == 'T' else '' }}>T.I.</option>
+              </select>
+              <input type="text" name="NIT_Destinatario_Cliente" id="input_nit_destinatario" value="{{ v.get('NIT_Destinatario_Cliente', '') }}" tabindex="24" placeholder="NIT/CC">
+              <button type="button" class="secundario" onclick="verificarPersona('input_nit_destinatario', 'resultado_nit_destinatario', document.querySelector('select[name=TipoID_Destinatario_Cliente]').value || 'N')">🔍</button>
+            </div>
+            <span id="resultado_nit_destinatario" class="resultado-verificar"></span>
+          </div>
+        </div>
+      </div>
+      <div class="fila">
+        <div><label>Producto</label><input type="text" name="Producto" value="{{ v.get('Producto', '') }}" class="campo-clave" tabindex="6"></div>
+        <div><label>Peso (kg)</label><input type="text" name="Peso" value="{{ v.get('Peso', '') }}" class="campo-clave" tabindex="7" oninput="formatearMiles(this)"></div>
+      </div>
+    </div>
+
+    <div id="paradas" class="oculto">
+      <small>Escribe la ciudad de Origen, la(s) ciudad(es) Intermedia(s) en orden, y la ciudad Destino final. En "Ida y Regreso", el Destino se llena solo (vuelve al Origen).</small>
+
+      <div class="fila-paradas" style="margin-top:0.75rem;">
+        <div class="parada-columna">
+          <small class="etiqueta-parada">Origen</small>
+          <input type="text" id="mp_origen" list="lista_ciudades" class="campo-clave" oninput="sincronizarDestinoIdaYRegreso()">
+          <div class="nit-bajo-ciudad">
+            <label>NIT/Cédula del Remitente (opcional)<span class="ayuda-icono" data-tip="NIT/Cédula propio de la Ciudad de Origen, usado como remitente del primer tramo. Déjalo vacío para usar el fijo de siempre.">i</span></label>
+            <div class="fila-verificar">
+              <select id="mp_origen_tipoid_rem">
+                <option value="">Fijo</option>
+                <option value="C">Cédula</option>
+                <option value="N">Nit</option>
+                <option value="P">Pasaporte</option>
+                <option value="E">C.Extr.</option>
+                <option value="T">T.I.</option>
+              </select>
+              <input type="text" id="mp_origen_nit_rem" placeholder="NIT/CC">
+            </div>
+          </div>
+        </div>
+
+        <div id="lista_paradas"></div>
+
+        <div class="tarjeta-agregar-parada" id="boton_agregar_parada" onclick="agregarParada()">+ Agregar<br>ciudad intermedia</div>
+
+        <div class="parada-columna">
+          <small class="etiqueta-parada" id="etiqueta_destino_paradas">Destino</small>
+          <input type="text" id="mp_destino" list="lista_ciudades" class="campo-clave">
+          <div class="nit-bajo-ciudad">
+            <label>NIT/Cédula del Destinatario (opcional)<span class="ayuda-icono" data-tip="NIT/Cédula propio de la Ciudad Destino, usado como destinatario del último tramo. Déjalo vacío para usar el fijo de siempre.">i</span></label>
+            <div class="fila-verificar">
+              <select id="mp_destino_tipoid_des">
+                <option value="">Fijo</option>
+                <option value="C">Cédula</option>
+                <option value="N">Nit</option>
+                <option value="P">Pasaporte</option>
+                <option value="E">C.Extr.</option>
+                <option value="T">T.I.</option>
+              </select>
+              <input type="text" id="mp_destino_nit_des" placeholder="NIT/CC">
+            </div>
+          </div>
+          <div class="fila" style="margin-top:0.6rem;">
+            <div><label style="margin-top:0;">Producto (este tramo)</label><input type="text" id="mp_destino_producto" class="campo-clave"></div>
+            <div><label style="margin-top:0;">Peso (kg) (este tramo)</label><input type="text" id="mp_destino_peso" class="campo-clave" oninput="formatearMiles(this)"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <input type="hidden" name="ParadasJSON" id="ParadasJSON">
+
+    <div id="cola" class="oculto">
+      <small>El vehículo, conductor, titular y cliente de arriba se usan para TODOS los viajes de esta lista. Agrega uno por bloque: se van a ejecutar UNO DETRÁS DE OTRO, automáticamente, reutilizando el mismo navegador. Si alguno falla, el programa sigue con el siguiente (no se detiene toda la lista).</small>
+      <div id="lista_cola" style="margin-top:0.75rem;"></div>
+      <div class="tarjeta-agregar-parada" style="min-height:56px;" onclick="agregarViajeCola()">+ Agregar viaje</div>
+    </div>
+    <input type="hidden" name="ColaJSON" id="ColaJSON">
+
+    <div class="fila">
+      <div id="campo_flete">
+        <label>Valor del flete</label>
+        <input type="text" name="Flete" value="{{ v.get('Flete', '') }}" class="campo-clave" tabindex="9" oninput="formatearMiles(this)">
+      </div>
+      <div id="campo_anticipo">
+        <label>Anticipo (opcional)<span class="ayuda-icono" data-tip="Valor que el cliente paga por adelantado antes de que salga el viaje. Déjalo vacío si no aplica para este viaje.">i</span></label>
+        <input type="text" name="Anticipo" value="{{ v.get('Anticipo', '') }}" tabindex="10">
+      </div>
+    </div>
+
+    <div class="fila">
+      <div>
+        <label>Titular del manifiesto (Cédula/NIT)</label>
+        <div class="fila-verificar">
+          <input type="text" name="Cedula_Titular" id="input_cedula_titular" value="{{ v.get('Cedula_Titular', '') }}" required class="campo-clave" tabindex="12">
+          <button type="button" class="secundario" onclick="verificarPersona('input_cedula_titular', 'resultado_cedula_titular')">🔍 Verificar</button>
+        </div>
+        <span id="resultado_cedula_titular" class="resultado-verificar"></span>
+      </div>
+      <div id="campo_cedula_conductor">
+        <label>Conductor (Cédula)</label>
+        <div class="fila-verificar">
+          <input type="text" name="Cedula_Conductor" id="input_cedula_conductor" value="{{ v.get('Cedula_Conductor', '') }}" class="campo-clave" list="lista_conductores" tabindex="11">
+          <button type="button" class="secundario" onclick="verificarPersona('input_cedula_conductor', 'resultado_cedula_conductor')">🔍 Verificar</button>
+        </div>
+        <span id="resultado_cedula_conductor" class="resultado-verificar"></span>
+      </div>
+    </div>
+    </div>
+
+    <div class="seccion">
+    <h2 onclick="toggleSeccion(this)">Observaciones del manifiesto</h2>
+    <label>Texto de Observaciones/Recomendaciones</label>
+    <textarea name="Observaciones" rows="3" tabindex="25">{{ v.get('Observaciones', OBSERVACIONES_POR_DEFECTO) }}</textarea>
+    </div>
+
+    <button type="submit" tabindex="32">Ejecutar ▶</button>
+
+    <div class="seccion">
+    <h2 onclick="toggleSeccion(this)">Credenciales del RNDC</h2>
+    {% if rndc_vinculado %}
+      <div style="display:flex; align-items:center; gap:8px; background:rgba(63,185,80,0.12); border:1px solid #3fb950; border-radius:8px; padding:0.7rem 1rem; font-size:0.85rem; color:#3fb950;">
+        🔗 Tu usuario del RNDC ya está vinculado ({{ rndc_vinculado }}) — no hace falta que lo escribas cada vez.
+      </div>
+      <input type="hidden" name="usuario_rndc" value="">
+      <input type="hidden" name="password_rndc" value="">
+    {% else %}
+      <div class="fila">
+        <div><label>Usuario RNDC</label><input type="text" name="usuario_rndc" value="{{ v.get('usuario_rndc', '') }}" required tabindex="28"></div>
+        <div><label>Contraseña RNDC</label><input type="password" name="password_rndc" required tabindex="29"></div>
+      </div>
+    {% endif %}
+    <label class="check-multiparada">
+      <input type="checkbox" name="Invisible" {{ 'checked' if v.get('Invisible') else '' }} tabindex="30">
+      No mostrar el navegador (modo invisible, más limpio, pero si algo falla solo verás capturas de pantalla, no la ventana)
+    </label>
+    <label class="check-multiparada" style="background:#241d08; border-color:#ff6a00;">
+      <input type="checkbox" name="ModoPractica" {{ 'checked' if v.get('ModoPractica') else '' }} tabindex="31">
+      🎓 Modo de práctica (hace todo igual, pero NO guarda nada real ni descarga PDF — para entrenar sin riesgo)
+    </label>
+    </div>
+
+    <div style="font-size: 0.72rem; color: #666; margin: 0.6rem 0;">
+      {% if sedes_reales %}✅{% else %}⚠️{% endif %} Sugerencias de ciudad: {{ sedes_reales|length if sedes_reales else 'lista genérica' }}{{ ' sedes reales' if sedes_reales else '' }}
+      · <a href="#" onclick="actualizarSedes(); return false;" style="color:#ff6a00; text-decoration:none;">🔄 actualizar</a>
+      <span id="estado_sedes" style="margin-left:0.4rem;"></span>
+    </div>
+    <div style="font-size: 0.72rem; color: #666; margin: 0.6rem 0;">
+      {% if conductores_reales %}✅{% else %}⚠️{% endif %} Sugerencias de conductor: {{ conductores_reales|length if conductores_reales else 'ninguna todavía' }}{{ ' conductores reales' if conductores_reales else '' }}
+      · <a href="#" onclick="actualizarConductores(); return false;" style="color:#ff6a00; text-decoration:none;">🔄 actualizar</a>
+      <span id="estado_conductores" style="margin-left:0.4rem;"></span>
+      <pre id="detalle_conductores" style="white-space:pre-wrap; font-size:0.7rem; color:#999; background:#1e1c1a; padding:0.6rem; border-radius:6px; margin-top:0.4rem; max-height:200px; overflow-y:auto;"></pre>
+    </div>
+  </form>
+
+  <datalist id="lista_ciudades">
+  {% if sedes_reales %}
+    {% for sede in sedes_reales %}
+    <option value="{{ sede }}">
+    {% endfor %}
+  {% else %}
+    <option value="BOGOTA BOGOTA D. C.">
+    <option value="MEDELLIN ANTIOQUIA">
+    <option value="ITAGUI ANTIOQUIA">
+    <option value="ENVIGADO ANTIOQUIA">
+    <option value="BELLO ANTIOQUIA">
+    <option value="RIONEGRO ANTIOQUIA">
+    <option value="APARTADO ANTIOQUIA">
+    <option value="TURBO ANTIOQUIA">
+    <option value="CALDAS ANTIOQUIA">
+    <option value="SABANETA ANTIOQUIA">
+    <option value="COPACABANA ANTIOQUIA">
+    <option value="LA CEJA ANTIOQUIA">
+    <option value="LA ESTRELLA ANTIOQUIA">
+    <option value="GIRARDOTA ANTIOQUIA">
+    <option value="CALI VALLE DEL CAUCA">
+    <option value="PALMIRA VALLE DEL CAUCA">
+    <option value="BUENAVENTURA VALLE DEL CAUCA">
+    <option value="TULUA VALLE DEL CAUCA">
+    <option value="CARTAGO VALLE DEL CAUCA">
+    <option value="BUGA VALLE DEL CAUCA">
+    <option value="YUMBO VALLE DEL CAUCA">
+    <option value="JAMUNDI VALLE DEL CAUCA">
+    <option value="BARRANQUILLA ATLANTICO">
+    <option value="SOLEDAD ATLANTICO">
+    <option value="MALAMBO ATLANTICO">
+    <option value="SABANALARGA ATLANTICO">
+    <option value="CARTAGENA BOLIVAR">
+    <option value="MAGANGUE BOLIVAR">
+    <option value="TURBACO BOLIVAR">
+    <option value="SANTA MARTA MAGDALENA">
+    <option value="CIENAGA MAGDALENA">
+    <option value="VALLEDUPAR CESAR">
+    <option value="AGUACHICA CESAR">
+    <option value="RIOHACHA LA GUAJIRA">
+    <option value="MAICAO LA GUAJIRA">
+    <option value="SINCELEJO SUCRE">
+    <option value="COROZAL SUCRE">
+    <option value="MONTERIA CORDOBA">
+    <option value="LORICA CORDOBA">
+    <option value="CERETE CORDOBA">
+    <option value="BUCARAMANGA SANTANDER">
+    <option value="FLORIDABLANCA SANTANDER">
+    <option value="GIRON SANTANDER">
+    <option value="PIEDECUESTA SANTANDER">
+    <option value="BARRANCABERMEJA SANTANDER">
+    <option value="SAN GIL SANTANDER">
+    <option value="CUCUTA NORTE DE SANTANDER">
+    <option value="OCAÑA NORTE DE SANTANDER">
+    <option value="PAMPLONA NORTE DE SANTANDER">
+    <option value="TIBU NORTE DE SANTANDER">
+    <option value="IBAGUE TOLIMA">
+    <option value="ESPINAL TOLIMA">
+    <option value="MELGAR TOLIMA">
+    <option value="HONDA TOLIMA">
+    <option value="NEIVA HUILA">
+    <option value="PITALITO HUILA">
+    <option value="GARZON HUILA">
+    <option value="PEREIRA RISARALDA">
+    <option value="DOSQUEBRADAS RISARALDA">
+    <option value="SANTA ROSA DE CABAL RISARALDA">
+    <option value="MANIZALES CALDAS">
+    <option value="VILLAMARIA CALDAS">
+    <option value="LA DORADA CALDAS">
+    <option value="ARMENIA QUINDIO">
+    <option value="CALARCA QUINDIO">
+    <option value="PASTO NARIÑO">
+    <option value="IPIALES NARIÑO">
+    <option value="TUMACO NARIÑO">
+    <option value="SANDONA NARIÑO">
+    <option value="POPAYAN CAUCA">
+    <option value="SANTANDER DE QUILICHAO CAUCA">
+    <option value="VILLAVICENCIO META">
+    <option value="ACACIAS META">
+    <option value="GRANADA META">
+    <option value="YOPAL CASANARE">
+    <option value="AGUAZUL CASANARE">
+    <option value="FLORENCIA CAQUETA">
+    <option value="ARAUCA ARAUCA">
+    <option value="TAME ARAUCA">
+    <option value="MOCOA PUTUMAYO">
+    <option value="PUERTO ASIS PUTUMAYO">
+    <option value="QUIBDO CHOCO">
+    <option value="MOSQUERA CUNDINAMARCA">
+    <option value="FUNZA CUNDINAMARCA">
+    <option value="FACATATIVA CUNDINAMARCA">
+    <option value="ZIPAQUIRA CUNDINAMARCA">
+    <option value="CHIA CUNDINAMARCA">
+    <option value="SOACHA CUNDINAMARCA">
+    <option value="MADRID CUNDINAMARCA">
+    <option value="GIRARDOT CUNDINAMARCA">
+    <option value="UBATE CUNDINAMARCA">
+    <option value="TENJO CUNDINAMARCA">
+    <option value="COTA CUNDINAMARCA">
+    <option value="CAJICA CUNDINAMARCA">
+    <option value="TUNJA BOYACA">
+    <option value="DUITAMA BOYACA">
+    <option value="SOGAMOSO BOYACA">
+    <option value="CHIQUINQUIRA BOYACA">
+    <option value="PAIPA BOYACA">
+    <option value="MONIQUIRA BOYACA">
+    <option value="SAN ANDRES SAN ANDRES">
+    <option value="PROVIDENCIA SAN ANDRES">
+    <option value="LETICIA AMAZONAS">
+    <option value="PUERTO CARREÑO VICHADA">
+    <option value="INIRIDA GUAINIA">
+    <option value="SAN JOSE DEL GUAVIARE GUAVIARE">
+    <option value="MITU VAUPES">
+    <!-- Más municipios de Antioquia -->
+    <option value="APARTADO ANTIOQUIA">
+    <option value="CAUCASIA ANTIOQUIA">
+    <option value="SANTA FE DE ANTIOQUIA ANTIOQUIA">
+    <option value="SONSON ANTIOQUIA">
+    <option value="MARINILLA ANTIOQUIA">
+    <option value="EL SANTUARIO ANTIOQUIA">
+    <option value="GUARNE ANTIOQUIA">
+    <option value="EL CARMEN DE VIBORAL ANTIOQUIA">
+    <option value="YARUMAL ANTIOQUIA">
+    <option value="AMALFI ANTIOQUIA">
+    <option value="SEGOVIA ANTIOQUIA">
+    <option value="PUERTO BERRIO ANTIOQUIA">
+    <option value="ANDES ANTIOQUIA">
+    <option value="URRAO ANTIOQUIA">
+    <option value="CHIGORODO ANTIOQUIA">
+    <option value="NECOCLI ANTIOQUIA">
+    <option value="CAREPA ANTIOQUIA">
+    <!-- Más municipios de Valle del Cauca -->
+    <option value="ZARZAL VALLE DEL CAUCA">
+    <option value="SEVILLA VALLE DEL CAUCA">
+    <option value="CANDELARIA VALLE DEL CAUCA">
+    <option value="FLORIDA VALLE DEL CAUCA">
+    <option value="PRADERA VALLE DEL CAUCA">
+    <option value="GUACARI VALLE DEL CAUCA">
+    <option value="ANDALUCIA VALLE DEL CAUCA">
+    <option value="ROLDANILLO VALLE DEL CAUCA">
+    <option value="LA UNION VALLE DEL CAUCA">
+    <!-- Más municipios de Cundinamarca -->
+    <option value="TOCANCIPA CUNDINAMARCA">
+    <option value="SIBATE CUNDINAMARCA">
+    <option value="FUSAGASUGA CUNDINAMARCA">
+    <option value="SILVANIA CUNDINAMARCA">
+    <option value="LA CALERA CUNDINAMARCA">
+    <option value="SOPO CUNDINAMARCA">
+    <option value="GACHANCIPA CUNDINAMARCA">
+    <option value="GUATAVITA CUNDINAMARCA">
+    <option value="EL ROSAL CUNDINAMARCA">
+    <option value="SUBACHOQUE CUNDINAMARCA">
+    <option value="ANOLAIMA CUNDINAMARCA">
+    <option value="LA MESA CUNDINAMARCA">
+    <option value="VILLETA CUNDINAMARCA">
+    <option value="GUADUAS CUNDINAMARCA">
+    <option value="CAQUEZA CUNDINAMARCA">
+    <option value="RICAURTE CUNDINAMARCA">
+    <option value="AGUA DE DIOS CUNDINAMARCA">
+    <!-- Más municipios de Santander/Norte de Santander -->
+    <option value="LEBRIJA SANTANDER">
+    <option value="RIONEGRO SANTANDER">
+    <option value="MALAGA SANTANDER">
+    <option value="VELEZ SANTANDER">
+    <option value="LOS PATIOS NORTE DE SANTANDER">
+    <option value="VILLA DEL ROSARIO NORTE DE SANTANDER">
+    <option value="CHINACOTA NORTE DE SANTANDER">
+    <!-- Más municipios de Tolima/Huila -->
+    <option value="CHAPARRAL TOLIMA">
+    <option value="MARIQUITA TOLIMA">
+    <option value="LIBANO TOLIMA">
+    <option value="PURIFICACION TOLIMA">
+    <option value="GUAMO TOLIMA">
+    <option value="FLANDES TOLIMA">
+    <option value="LA PLATA HUILA">
+    <option value="CAMPOALEGRE HUILA">
+    <option value="AIPE HUILA">
+    <!-- Más municipios de la Costa -->
+    <option value="EL BANCO MAGDALENA">
+    <option value="FUNDACION MAGDALENA">
+    <option value="ARACATACA MAGDALENA">
+    <option value="PLATO MAGDALENA">
+    <option value="PUERTO COLOMBIA ATLANTICO">
+    <option value="BARANOA ATLANTICO">
+    <option value="GALAPA ATLANTICO">
+    <option value="PALMAR DE VARELA ATLANTICO">
+    <option value="TURBACO BOLIVAR">
+    <option value="ARJONA BOLIVAR">
+    <option value="EL CARMEN DE BOLIVAR BOLIVAR">
+    <option value="SANTA ROSA DE LIMA BOLIVAR">
+    <option value="MOMPOS BOLIVAR">
+    <option value="SAHAGUN CORDOBA">
+    <option value="MONTELIBANO CORDOBA">
+    <option value="PLANETA RICA CORDOBA">
+    <option value="SAN ANDRES DE SOTAVENTO CORDOBA">
+    <option value="TIERRALTA CORDOBA">
+    <option value="SAN MARCOS SUCRE">
+    <option value="SAN ONOFRE SUCRE">
+    <option value="SINCE SUCRE">
+    <option value="SAN JUAN DEL CESAR LA GUAJIRA">
+    <option value="URIBIA LA GUAJIRA">
+    <option value="FONSECA LA GUAJIRA">
+    <option value="MANAURE LA GUAJIRA">
+    <option value="BOSCONIA CESAR">
+    <option value="CODAZZI CESAR">
+    <option value="LA JAGUA DE IBIRICO CESAR">
+    <option value="CURUMANI CESAR">
+    <!-- Más municipios de Cauca/Nariño -->
+    <option value="PUERTO TEJADA CAUCA">
+    <option value="PATIA CAUCA">
+    <option value="EL BORDO CAUCA">
+    <option value="TIMBIO CAUCA">
+    <option value="LA UNION NARIÑO">
+    <option value="LA CRUZ NARIÑO">
+    <option value="TUQUERRES NARIÑO">
+    <option value="SAMANIEGO NARIÑO">
+    <option value="CUMBAL NARIÑO">
+    <!-- Más municipios de Meta/Llanos -->
+    <option value="PUERTO LOPEZ META">
+    <option value="RESTREPO META">
+    <option value="CUMARAL META">
+    <option value="PUERTO GAITAN META">
+    <option value="GRANADA META">
+    <option value="CASTILLA LA NUEVA META">
+    <option value="PAZ DE ARIPORO CASANARE">
+    <option value="TAURAMENA CASANARE">
+    <option value="VILLANUEVA CASANARE">
+    <!-- Más municipios de Risaralda/Quindío/Caldas -->
+    <option value="LA VIRGINIA RISARALDA">
+    <option value="BELEN DE UMBRIA RISARALDA">
+    <option value="MONTENEGRO QUINDIO">
+    <option value="LA TEBAIDA QUINDIO">
+    <option value="CIRCASIA QUINDIO">
+    <option value="CHINCHINA CALDAS">
+    <option value="MANIZALES CALDAS">
+    <option value="RIOSUCIO CALDAS">
+    <option value="ANSERMA CALDAS">
+  {% endif %}
+  </datalist>
+
+  <datalist id="lista_conductores">
+  {% for cedula, nombre in conductores_reales.items() %}
+    <option value="{{ cedula }}">{{ nombre }}</option>
+  {% endfor %}
+  </datalist>
+</div>
+</div>
+
+<script>
+var RNDC_VINCULADO = {{ 'true' if rndc_vinculado else 'false' }};
+
+function toggleSeccion(h2el) {
+    h2el.parentElement.classList.toggle('colapsada');
+}
+
+// Muestra Peso y Flete separados por puntos de miles mientras se escriben
+// (ej: 1.234.567), sin cambiar lo que en verdad se envía al programa: al
+// enviar el formulario, el backend ya limpia estos separadores solo (deja
+// únicamente los dígitos), así que esto es puramente visual.
+function formatearMiles(input) {
+    var cursorDesdeElFinal = input.value.length - input.selectionStart;
+    var soloDigitos = input.value.replace(/\D/g, '');
+    input.value = soloDigitos ? Number(soloDigitos).toLocaleString('es-CO') : '';
+    var nuevaPosicion = Math.max(0, input.value.length - cursorDesdeElFinal);
+    input.setSelectionRange(nuevaPosicion, nuevaPosicion);
+}
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('input[name="Peso"], input[name="Flete"]').forEach(function (input) {
+        if (input.value) formatearMiles(input);
+    });
+});
+
+let temporizadorConsecutivo = null;
+function verificarConsecutivo() {
+    clearTimeout(temporizadorConsecutivo);
+    var aviso = document.getElementById('aviso_consecutivo');
+    var valor = document.getElementById('input_consecutivo').value.trim();
+    if (!valor) { aviso.style.display = 'none'; return; }
+    temporizadorConsecutivo = setTimeout(function () {
+        fetch('{{ url_for("verificar_consecutivo_route") }}?consecutivo=' + encodeURIComponent(valor))
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.repetido) {
+                    aviso.style.display = 'flex';
+                    aviso.textContent = '⚠️ El consecutivo ' + valor + ' ya se usó hoy a las ' + data.hora;
+                } else {
+                    aviso.style.display = 'none';
+                }
+            })
+            .catch(function () { aviso.style.display = 'none'; });
+    }, 500); // espera medio segundo tras dejar de escribir
+}
+
+let temporizadorPlaca = null;
+let conductorSugeridoActual = null;
+function sugerirConductor() {
+    clearTimeout(temporizadorPlaca);
+    var aviso = document.getElementById('aviso_conductor_sugerido');
+    var placa = document.getElementById('input_placa').value.trim();
+    if (!placa) { aviso.style.display = 'none'; return; }
+    temporizadorPlaca = setTimeout(function () {
+        fetch('{{ url_for("sugerir_conductor_route") }}?placa=' + encodeURIComponent(placa))
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                var campoConductor = document.getElementById('input_cedula_conductor');
+                // Solo se sugiere si hay un patrón claro Y el campo de
+                // conductor está vacío (para no pisar algo que ya escribiste).
+                if (data.conductor && !campoConductor.value.trim()) {
+                    conductorSugeridoActual = data.conductor;
+                    aviso.style.display = 'flex';
+                    aviso.innerHTML = '💡 Sueles usar esta placa con el conductor ' + data.conductor +
+                        '. <button type="button" onclick="aceptarConductorSugerido()" ' +
+                        'style="background:#ff6a00; color:#1c1b19; border:none; border-radius:4px; padding:2px 9px; ' +
+                        'font-size:0.78rem; font-weight:700; cursor:pointer; margin-left:4px;">Usarlo</button>';
+                } else {
+                    aviso.style.display = 'none';
+                }
+            })
+            .catch(function () { aviso.style.display = 'none'; });
+    }, 600);
+}
+function aceptarConductorSugerido() {
+    if (conductorSugeridoActual) {
+        document.getElementById('input_cedula_conductor').value = conductorSugeridoActual;
+    }
+    document.getElementById('aviso_conductor_sugerido').style.display = 'none';
+}
+
+// --- Mayúsculas automáticas mientras se escribe ---
+function convertirAMayusculas(el) {
+    var inicio = el.selectionStart, fin = el.selectionEnd;
+    var nuevo = el.value.toUpperCase();
+    if (nuevo !== el.value) {
+        el.value = nuevo;
+        try { el.setSelectionRange(inicio, fin); } catch (e) {}
+    }
+}
+function aplicarMayusculasA(el) {
+    if (!el || el.dataset.mayusListo) return;
+    el.dataset.mayusListo = "1";
+    el.addEventListener('input', function () { convertirAMayusculas(el); });
+}
+function aplicarMayusculasATodos(contenedor) {
+    contenedor.querySelectorAll('input[type=text]').forEach(function (el) {
+        if (el.name === 'usuario_rndc') return;  // el usuario del RNDC se deja tal cual
+        aplicarMayusculasA(el);
+    });
+}
+aplicarMayusculasATodos(document);
+
+function conectarBusquedaCiudad(input) {
+    // La lista de sugerencias ya funciona sola con el <datalist> del
+    // navegador (list="lista_ciudades"), no requiere JavaScript extra.
+}
+
+async function verificarPersona(idInput, idResultado, tipoId) {
+    tipoId = tipoId || 'C';
+    var numeroId = document.getElementById(idInput).value.trim();
+    var usuario = document.querySelector('input[name="usuario_rndc"]').value.trim();
+    var password = document.querySelector('input[name="password_rndc"]').value.trim();
+    var resultado = document.getElementById(idResultado);
+
+    if (!numeroId) {
+        alert('Primero escribe la cédula o NIT a verificar.');
+        return;
+    }
+    if (!RNDC_VINCULADO && (!usuario || !password)) {
+        alert('Primero escribe tu usuario y contraseña del RNDC (más abajo en el formulario).');
+        return;
+    }
+    resultado.className = 'resultado-verificar cargando';
+    resultado.textContent = '⏳ Consultando... (unos segundos)';
+
+    var datos = new FormData();
+    datos.append('numero_id', numeroId);
+    datos.append('tipo_id', tipoId);
+    datos.append('usuario_rndc', usuario);
+    datos.append('password_rndc', password);
+    try {
+        var resp = await fetch('{{ url_for("verificar_tercero_route") }}', { method: 'POST', body: datos });
+        var r = await resp.json();
+        if (!r.ok) {
+            resultado.className = 'resultado-verificar no';
+            resultado.textContent = '⚠️ ' + (r.error || 'No se pudo verificar.');
+        } else if (r.existe) {
+            resultado.className = 'resultado-verificar si';
+            resultado.textContent = r.nombre ? ('✅ Existe: ' + r.nombre) : '✅ Existe en el RNDC';
+        } else {
+            resultado.className = 'resultado-verificar no';
+            resultado.textContent = '❌ No está creado en el RNDC (se creará automáticamente si completas Nombre/Apellido/Municipio)';
+        }
+    } catch (e) {
+        resultado.className = 'resultado-verificar no';
+        resultado.textContent = '⚠️ Error de conexión al verificar.';
+    }
+}
+
+async function actualizarSedes() {
+    var usuario = document.querySelector('input[name="usuario_rndc"]').value.trim();
+    var password = document.querySelector('input[name="password_rndc"]').value.trim();
+    var estado = document.getElementById('estado_sedes');
+    if (!RNDC_VINCULADO && (!usuario || !password)) {
+        alert('Primero escribe tu usuario y contraseña del RNDC (más abajo en el formulario), y luego dale clic a este botón.');
+        return;
+    }
+    estado.textContent = ' Consultando... (puede tardar unos segundos, no cierres esta página)';
+    var datos = new FormData();
+    datos.append('usuario_rndc', usuario);
+    datos.append('password_rndc', password);
+    try {
+        var resp = await fetch('{{ url_for("actualizar_sedes") }}', { method: 'POST', body: datos });
+        var r = await resp.json();
+        if (r.ok) {
+            estado.textContent = ' ✅ Se trajeron ' + r.cantidad + ' sedes reales. Recargando la página...';
+            setTimeout(() => location.reload(), 1200);
+        } else {
+            estado.textContent = ' ⚠️ ' + (r.error || 'No se pudo actualizar.');
+        }
+    } catch (e) {
+        estado.textContent = ' ⚠️ Error de conexión al actualizar.';
+    }
+}
+
+async function actualizarConductores() {
+    var usuario = document.querySelector('input[name="usuario_rndc"]').value.trim();
+    var password = document.querySelector('input[name="password_rndc"]').value.trim();
+    var estado = document.getElementById('estado_conductores');
+    if (!RNDC_VINCULADO && (!usuario || !password)) {
+        alert('Primero escribe tu usuario y contraseña del RNDC (más abajo en el formulario), y luego dale clic a este botón.');
+        return;
+    }
+    estado.textContent = ' Consultando... si tu empresa tiene muchos terceros, esto puede tardar VARIOS MINUTOS (recorre página por página). No cierres esta página.';
+    var detalle = document.getElementById('detalle_conductores');
+    if (detalle) detalle.textContent = '';
+    var datos = new FormData();
+    datos.append('usuario_rndc', usuario);
+    datos.append('password_rndc', password);
+    try {
+        var resp = await fetch('{{ url_for("actualizar_conductores") }}', { method: 'POST', body: datos });
+        var r = await resp.json();
+        var textoLog = (r.log || []).join('\\n');
+        if (r.ok && r.cantidad > 0) {
+            estado.textContent = ' ✅ Se trajeron ' + r.cantidad + ' conductores reales. Recargando la página...';
+            setTimeout(() => location.reload(), 1200);
+        } else if (r.ok) {
+            estado.textContent = ' ⚠️ El proceso terminó pero no se guardó ningún conductor. Detalle abajo:';
+            if (detalle) detalle.textContent = textoLog;
+        } else {
+            estado.textContent = ' ⚠️ ' + (r.error || 'No se pudo actualizar.') + ' Detalle abajo:';
+            if (detalle) detalle.textContent = textoLog;
+        }
+    } catch (e) {
+        estado.textContent = ' ⚠️ Error de conexión al actualizar.';
+    }
+}
+
+function marcarTarjetaSeleccionada(tipo) {
+    document.querySelectorAll('.pestana-tipo').forEach(function (t) {
+        t.classList.toggle('seleccionada', t.dataset.tipo === tipo);
+    });
+}
+function elegirTipoViaje(tipo) {
+    document.getElementById('tipo_viaje').value = tipo;
+    marcarTarjetaSeleccionada(tipo);
+    toggleTipoViaje();
+}
+// Nota: las pestañas ahora son <button> reales, así que Enter/Espacio ya
+// las activan de forma nativa (no hace falta un keydown manual como antes).
+
+function toggleTipoViaje() {
+    var tipo = document.getElementById('tipo_viaje').value;
+    var esParadas = (tipo === 'Multiparada' || tipo === 'IdaYRegreso');
+    var esIdaYRegreso = (tipo === 'IdaYRegreso');
+    var esCola = (tipo === 'Cola');
+    var esNormal = (tipo === 'Normal');
+
+    document.getElementById('simple').classList.toggle('oculto', !esNormal);
+    document.getElementById('paradas').classList.toggle('oculto', !esParadas);
+    document.getElementById('cola').classList.toggle('oculto', !esCola);
+    document.getElementById('paradas').classList.toggle('modo-ida-y-regreso', esIdaYRegreso);
+    var etiquetaDestino = document.getElementById('etiqueta_destino_paradas');
+    if (etiquetaDestino) etiquetaDestino.textContent = esIdaYRegreso ? 'Destino (vuelve al origen)' : 'Destino Final';
+
+    // En modo Cola, cada viaje trae su propio Consecutivo/Placa/Flete/
+    // Anticipo/Cédula del conductor, así que esos campos generales se
+    // ocultan (siguen enviándose vacíos, ya no son obligatorios).
+    ['campo_consecutivo', 'campo_flete', 'campo_anticipo', 'campo_fecha_opcional'].forEach(id => {
+        document.getElementById(id).style.display = esCola ? 'none' : '';
+    });
+
+    if (esParadas && document.getElementById('lista_paradas').children.length === 0) {
+        agregarParada();
+    }
+    if (esCola && document.getElementById('lista_cola').children.length === 0) {
+        agregarViajeCola(); agregarViajeCola();
+    }
+
+    var destino = document.getElementById('mp_destino');
+    if (esIdaYRegreso) {
+        sincronizarDestinoIdaYRegreso();
+    } else if (destino) {
+        destino.disabled = false;
+    }
+}
+function renumerarViajesCola() {
+    document.querySelectorAll('#lista_cola .parada').forEach(function (div, i) {
+        var etiqueta = div.querySelector('.etiqueta-viaje');
+        if (etiqueta) etiqueta.textContent = 'Viaje ' + (i + 1);
+    });
+}
+function agregarViajeCola(datos) {
+    datos = datos || {};
+    var div = document.createElement('div');
+    div.className = 'parada';
+    div.innerHTML = `
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.5rem;">
+        <span class="etiqueta-viaje">Viaje</span>
+        <button type="button" class="secundario" onclick="this.closest('.parada').remove(); renumerarViajesCola();">Quitar</button>
+      </div>
+      <div class="fila">
+        <div><label style="margin-top:0;">Consecutivo</label><input type="text" class="q_consecutivo campo-clave"></div>
+        <div><label style="margin-top:0;">Fecha (opcional)</label><input type="date" class="q_fecha"></div>
+        <div><label style="margin-top:0;">Producto</label><input type="text" class="q_producto campo-clave"></div>
+        <div><label style="margin-top:0;">Peso (kg)</label><input type="text" class="q_peso campo-clave"></div>
+        <div><label style="margin-top:0;">Flete</label><input type="text" class="q_flete campo-clave"></div>
+        <div><label style="margin-top:0;">Anticipo (opcional)</label><input type="text" class="q_anticipo"></div>
+      </div>
+      <div class="fila">
+        <div>
+          <label>Origen</label>
+          <input type="text" class="q_origen campo-clave" list="lista_ciudades">
+          <div class="nit-bajo-ciudad">
+            <label>NIT/Cédula del Remitente (opcional)</label>
+            <div class="fila-verificar">
+              <select class="q_tipoid_rem">
+                <option value="">Fijo</option>
+                <option value="C">Cédula</option>
+                <option value="N">Nit</option>
+                <option value="P">Pasaporte</option>
+                <option value="E">C.Extr.</option>
+                <option value="T">T.I.</option>
+              </select>
+              <input type="text" class="q_nit_rem" placeholder="NIT/CC">
+            </div>
+          </div>
+        </div>
+        <div>
+          <label>Destino</label>
+          <input type="text" class="q_destino campo-clave" list="lista_ciudades">
+          <div class="nit-bajo-ciudad">
+            <label>NIT/Cédula del Destinatario (opcional)</label>
+            <div class="fila-verificar">
+              <select class="q_tipoid_des">
+                <option value="">Fijo</option>
+                <option value="C">Cédula</option>
+                <option value="N">Nit</option>
+                <option value="P">Pasaporte</option>
+                <option value="E">C.Extr.</option>
+                <option value="T">T.I.</option>
+              </select>
+              <input type="text" class="q_nit_des" placeholder="NIT/CC">
+            </div>
+          </div>
+        </div>
+      </div>
+      <label>Observaciones del manifiesto (opcional)</label>
+      <textarea class="q_observaciones" rows="2"></textarea>
+    `;
+    document.getElementById('lista_cola').appendChild(div);
+    aplicarMayusculasATodos(div);
+    conectarBusquedaCiudad(div.querySelector('.q_origen'));
+    conectarBusquedaCiudad(div.querySelector('.q_destino'));
+    div.querySelector('.q_peso').addEventListener('input', function () { formatearMiles(this); });
+    div.querySelector('.q_flete').addEventListener('input', function () { formatearMiles(this); });
+    renumerarViajesCola();
+    var campos = ['consecutivo', 'fecha', 'origen', 'destino', 'producto', 'peso',
+                  'flete', 'anticipo', 'tipoid_rem', 'nit_rem', 'tipoid_des', 'nit_des', 'observaciones'];
+    for (const campo of campos) {
+        if (datos[campo] !== undefined) div.querySelector('.q_' + campo).value = datos[campo];
+    }
+}
+function agregarParada(datos) {
+    datos = datos || {};
+    var div = document.createElement('div');
+    div.className = 'parada-ligera';
+    div.innerHTML = `
+      <small class="etiqueta-parada">Intermedio</small>
+      <label style="margin-top:0;">Ciudad Intermedia</label>
+      <input type="text" class="p_ciudad campo-clave" list="lista_ciudades">
+      <div class="nit-bajo-ciudad">
+        <label>NIT/Cédula de esta ciudad (opcional)<span class="ayuda-icono" data-tip="NIT/Cédula propio de esta ciudad intermedia: se usa como destinatario del tramo que llega y como remitente del tramo que sale hacia la siguiente ciudad. Déjalo vacío para usar el fijo de siempre.">i</span></label>
+        <div class="fila-verificar">
+          <select class="p_tipoid">
+            <option value="">Fijo</option>
+            <option value="C">Cédula</option>
+            <option value="N">Nit</option>
+            <option value="P">Pasaporte</option>
+            <option value="E">C.Extr.</option>
+            <option value="T">T.I.</option>
+          </select>
+          <input type="text" class="p_nit" placeholder="NIT/CC">
+        </div>
+      </div>
+      <div class="fila" style="margin-top:0.6rem;">
+        <div><label style="margin-top:0;">Producto (este tramo)</label><input type="text" class="p_producto campo-clave"></div>
+        <div><label style="margin-top:0;">Peso (kg) (este tramo)</label><input type="text" class="p_peso campo-clave"></div>
+      </div>
+      <button type="button" class="secundario boton-quitar-parada" style="margin-top:0.6rem;" onclick="this.parentElement.remove()">Quitar</button>
+    `;
+    document.getElementById('lista_paradas').appendChild(div);
+    aplicarMayusculasATodos(div);
+    conectarBusquedaCiudad(div.querySelector('.p_ciudad'));
+    div.querySelector('.p_peso').addEventListener('input', function () { formatearMiles(this); });
+    if (datos.Ciudad !== undefined) div.querySelector('.p_ciudad').value = datos.Ciudad;
+    if (datos.Producto !== undefined) div.querySelector('.p_producto').value = datos.Producto;
+    if (datos.Peso !== undefined) div.querySelector('.p_peso').value = datos.Peso;
+    if (datos.TipoID !== undefined) div.querySelector('.p_tipoid').value = datos.TipoID;
+    if (datos.NIT !== undefined) div.querySelector('.p_nit').value = datos.NIT;
+}
+
+function sincronizarDestinoIdaYRegreso() {
+    var tipo = document.getElementById('tipo_viaje').value;
+    if (tipo === 'IdaYRegreso') {
+        var origen = document.getElementById('mp_origen').value;
+        var destino = document.getElementById('mp_destino');
+        destino.value = origen;
+        destino.disabled = true;
+    }
+}
+
+// Construye la lista de tramos (Origen->Intermedia1->Intermedia2->...->Destino)
+// a partir de los campos separados de Origen, paradas intermedias, y Destino.
+function construirTramosDesdeUI() {
+    // Cada ciudad aporta SU PROPIO NIT (uno solo): el Origen se usa como
+    // remitente del primer tramo, el Destino como destinatario del
+    // último, y cada ciudad intermedia se usa como destinatario del
+    // tramo que llega Y como remitente del tramo que sale hacia la
+    // siguiente ciudad (mismo valor para ambos).
+    var ciudades = [document.getElementById('mp_origen').value];
+    var nitPorCiudad = [{
+        tipo: document.getElementById('mp_origen_tipoid_rem').value,
+        nit: document.getElementById('mp_origen_nit_rem').value,
+    }];
+    var datosLlegada = [null]; // el Origen no tiene "tramo que llega", solo es el punto de partida
+
+    document.querySelectorAll('#lista_paradas .parada-ligera').forEach(function (p) {
+        ciudades.push(p.querySelector('.p_ciudad').value);
+        nitPorCiudad.push({
+            tipo: p.querySelector('.p_tipoid').value,
+            nit: p.querySelector('.p_nit').value,
+        });
+        datosLlegada.push({
+            Producto: p.querySelector('.p_producto').value,
+            Peso: p.querySelector('.p_peso').value,
+        });
+    });
+
+    ciudades.push(document.getElementById('mp_destino').value);
+    nitPorCiudad.push({
+        tipo: document.getElementById('mp_destino_tipoid_des').value,
+        nit: document.getElementById('mp_destino_nit_des').value,
+    });
+    datosLlegada.push({
+        Producto: document.getElementById('mp_destino_producto').value,
+        Peso: document.getElementById('mp_destino_peso').value,
+    });
+
+    var tramos = [];
+    for (var i = 1; i < ciudades.length; i++) {
+        tramos.push({
+            Origen: ciudades[i - 1],
+            Destino: ciudades[i],
+            Producto: datosLlegada[i].Producto,
+            Peso: datosLlegada[i].Peso,
+            TipoID_Remitente: nitPorCiudad[i - 1].tipo,
+            NIT_Remitente: nitPorCiudad[i - 1].nit,
+            TipoID_Destinatario: nitPorCiudad[i].tipo,
+            NIT_Destinatario: nitPorCiudad[i].nit,
+        });
+    }
+    return tramos;
+}
+
+// Restaurar lo que se había escrito la última vez (por si algo falló y
+// hubo que volver al formulario), incluyendo el Tipo de Viaje.
+(function restaurarUltimosDatos() {
+    var paradasGuardadas = {{ (v.get('ParadasJSON') or '[]') | tojson }};
+    var colaGuardada = {{ (v.get('ColaJSON') or '[]') | tojson }};
+    var tipoViajeGuardado = {{ (v.get('TipoViaje') or 'Normal') | tojson }};
+    document.getElementById('tipo_viaje').value = tipoViajeGuardado;
+    marcarTarjetaSeleccionada(tipoViajeGuardado);
+    if (tipoViajeGuardado !== 'Normal') {
+        toggleTipoViaje();
+    }
+    if (tipoViajeGuardado === 'Multiparada' || tipoViajeGuardado === 'IdaYRegreso') {
+        document.getElementById('lista_paradas').innerHTML = '';
+        try {
+            var tramos = JSON.parse(paradasGuardadas);
+            if (tramos.length) {
+                var primero = tramos[0];
+                document.getElementById('mp_origen').value = primero.Origen || '';
+                document.getElementById('mp_origen_tipoid_rem').value = primero.TipoID_Remitente || '';
+                document.getElementById('mp_origen_nit_rem').value = primero.NIT_Remitente || '';
+
+                var ultimo = tramos[tramos.length - 1];
+                document.getElementById('mp_destino').value = ultimo.Destino || '';
+                document.getElementById('mp_destino_producto').value = ultimo.Producto || '';
+                document.getElementById('mp_destino_peso').value = ultimo.Peso || '';
+                document.getElementById('mp_destino_tipoid_des').value = ultimo.TipoID_Destinatario || '';
+                document.getElementById('mp_destino_nit_des').value = ultimo.NIT_Destinatario || '';
+                // Las ciudades intermedias son el Destino de todos los
+                // tramos MENOS el último (que ya se guardó como mp_destino).
+                // El NIT de cada una se toma del tramo que LLEGA a ella
+                // (su rol de destinatario).
+                for (var i = 0; i < tramos.length - 1; i++) {
+                    agregarParada({
+                        Ciudad: tramos[i].Destino, Producto: tramos[i].Producto, Peso: tramos[i].Peso,
+                        TipoID: tramos[i].TipoID_Destinatario, NIT: tramos[i].NIT_Destinatario,
+                    });
+                }
+                if (tipoViajeGuardado === 'IdaYRegreso') sincronizarDestinoIdaYRegreso();
+            } else {
+                agregarParada();
+            }
+        } catch (e) { agregarParada(); }
+    }
+    if (tipoViajeGuardado === 'Cola') {
+        document.getElementById('lista_cola').innerHTML = '';
+        try {
+            var cola = JSON.parse(colaGuardada);
+            cola.forEach(function(vj) { agregarViajeCola(vj); });
+        } catch (e) { agregarViajeCola(); agregarViajeCola(); }
+    }
+})();
+
+document.getElementById('formulario').addEventListener('submit', function(e) {
+    var tipoViaje = document.getElementById('tipo_viaje').value;
+    if (tipoViaje === 'Multiparada' || tipoViaje === 'IdaYRegreso') {
+        var tramos = construirTramosDesdeUI();
+        document.getElementById('ParadasJSON').value = JSON.stringify(tramos);
+        // Se sincronizan también los campos ocultos Origen/Destino, por
+        // prolijidad (el motor no los usa en este modo, pero así quedan
+        // consistentes si se vuelve a abrir el formulario después).
+        document.querySelector('input[name="Origen"]').value = document.getElementById('mp_origen').value;
+        document.querySelector('input[name="Destino"]').value = document.getElementById('mp_destino').value;
+    } else {
+        document.getElementById('ParadasJSON').value = '[]';
+    }
+
+    var cola = [];
+    document.querySelectorAll('#lista_cola .parada').forEach(function(q) {
+        cola.push({
+            consecutivo: q.querySelector('.q_consecutivo').value,
+            fecha: q.querySelector('.q_fecha').value,
+            origen: q.querySelector('.q_origen').value,
+            destino: q.querySelector('.q_destino').value,
+            producto: q.querySelector('.q_producto').value,
+            peso: q.querySelector('.q_peso').value,
+            flete: q.querySelector('.q_flete').value,
+            anticipo: q.querySelector('.q_anticipo').value,
+            tipoid_rem: q.querySelector('.q_tipoid_rem').value,
+            nit_rem: q.querySelector('.q_nit_rem').value,
+            tipoid_des: q.querySelector('.q_tipoid_des').value,
+            nit_des: q.querySelector('.q_nit_des').value,
+            observaciones: q.querySelector('.q_observaciones').value
+        });
+    });
+    document.getElementById('ColaJSON').value = JSON.stringify(cola);
+});
+</script>
+</body>
+</html>

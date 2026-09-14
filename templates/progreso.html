@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<title>RNDC Automático - Progreso</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Inter', 'Segoe UI', Roboto, Arial, sans-serif;
+    background: #1c1b19; color: #c9d1d9; margin: 0; padding: 0;
+  }
+  .topbar {
+    background: #1a1918; padding: 1rem 2rem; display: flex; align-items: center;
+    justify-content: space-between; border-bottom: 1px solid #30363d;
+  }
+  .topbar-izq { display: flex; align-items: center; gap: 0.75rem; }
+  .logo-mark {
+    width: 30px; height: 30px; border-radius: 7px; display: flex; align-items: center; justify-content: center;
+  }
+  .logo-mark svg { width: 18px; height: 18px; }
+  h1 { font-size: 0.95rem; margin: 0; color: #ff6a00; font-weight: 700; letter-spacing: 0.01em; }
+  .estado {
+    display: flex; align-items: center; gap: 0.4rem; font-size: 0.82rem; font-weight: 600;
+    padding: 0.35rem 0.8rem; border-radius: 20px; background: #242220; color: #d0d0d0; border: 1px solid #2a2a2a;
+  }
+  .punto { width: 8px; height: 8px; border-radius: 50%; background: #3fb950; }
+  .estado.corriendo .punto, .estado.pendiente .punto { background: #ff6a00; animation: parpadeo 1.2s infinite; }
+  @keyframes parpadeo { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+  .volver, .verfila {
+    color: #b0b0b0; text-decoration: none; font-size: 0.85rem; font-weight: 600;
+    padding: 0.5rem 1rem; border: 1px solid #333; border-radius: 7px;
+    transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
+  }
+  .volver { background: #ff6a00; color: #1c1b19; border-color: #ff6a00; box-shadow: 0 6px 20px -6px rgba(255,106,0,0.4); }
+  .volver:hover { background: #ff8534; transform: translateY(-1px); }
+  .verfila:hover { background: #242220; color: #ff6a00; }
+  .contenedor { max-width: 100%; margin: 1.5rem auto; padding: 0 2rem; }
+  .aviso {
+    background: #242220; border: 1px solid #333; border-radius: 8px; padding: 0.8rem 1rem;
+    margin-bottom: 1rem; font-size: 0.88rem; color: #ff6a00;
+  }
+  #log {
+    white-space: pre-wrap; word-break: break-word; font-family: 'Consolas', 'Courier New', monospace; font-size: 0.86rem;
+    background: #171614; padding: 1.25rem 1.5rem; border-radius: 10px; height: 60vh; overflow-y: auto; overflow-x: hidden;
+    border: 1px solid #262626; line-height: 1.6;
+  }
+  .pasos { display: flex; align-items: center; margin-bottom: 1.25rem; }
+  .paso { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 1; }
+  .paso-circulo {
+    width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center;
+    justify-content: center; font-size: 0.9rem; font-weight: 700; border: 2px solid #333;
+    background: #1e1c1a; color: #666; transition: all 0.3s;
+  }
+  .paso-nombre { font-size: 0.78rem; color: #777; transition: color 0.3s; }
+  .paso-linea { height: 2px; background: #333; flex: 1; margin-bottom: 24px; transition: background 0.3s; }
+  .paso.completado .paso-circulo { background: #173821; border-color: #3fb950; color: #3fb950; }
+  .paso.completado .paso-nombre { color: #3fb950; }
+  .paso.completado + .paso-linea { background: #3fb950; }
+  .paso.actual .paso-circulo { background: #4a3a10; border-color: #ff6a00; color: #ff6a00; animation: parpadeo 1.2s infinite; }
+  .paso.actual .paso-nombre { color: #ff6a00; font-weight: 700; }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="topbar-izq">
+      <div class="logo-mark"><img src="{{ url_for('static', filename='logo.png') }}" alt="Innova" style="height:100%; width:auto;"></div>
+      <h1>INNOVA &mdash; Progreso</h1>
+    </div>
+    <div style="display:flex; align-items:center; gap:0.75rem;">
+      <span id="estado-badge" class="estado corriendo"><span class="punto"></span> {{ mensaje_inicial }}</span>
+      <a class="verfila" href="{{ url_for('ver_cola') }}">📋 Ver toda la fila</a>
+      <a class="volver" href="{{ url_for('formulario') }}">+ Agregar otro viaje →</a>
+    </div>
+  </div>
+
+  <div class="contenedor">
+    <div class="aviso">💡 No hace falta esperar a que termine — puedes darle clic a "+ Agregar otro viaje" ya mismo para meter el siguiente, aunque este siga corriendo.</div>
+
+    <div class="pasos" id="pasos">
+      <div class="paso" id="paso-login"><div class="paso-circulo">1</div><span class="paso-nombre">Login</span></div>
+      <div class="paso-linea"></div>
+      <div class="paso" id="paso-remesa"><div class="paso-circulo">2</div><span class="paso-nombre">Remesa</span></div>
+      <div class="paso-linea"></div>
+      <div class="paso" id="paso-manifiesto"><div class="paso-circulo">3</div><span class="paso-nombre">Manifiesto</span></div>
+      <div class="paso-linea"></div>
+      <div class="paso" id="paso-pdf"><div class="paso-circulo">4</div><span class="paso-nombre">PDF</span></div>
+    </div>
+
+    <div id="botones_pdf" style="display:none; margin-bottom: 1rem;"></div>
+    <div id="visor_pdf" style="display:none; margin-bottom: 1.25rem;">
+      <iframe id="iframe_pdf" style="width:100%; height:65vh; border:1px solid #262626; border-radius:10px; background:#fff;"></iframe>
+    </div>
+
+    <div id="log">Iniciando...</div>
+  </div>
+
+<script>
+var idTrabajo = {{ id_trabajo }};
+
+function actualizarPasos(lineasLog) {
+    var texto = lineasLog.join("\n");
+    var pasos = ['login', 'remesa', 'manifiesto', 'pdf'];
+    var marcadores = {
+        login: ["Login realizado"],
+        remesa: ["Llenando REMESA", "Radicado de remesa", "Radicado del manifiesto"],
+        manifiesto: ["Llenando MANIFIESTO", "Radicado del manifiesto"],
+        pdf: ["Descargando el PDF", "guardado correctamente", "RESUMEN"]
+    };
+    var alcanzado = {login: false, remesa: false, manifiesto: false, pdf: false};
+    for (var i = 0; i < pasos.length; i++) {
+        var p = pasos[i];
+        alcanzado[p] = marcadores[p].some(function(m) { return texto.indexOf(m) !== -1; });
+    }
+    // Si se alcanzó un paso más adelante, los anteriores también cuentan como completados.
+    var ultimoAlcanzado = -1;
+    for (var i = 0; i < pasos.length; i++) {
+        if (alcanzado[pasos[i]]) ultimoAlcanzado = i;
+    }
+    for (var i = 0; i < pasos.length; i++) {
+        var el = document.getElementById('paso-' + pasos[i]);
+        el.classList.remove('completado', 'actual');
+        if (i < ultimoAlcanzado) {
+            el.classList.add('completado');
+        } else if (i === ultimoAlcanzado) {
+            el.classList.add(texto.indexOf('=== TERMINADO ===') !== -1 || texto.indexOf('RESUMEN') !== -1 ? 'completado' : 'actual');
+        }
+    }
+}
+
+function mostrarPDF(nombre) {
+    document.getElementById('iframe_pdf').src = "{{ url_for('ver_pdf') }}?archivo=" + encodeURIComponent(nombre);
+    document.getElementById('visor_pdf').style.display = 'block';
+    document.getElementById('visor_pdf').scrollIntoView({behavior: 'smooth'});
+}
+
+function mostrarBotonesPDF(archivos) {
+    var cont = document.getElementById('botones_pdf');
+    if (!archivos || !archivos.length) return;
+    cont.innerHTML = '';
+    var contenedor = document.createElement('div');
+    contenedor.style.display = 'flex';
+    contenedor.style.gap = '8px';
+    contenedor.style.flexWrap = 'wrap';
+    archivos.forEach(function (nombre) {
+        var fila = document.createElement('div');
+        fila.style.display = 'flex';
+        fila.style.alignItems = 'center';
+        fila.style.gap = '4px';
+
+        var boton = document.createElement('button');
+        boton.type = 'button';
+        boton.textContent = '👁 Ver ' + nombre;
+        boton.style.background = '#242220';
+        boton.style.color = '#ff6a00';
+        boton.style.border = '1px solid #ff6a00';
+        boton.style.padding = '0.5rem 1rem';
+        boton.style.borderRadius = '7px';
+        boton.style.cursor = 'pointer';
+        boton.style.fontSize = '0.85rem';
+        boton.style.fontWeight = '600';
+        boton.addEventListener('click', function () { mostrarPDF(nombre); });
+
+        var abrirCarpeta = document.createElement('button');
+        abrirCarpeta.type = 'button';
+        abrirCarpeta.textContent = '📂 Ver en carpeta';
+        abrirCarpeta.title = 'Abre el Explorador de Windows con este archivo ya seleccionado, listo para arrastrarlo a donde quieras';
+        abrirCarpeta.style.background = '#241d08';
+        abrirCarpeta.style.color = '#ff6a00';
+        abrirCarpeta.style.border = '1px solid #ff6a00';
+        abrirCarpeta.style.padding = '0.5rem 0.8rem';
+        abrirCarpeta.style.borderRadius = '7px';
+        abrirCarpeta.style.cursor = 'pointer';
+        abrirCarpeta.style.fontSize = '0.8rem';
+        abrirCarpeta.style.fontWeight = '600';
+        abrirCarpeta.addEventListener('click', function () {
+            var datos = new FormData();
+            datos.append('archivo', nombre);
+            fetch("{{ url_for('abrir_carpeta') }}", { method: 'POST', body: datos })
+                .then(function (r) { return r.json(); })
+                .then(function (r) {
+                    if (!r.ok) alert('⚠️ ' + (r.error || 'No se pudo abrir la carpeta.'));
+                })
+                .catch(function () { alert('⚠️ Error de conexión al abrir la carpeta.'); });
+        });
+
+        fila.appendChild(boton);
+        fila.appendChild(abrirCarpeta);
+        contenedor.appendChild(fila);
+    });
+    cont.appendChild(contenedor);
+    cont.style.display = 'block';
+}
+
+function escaparHtml(texto) {
+    var div = document.createElement('div');
+    div.textContent = texto;
+    return div.innerHTML;
+}
+
+function copiarRadicado(numero, boton) {
+    navigator.clipboard.writeText(numero).then(function () {
+        var original = boton.textContent;
+        boton.textContent = '✓ Copiado';
+        setTimeout(function () { boton.textContent = original; }, 1500);
+    }).catch(function () {
+        boton.textContent = '⚠️ No se pudo copiar';
+    });
+}
+
+function pintarLogConBotones(texto) {
+    // Cada línea se pinta según su contenido: éxito en verde, advertencias
+    // en ámbar, errores en rojo, separadores "---"/"===" atenuados. Así se
+    // puede seguir el progreso de un vistazo en vez de leer texto plano.
+    var lineasPintadas = texto.split('\n').map(function (linea) {
+        var escapada = escaparHtml(linea);
+        if (/^(-{3,}|={3,})/.test(linea.trim())) {
+            return '<span style="color:#665f54;">' + escapada + '</span>';
+        }
+        if (escapada.indexOf('❌') !== -1) {
+            return '<span style="color:#ff6b6b;">' + escapada + '</span>';
+        }
+        if (escapada.indexOf('⚠️') !== -1) {
+            return '<span style="color:#e8a33d;">' + escapada + '</span>';
+        }
+        if (escapada.indexOf('✅') !== -1 || escapada.indexOf('🎉') !== -1) {
+            return '<span style="color:#3fb950;">' + escapada + '</span>';
+        }
+        return '<span style="color:#c7c2b8;">' + escapada + '</span>';
+    });
+    var conColor = lineasPintadas.join('\n');
+    // Le agrega un botón de copiar a cada número que aparezca después de
+    // la palabra "Radicado" en el registro. Se usa un atributo data-numero
+    // (sin comillas anidadas problemáticas) en vez de un onclick con el
+    // número incrustado directamente.
+    return conColor.replace(/(Radicado[^:\n]*:\s*)(\d+)/g, function (coincidencia, prefijo, numero) {
+        return prefijo + '<b style="color:#ff6a00;">' + numero + '</b>' +
+            ' <button class="btn-copiar-radicado" data-numero="' + numero + '" type="button" ' +
+            'style="background:#242220; border:1px solid #ff6a00; color:#ff6a00; border-radius:4px; ' +
+            'padding:1px 7px; font-size:0.72rem; cursor:pointer; vertical-align:1px;">📋 Copiar</button>';
+    });
+}
+
+document.getElementById('log').addEventListener('click', function (e) {
+    if (e.target.classList.contains('btn-copiar-radicado')) {
+        copiarRadicado(e.target.dataset.numero, e.target);
+    }
+});
+
+var consultasExtraPendientes = 3;  // cubre hasta ~4.5s después de "terminado", por si Google tarda en responder
+function actualizar() {
+    fetch("{{ url_for('estado') }}?id=" + idTrabajo)
+        .then(r => r.json())
+        .then(data => {
+            var terminado = false;
+            try {
+                var textoLog = data.log.join("\n");
+                var caja = document.getElementById('log');
+                caja.innerHTML = pintarLogConBotones(textoLog);
+                caja.scrollTop = caja.scrollHeight;
+                actualizarPasos(data.log);
+                var badge = document.getElementById('estado-badge');
+                if (data.estado_trabajo === 'pendiente') {
+                    badge.className = 'estado pendiente';
+                    badge.innerHTML = '<span class="punto"></span> Esperando turno en la fila...';
+                } else if (data.estado_trabajo === 'corriendo') {
+                    badge.className = 'estado corriendo';
+                    badge.innerHTML = '<span class="punto"></span> Ejecutando...';
+                }
+                terminado = !!data.terminado;
+                if (terminado) {
+                    caja.innerHTML = pintarLogConBotones(textoLog + "\n\n=== TERMINADO ===");
+                    actualizarPasos(data.log.concat(['=== TERMINADO ===']));
+                    badge.className = 'estado';
+                    badge.innerHTML = '<span class="punto"></span> Terminado';
+                    mostrarBotonesPDF(data.archivos);
+                }
+            } catch (errorAlDibujar) {
+                // Si algo falla al pintar la pantalla, no se queda pegada:
+                // se sigue consultando igual, y al menos el texto plano
+                // se ve (sin los adornos que hayan fallado).
+                console.error('Error al dibujar el progreso:', errorAlDibujar);
+                try {
+                    document.getElementById('log').textContent = data.log.join("\n");
+                } catch (e2) {}
+                terminado = !!data.terminado;
+            }
+            // Justo después de que "terminado" pasa a true, el programa
+            // todavía escribe un par de líneas más en el log (el registro
+            // en Google Sheets, entre otras) que toman uno o dos segundos
+            // en la red. Si dejáramos de consultar apenas vemos "terminado",
+            // esas últimas líneas casi nunca alcanzarían a verse. Por eso
+            // se hace UNA consulta extra antes de detenerse del todo.
+            if (!terminado) {
+                setTimeout(actualizar, 1500);
+            } else if (consultasExtraPendientes > 0) {
+                consultasExtraPendientes -= 1;
+                setTimeout(actualizar, 1500);
+            }
+        })
+        .catch(function (errorDeRed) {
+            // Si falló la propia consulta al servidor (red, servidor
+            // reiniciando, etc.), se reintenta igual en vez de quedarse
+            // pegado para siempre.
+            console.error('Error consultando el estado:', errorDeRed);
+            setTimeout(actualizar, 2000);
+        });
+}
+actualizar();
+</script>
+</body>
+</html>

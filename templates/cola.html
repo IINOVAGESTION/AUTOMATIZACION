@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<title>RNDC Automático - Fila de trabajos</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Inter', 'Segoe UI', Roboto, Arial, sans-serif;
+    background: #1c1b19; color: #ddd8cd; margin: 0; padding: 0;
+  }
+  .topbar {
+    background: #1a1918; padding: 1rem 2rem; display: flex; align-items: center;
+    justify-content: space-between; border-bottom: 1px solid #30363d;
+  }
+  .topbar-izq { display: flex; align-items: center; gap: 0.75rem; }
+  .logo-mark {
+    width: 30px; height: 30px; border-radius: 7px; display: flex; align-items: center; justify-content: center;
+  }
+  .logo-mark svg { width: 18px; height: 18px; }
+  h1 { font-size: 0.95rem; margin: 0; color: #ff6a00; font-weight: 700; letter-spacing: 0.01em; }
+  .volver {
+    color: #1c1b19; background: #ff6a00; text-decoration: none; font-size: 0.85rem; font-weight: 600;
+    padding: 0.5rem 1rem; border-radius: 7px; box-shadow: 0 6px 20px -6px rgba(255,106,0,0.4);
+    transition: background 0.15s, transform 0.15s;
+  }
+  .volver:hover { background: #ff8534; transform: translateY(-1px); }
+  .contenedor { max-width: 100%; margin: 1.5rem auto; padding: 0 2rem; }
+  .trabajo {
+    background: #1e1c1a; border: 1px solid #2a2822; border-radius: 10px;
+    padding: 0.9rem 1.1rem; margin-bottom: 0.7rem; display: flex; align-items: center;
+    justify-content: space-between; gap: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    transition: border-color 0.15s, transform 0.15s;
+  }
+  .trabajo:hover { border-color: #3a3733; transform: translateY(-1px); }
+  .trabajo .desc { font-size: 0.92rem; color: #ddd8cd; }
+  .badge {
+    font-size: 0.78rem; font-weight: 700; padding: 0.25rem 0.7rem; border-radius: 12px;
+    white-space: nowrap;
+  }
+  .badge.pendiente { background: #2a2a2a; color: #c9c9c9; }
+  .badge.corriendo { background: #4a3a10; color: #ff6a00; }
+  .badge.exito { background: #173821; color: #3fb950; }
+  .badge.error { background: #3a1414; color: #ff6b6b; }
+  .vacio { color: #888; text-align: center; padding: 2rem; }
+  .buscador {
+    display: flex; align-items: center; gap: 8px; background: #1e1c1a;
+    border: 1px solid #262626; border-radius: 8px; padding: 0.6rem 0.9rem;
+    margin-bottom: 1rem;
+  }
+  .buscador input {
+    flex: 1; background: transparent; border: none; outline: none;
+    color: #ddd8cd; font-size: 0.9rem;
+  }
+  .buscador input::placeholder { color: #666; }
+  .buscador .lupa { color: #888; font-size: 0.9rem; }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="topbar-izq">
+      <div class="logo-mark"><img src="{{ url_for('static', filename='logo.png') }}" alt="Innova" style="height:100%; width:auto;"></div>
+      <h1>INNOVA &mdash; Fila de trabajos</h1>
+    </div>
+    <a class="volver" href="{{ url_for('formulario') }}">+ Agregar viaje</a>
+  </div>
+
+  <div class="contenedor">
+    <div class="buscador">
+      <span class="lupa">🔍</span>
+      <input type="text" id="buscador_input" placeholder="Buscar por placa, consecutivo, ciudad..." oninput="actualizar()">
+    </div>
+    <div id="lista_trabajos"><div class="vacio">Cargando...</div></div>
+  </div>
+
+<script>
+var ultimosDatos = [];
+function badgeInfo(t) {
+    if (t.estado === 'pendiente') return ['pendiente', 'Pendiente'];
+    if (t.estado === 'corriendo') return ['corriendo', 'Corriendo...'];
+    if (t.ok === true) return ['exito', '✅ Terminado'];
+    return ['error', '⚠️ Con error'];
+}
+function pintarLista() {
+    var cont = document.getElementById('lista_trabajos');
+    var filtro = document.getElementById('buscador_input').value.trim().toUpperCase();
+    var filtrados = ultimosDatos.filter(function(t) {
+        return !filtro || t.descripcion.toUpperCase().indexOf(filtro) !== -1 || String(t.id).indexOf(filtro) !== -1;
+    });
+    if (!ultimosDatos.length) {
+        cont.innerHTML = '<div class="vacio">No hay viajes en la fila todavía.</div>';
+    } else if (!filtrados.length) {
+        cont.innerHTML = '<div class="vacio">Ningún viaje coincide con "' + filtro + '".</div>';
+    } else {
+        cont.innerHTML = filtrados.slice().reverse().map(function(t) {
+            var b = badgeInfo(t);
+            var enlace = '{{ url_for("progreso_trabajo") }}?id=' + t.id;
+            return '<a href="' + enlace + '" style="text-decoration:none;color:inherit;">' +
+                '<div class="trabajo"><span class="desc">#' + t.id + ' — ' + t.descripcion + '</span>' +
+                '<span class="badge ' + b[0] + '">' + b[1] + '</span></div></a>';
+        }).join('');
+    }
+}
+function actualizar() {
+    pintarLista();
+}
+function refrescarDesdeServidor() {
+    fetch("{{ url_for('estado') }}")
+        .then(r => r.json())
+        .then(data => {
+            try {
+                ultimosDatos = data.trabajos;
+                pintarLista();
+            } catch (errorAlDibujar) {
+                console.error('Error al dibujar la fila:', errorAlDibujar);
+            }
+            setTimeout(refrescarDesdeServidor, 2000);
+        })
+        .catch(function (errorDeRed) {
+            console.error('Error consultando la fila:', errorDeRed);
+            setTimeout(refrescarDesdeServidor, 2500);
+        });
+}
+refrescarDesdeServidor();
+</script>
+</body>
+</html>

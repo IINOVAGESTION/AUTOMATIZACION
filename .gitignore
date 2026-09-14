@@ -1,0 +1,18 @@
+# Carpetas que genera PyInstaller al construir el .exe (se regeneran solas)
+build/
+dist/
+*.spec
+
+# Python
+__pycache__/
+*.pyc
+
+# Capturas de depuración que el programa guarda cuando algo falla
+debug_*.png
+captura_*.png
+
+# Historial de viajes y archivos locales de sedes/conductores (datos de
+# cada computadora, no hace falta versionarlos)
+historial_viajes.json
+sedes_empresa.json
+conductores_empresa.json
