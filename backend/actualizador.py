@@ -72,28 +72,29 @@ def guardar_token(token):
 
 def actualizar_desde_github(log=print):
     """Descarga el .zip del repositorio y reemplaza el código local.
-    Devuelve (ok, mensaje)."""
+    Devuelve (ok, mensaje). El token es opcional: si el repositorio es
+    público no hace falta ninguno; si en algún momento vuelve a ser
+    privado, se usa el token guardado (si hay uno)."""
     token = leer_token()
-    if not token:
-        return False, (
-            "Todavía no se ha configurado el token de actualización en esta "
-            "computadora. Pégalo en el campo de arriba y guárdalo primero."
-        )
 
     log("Descargando la última versión del código desde GitHub...")
+    encabezados = {"Accept": "application/vnd.github+json"}
+    if token:
+        encabezados["Authorization"] = f"token {token}"
     try:
-        resp = requests.get(
-            URL_REPO,
-            headers={"Authorization": f"token {token}", "Accept": "application/vnd.github+json"},
-            timeout=30,
-        )
+        resp = requests.get(URL_REPO, headers=encabezados, timeout=30)
     except Exception as e:
         return False, f"No se pudo conectar a GitHub: {e}"
 
     if resp.status_code == 401:
         return False, "El token de actualización no es válido o ya venció. Genera uno nuevo y guárdalo aquí."
     if resp.status_code == 404:
-        return False, "No se encontró el repositorio (o el token no tiene permiso sobre él)."
+        if token:
+            return False, "No se encontró el repositorio (o el token no tiene permiso sobre él)."
+        return False, (
+            "No se encontró el repositorio, o todavía es privado. Si sigue siendo "
+            "privado, pega un token de solo lectura arriba y guárdalo."
+        )
     if resp.status_code != 200:
         return False, f"GitHub respondió con un error ({resp.status_code}). Intenta de nuevo en un momento."
 
