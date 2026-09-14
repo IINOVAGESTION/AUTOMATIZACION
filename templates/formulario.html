@@ -471,10 +471,10 @@
   </form>
 
   <div class="seccion" id="panel_actualizacion">
-    <h2 onclick="toggleSeccion(this)">Actualizar interfaz de la app</h2>
-    <small>Trae los últimos cambios de diseño/formulario desde el repositorio, sin tener que instalar un .exe nuevo. (Para correcciones de lógica interna, sigue haciendo falta un .exe nuevo, como antes.)</small>
+    <h2 onclick="toggleSeccion(this)">Actualizar la app</h2>
+    <small>Trae los últimos cambios desde el repositorio (interfaz y funciones nuevas) sin tener que instalar un .exe nuevo.</small>
     <div style="display:flex; align-items:center; gap:10px; margin-top:0.6rem; flex-wrap:wrap;">
-      <button type="button" class="secundario" onclick="actualizarInterfaz()">🔄 Actualizar</button>
+      <button type="button" class="secundario" onclick="actualizarCodigo()">🔄 Actualizar</button>
       <span id="estado_actualizacion_codigo" style="font-size:0.82rem;"></span>
     </div>
     <details class="nit-desplegable" style="margin-top:0.6rem;">
@@ -886,7 +886,7 @@ async function verificarPersona(idInput, idResultado, tipoId) {
     }
 }
 
-// --- Actualizar interfaz de la app desde GitHub ----------------------
+// --- Actualizar la app desde GitHub -----------------------------------
 async function guardarTokenActualizacion() {
     var token = document.getElementById('input_token_actualizacion').value.trim();
     var estado = document.getElementById('estado_actualizacion_codigo');
@@ -900,18 +900,18 @@ async function guardarTokenActualizacion() {
     if (data.ok) document.getElementById('input_token_actualizacion').value = '';
 }
 
-async function actualizarInterfaz() {
+async function actualizarCodigo() {
     var estado = document.getElementById('estado_actualizacion_codigo');
-    if (!confirm('¿Buscar y aplicar la última versión de la interfaz desde el repositorio?')) return;
+    if (!confirm('¿Buscar y aplicar la última versión desde el repositorio?')) return;
     estado.textContent = 'Descargando y aplicando la actualización...';
     estado.style.color = '#918c80';
     try {
-        var r = await fetch("{{ url_for('actualizar_interfaz') }}", { method: 'POST' });
+        var r = await fetch("{{ url_for('actualizar_codigo') }}", { method: 'POST' });
         var data = await r.json();
         estado.textContent = data.mensaje;
         estado.style.color = data.ok ? '#3fb950' : '#ff6b6b';
         if (data.ok) {
-            if (confirm('Interfaz actualizada. ¿Reiniciar la app ahora para verla?')) {
+            if (confirm('Actualización aplicada. ¿Reiniciar la app ahora para que quede activa?')) {
                 await fetch("{{ url_for('reiniciar_app') }}", { method: 'POST' });
                 estado.textContent = 'Reiniciando la app...';
             }

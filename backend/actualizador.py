@@ -1,21 +1,19 @@
 """
-backend/actualizador.py — Descarga la última versión de la INTERFAZ
-(templates/ y static/) desde GitHub y la deja guardada al lado del
-.exe, en carpetas "templates_actualizado" y "static_actualizado".
-resource_path() (en servidor_web.py) usa esas carpetas en vez de las
-que vienen empacadas dentro del .exe, si existen.
+backend/actualizador.py — Descarga la última versión del código desde
+GitHub (TODO: lógica y también interfaz) y la aplica a la carpeta
+externa desde donde corre la app de verdad (ver lanzador.py). Como la
+ventana (pywebview) vive separada en lanzador.py y nunca se toca desde
+aquí, esto ya no arriesga que la app deje de abrir.
 
-Por qué solo la interfaz y no todo el código: el código Python
-(servidor_web.py, core/, backend/) va compilado ADENTRO del propio
-.exe — no se puede reemplazar en caliente sin arriesgar que el programa
-no arranque (ya pasó, y quedaba como un proceso fantasma sin abrir
-ninguna ventana). La interfaz sí se puede reemplazar de forma segura
-porque Flask siempre la lee de una carpeta en disco en cada arranque,
-sea cual sea esa carpeta.
-
-Para cambios de LÓGICA (bugs, velocidad, reglas de negocio), sigue
-haciendo falta generar un .exe nuevo con construir_exe.bat, como
-siempre.
+CÓMO FUNCIONA POR DENTRO:
+  - lanzador.py (el .exe de verdad) NO trae el código "sellado" adentro:
+    en el primer arranque, copia una semilla inicial a una carpeta
+    externa y persistente y desde ahí corre siempre servidor_web.py.
+    Esa carpeta externa SÍ se puede reemplazar en caliente.
+  - Este módulo descarga el .zip del repositorio y reemplaza el
+    contenido de esa carpeta externa con lo que venga del repositorio.
+  - El cambio se aplica de verdad recién en el PRÓXIMO arranque del
+    programa (por eso el botón ofrece "Reiniciar ahora" después).
 """
 import os
 import io
@@ -25,18 +23,36 @@ import zipfile
 import tempfile
 import requests
 
-import rndc_core
-
 URL_REPO = "https://api.github.com/repos/IINOVAGESTION/AUTOMATIZACION/zipball/main"
 
-# Solo estas dos carpetas se traen del repositorio. El resto del
-# código (servidor_web.py, core/, backend/) NO se toca — eso solo
-# cambia reconstruyendo el .exe.
-ELEMENTOS_ACTUALIZABLES = ["templates", "static"]
+# Todo lo que sí se trae del repositorio y reemplaza la copia local.
+# lanzador.py se deja afuera a propósito: ese es el único archivo que
+# de verdad va sellado dentro del .exe y solo cambia reconstruyéndolo.
+ELEMENTOS_ACTUALIZABLES = [
+    "servidor_web.py", "rndc_core.py", "core", "backend", "templates", "static",
+]
+
+
+def carpeta_datos_appdata():
+    """Carpeta persistente por fuera de la carpeta de código, para que
+    sobreviva a las actualizaciones (el token de acceso vive aquí, no
+    dentro de la carpeta de código que se reemplaza por completo)."""
+    base = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
+    carpeta = os.path.join(base, "AutomatizacionRNDC")
+    os.makedirs(carpeta, exist_ok=True)
+    return carpeta
+
+
+def carpeta_codigo():
+    """La carpeta externa y actualizable desde donde corre la app de
+    verdad. lanzador.py la crea/siembra en el primer arranque."""
+    c = os.path.join(carpeta_datos_appdata(), "app")
+    os.makedirs(c, exist_ok=True)
+    return c
 
 
 def ruta_token():
-    return os.path.join(rndc_core.obtener_carpeta_programa(), "token_actualizacion.txt")
+    return os.path.join(carpeta_datos_appdata(), "token_actualizacion.txt")
 
 
 def leer_token():
@@ -52,13 +68,13 @@ def guardar_token(token):
         f.write((token or "").strip())
 
 
-def actualizar_interfaz_desde_github(log=print):
-    """Descarga templates/ y static/ del repositorio y los deja listos
-    para usarse (en "<carpeta>_actualizado", al lado del .exe). El
-    cambio se aplica solo. Devuelve (ok, mensaje)."""
+def actualizar_desde_github(log=print):
+    """Descarga el .zip del repositorio y reemplaza el código local.
+    El token es opcional: si el repositorio es público no hace falta
+    ninguno. Devuelve (ok, mensaje)."""
     token = leer_token()
 
-    log("Descargando la última versión de la interfaz desde GitHub...")
+    log("Descargando la última versión desde GitHub...")
     encabezados = {"Accept": "application/vnd.github+json"}
     if token:
         encabezados["Authorization"] = f"token {token}"
@@ -91,34 +107,34 @@ def actualizar_interfaz_desde_github(log=print):
                 return False, "El .zip descargado llegó vacío o dañado."
             raiz_descarga = os.path.join(carpeta_temporal, subcarpetas[0])
 
-            log("Aplicando la actualización de la interfaz...")
+            destino = carpeta_codigo()
+            log("Aplicando la actualización...")
             for nombre in ELEMENTOS_ACTUALIZABLES:
                 origen_item = os.path.join(raiz_descarga, nombre)
-                if not os.path.isdir(origen_item):
+                if not os.path.exists(origen_item):
                     continue
-                destino_item = os.path.join(
-                    rndc_core.obtener_carpeta_programa(), f"{nombre}_actualizado"
-                )
-                # Se arma primero en una carpeta aparte y recién al final
-                # se reemplaza de un solo golpe (os.replace), para que si
-                # algo falla a la mitad no quede una carpeta a medio
-                # escribir siendo usada por la app.
+                destino_item = os.path.join(destino, nombre)
                 destino_temporal = destino_item + "_nuevo"
-                if os.path.exists(destino_temporal):
-                    shutil.rmtree(destino_temporal)
-                shutil.copytree(origen_item, destino_temporal)
+                if os.path.isdir(origen_item):
+                    if os.path.exists(destino_temporal):
+                        shutil.rmtree(destino_temporal)
+                    shutil.copytree(origen_item, destino_temporal)
+                else:
+                    if os.path.exists(destino_temporal):
+                        os.remove(destino_temporal)
+                    shutil.copy2(origen_item, destino_temporal)
                 if os.path.exists(destino_item):
-                    shutil.rmtree(destino_item)
+                    if os.path.isdir(destino_item):
+                        shutil.rmtree(destino_item)
+                    else:
+                        os.remove(destino_item)
                 os.replace(destino_temporal, destino_item)
 
-            with open(
-                os.path.join(rndc_core.obtener_carpeta_programa(), "_version_interfaz.json"),
-                "w", encoding="utf-8",
-            ) as f:
+            with open(os.path.join(destino, "_version_actualizada.json"), "w", encoding="utf-8") as f:
                 json.dump({"etag": resp.headers.get("ETag", "")}, f)
 
     except Exception as e:
         return False, f"Falló al aplicar la actualización: {e}"
 
-    log("✅ Interfaz actualizada correctamente.")
-    return True, "Listo. Reinicia la app para que se vea la interfaz nueva."
+    log("✅ Código actualizado correctamente.")
+    return True, "Listo. Reinicia la app para que los cambios queden activos."

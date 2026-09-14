@@ -52,23 +52,13 @@ from backend import actualizador
 
 
 def resource_path(nombre_carpeta):
-    """Ruta a una carpeta de recursos empaquetados (templates/, static/).
-    Cuando el programa corre como .exe de un solo archivo (--onefile),
-    PyInstaller extrae esos recursos a una carpeta TEMPORAL distinta en
-    cada arranque (sys._MEIPASS); en modo normal (python servidor_web.py)
-    es simplemente la carpeta donde está este archivo.
-
-    Si el botón "Actualizar interfaz" (ver backend/actualizador.py) trajo
-    una versión más nueva desde GitHub, esa queda guardada al lado del
-    .exe en una carpeta "<nombre>_actualizado" — y esa es la que se usa
-    en vez de la que viene empacada, sin tener que reconstruir el .exe."""
-    base_empacada = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
-    ruta_empacada = os.path.join(base_empacada, nombre_carpeta)
-
-    ruta_actualizada = os.path.join(rndc_core.obtener_carpeta_programa(), f"{nombre_carpeta}_actualizado")
-    if os.path.isdir(ruta_actualizada):
-        return ruta_actualizada
-    return ruta_empacada
+    """Ruta a una carpeta de recursos (templates/, static/). Con el
+    lanzador nuevo, servidor_web.py SIEMPRE corre desde la carpeta de
+    código externa y actualizable (ver lanzador.py/backend/actualizador.py),
+    nunca desde adentro sellado del .exe — así que basta con mirar al
+    lado de este mismo archivo, tanto en modo normal como empaquetado."""
+    base = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base, nombre_carpeta)
 
 
 app = Flask(
@@ -592,11 +582,11 @@ def guardar_token_actualizacion():
     return jsonify({"ok": True, "mensaje": "Token guardado en esta computadora."})
 
 
-@app.route("/actualizar_interfaz", methods=["POST"])
-def actualizar_interfaz():
+@app.route("/actualizar_codigo", methods=["POST"])
+def actualizar_codigo():
     if "usuario_app" not in session:
         return jsonify({"ok": False, "mensaje": "Sesión no válida."}), 403
-    ok, mensaje = actualizador.actualizar_interfaz_desde_github()
+    ok, mensaje = actualizador.actualizar_desde_github()
     return jsonify({"ok": ok, "mensaje": mensaje})
 
 
@@ -636,35 +626,33 @@ def reiniciar_app():
     return jsonify({"ok": True, "mensaje": "Reiniciando..."})
 
 
-if __name__ == "__main__":
-    error_arranque_flask = []  # lista en vez de variable suelta: así el hilo puede "avisarle" al programa principal
+def iniciar_servidor_flask_en_hilo():
+    """Arranca el servidor Flask en un hilo aparte y espera de verdad a
+    que responda antes de devolver el control (en vez de una pausa fija,
+    que a veces no alcanza — sobre todo la primera vez que corre en una
+    computadora, cuando el antivirus revisa más a fondo un programa
+    nuevo). Deliberadamente NO toca nada de la ventana (pywebview): eso
+    vive aparte, en lanzador.py, con sus propios imports "estáticos" —
+    así, aunque este archivo se cargue desde una carpeta actualizable,
+    la parte de la ventana (la única que alguna vez dio problemas al
+    cargarse así) nunca se ve afectada.
+
+    Devuelve (ok, mensaje_error_o_None)."""
+    error_arranque_flask = []
 
     def iniciar_servidor_flask():
         try:
             app.run(host="127.0.0.1", port=5000, debug=False, threaded=True, use_reloader=False)
         except Exception as e:
-            # Si esto falla (el caso típico: el puerto 5000 ya está ocupado
-            # por otra copia del programa que quedó abierta de fondo), el
-            # hilo se moriría en silencio y quien usa el programa solo
-            # vería una pantalla de "no se puede conectar" sin ninguna
-            # pista de qué pasó (más aún con --noconsole). Se guarda el
-            # motivo aquí para poder mostrarlo de verdad más abajo.
             error_arranque_flask.append(str(e))
 
     hilo_flask = threading.Thread(target=iniciar_servidor_flask, daemon=True)
     hilo_flask.start()
 
-    # Se espera de VERDAD a que el servidor responda antes de abrir la
-    # ventana, en vez de una pausa fija de 1 segundo (que a veces no
-    # alcanza — sobre todo la primera vez que corre en una computadora,
-    # cuando el antivirus suele revisar más a fondo un programa nuevo y
-    # todo tarda más en arrancar). Si abriéramos la ventana antes de
-    # tiempo, se queda en negro porque intenta cargar una página que
-    # todavía no existe.
     servidor_listo = False
     for intento in range(60):  # hasta 30 segundos de margen (60 x 0.5s)
         if error_arranque_flask:
-            break  # no tiene sentido seguir esperando si el servidor ya truncó el arranque
+            break
         try:
             requests.get("http://127.0.0.1:5000/login", timeout=1)
             servidor_listo = True
@@ -672,69 +660,63 @@ if __name__ == "__main__":
         except Exception:
             time.sleep(0.5)
 
-    if not servidor_listo:
-        mensaje_error = (
-            "El programa no pudo iniciar su servidor interno, así que la "
-            "ventana habría quedado en blanco con un error de conexión.\n\n"
-        )
-        if error_arranque_flask:
-            texto_error = error_arranque_flask[0]
-            if "Address already in use" in texto_error or "10048" in texto_error or "10013" in texto_error:
-                mensaje_error += (
-                    "La causa más probable: ya hay OTRA copia de Automatización RNDC "
-                    "abierta (aunque no se vea en pantalla, puede seguir corriendo de "
-                    "fondo). Abre el Administrador de tareas (Ctrl+Shift+Esc), busca "
-                    "'AutomatizacionRNDC' o 'Innova', y termina esa tarea. Luego vuelve "
-                    "a abrir el programa."
-                )
-            else:
-                mensaje_error += f"Motivo técnico: {texto_error}"
-        else:
+    if servidor_listo:
+        return True, None
+
+    mensaje_error = (
+        "El programa no pudo iniciar su servidor interno, así que la "
+        "ventana habría quedado en blanco con un error de conexión.\n\n"
+    )
+    if error_arranque_flask:
+        texto_error = error_arranque_flask[0]
+        if "Address already in use" in texto_error or "10048" in texto_error or "10013" in texto_error:
             mensaje_error += (
-                "El servidor tardó más de 30 segundos en responder (posiblemente el "
-                "antivirus lo está revisando a fondo, sobre todo la primera vez que "
-                "se usa en esta computadora). Cierra este aviso, espera un momento y "
-                "vuelve a abrir el programa."
+                "La causa más probable: ya hay OTRA copia de Automatización RNDC "
+                "abierta (aunque no se vea en pantalla, puede seguir corriendo de "
+                "fondo). Abre el Administrador de tareas (Ctrl+Shift+Esc), busca "
+                "'AutomatizacionRNDC' o 'Innova', y termina esa tarea. Luego vuelve "
+                "a abrir el programa."
             )
+        else:
+            mensaje_error += f"Motivo técnico: {texto_error}"
+        return False, mensaje_error
+
+    mensaje_error += (
+        "El servidor tardó más de 30 segundos en responder (posiblemente el "
+        "antivirus lo está revisando a fondo, sobre todo la primera vez que "
+        "se usa en esta computadora)."
+    )
+    # Este caso (solo lentitud, sin un error real) no se trata como fatal:
+    # quien llame puede decidir abrir la ventana de todas formas, por si
+    # el servidor arranca en los próximos segundos mientras esta carga.
+    return None, mensaje_error
+
+
+if __name__ == "__main__":
+    # Esto es solo para poder probar "python servidor_web.py" sueltos,
+    # en desarrollo. El .exe de verdad usa lanzador.py como punto de
+    # entrada (ver ese archivo para el arranque real de la ventana).
+    servidor_listo, mensaje_error = iniciar_servidor_flask_en_hilo()
+
+    if servidor_listo is False:
         print("⚠️ ", mensaje_error)
         try:
-            # Con --noconsole no hay ventana de texto donde el usuario vea
-            # este print, así que se muestra también como un cuadro de
-            # diálogo nativo de Windows (no depende de que webview funcione).
             import ctypes
             ctypes.windll.user32.MessageBoxW(0, mensaje_error, "Automatización RNDC - No se pudo iniciar", 0x10)
         except Exception:
             pass
-        if error_arranque_flask:
-            # El servidor de verdad no va a arrancar solo esperando más:
-            # no tiene caso abrir una ventana que solo va a mostrar el
-            # error de conexión de siempre.
-            sys.exit(1)
-        # Si fue solo lentitud (sin error real), se intenta abrir la
-        # ventana de todas formas, por si el servidor arranca en los
-        # próximos segundos mientras la ventana carga.
+        sys.exit(1)
+    elif servidor_listo is None:
+        print("⚠️ ", mensaje_error)
 
     try:
         import webview
-        # Ventana de escritorio de verdad: barra de título propia,
-        # minimizar/maximizar, y una X que cierra TODO el programa de
-        # verdad (más abajo se fuerza el cierre completo del proceso,
-        # para que el servidor no se quede vivo de fondo).
         webview.create_window(
             "Innova - Automatización RNDC",
             "http://localhost:5000",
             width=1250, height=850, min_size=(950, 650),
         )
         webview.start()
-
-        # Al cerrar la ventana (la X, o Alt+F4), webview.start() ya
-        # terminó de "bloquear" y el programa debería acabar solo aquí.
-        # Pero a veces algo se queda vivo de fondo (el servidor Flask en
-        # su hilo, o el propio proceso del .exe) y el puerto 5000 sigue
-        # ocupado la próxima vez que se intenta abrir el programa —
-        # dando justo el error de "no se puede conectar" que se vio antes.
-        # Por eso, en vez de dejar que Python "intente" cerrar todo solo,
-        # se fuerza el cierre completo del proceso aquí mismo.
         os._exit(0)
     except ImportError:
         # Si pywebview no está instalado (ej: corriendo con
@@ -743,4 +725,5 @@ if __name__ == "__main__":
         import webbrowser
         webbrowser.open("http://localhost:5000")
         print("Servidor iniciado. Abre en tu navegador: http://localhost:5000")
-        hilo_flask.join()
+        while True:
+            time.sleep(3600)
