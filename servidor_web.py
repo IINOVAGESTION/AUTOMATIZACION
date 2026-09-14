@@ -35,6 +35,7 @@ import threading
 import json
 import time
 import requests
+import subprocess
 from datetime import timedelta
 
 import rndc_core
@@ -47,6 +48,7 @@ from backend.historial import (
     calcular_estadisticas,
 )
 from backend.sheets import registrar_en_sheets, revisar_actualizacion, validar_usuario_app
+from backend import actualizador
 
 
 def resource_path(nombre_carpeta):
@@ -564,7 +566,63 @@ def ver_pdf():
     return send_file(ruta, mimetype="application/pdf")
 
 
-if __name__ == "__main__":
+@app.route("/estado_actualizacion", methods=["GET"])
+def estado_actualizacion():
+    """Le dice a la pantalla si ya hay un token guardado en esta
+    computadora (para no pedirlo de nuevo cada vez)."""
+    return jsonify({"token_configurado": bool(actualizador.leer_token())})
+
+
+@app.route("/guardar_token_actualizacion", methods=["POST"])
+def guardar_token_actualizacion():
+    if "usuario_app" not in session:
+        return jsonify({"ok": False, "mensaje": "Sesión no válida."}), 403
+    token = (request.form.get("token") or "").strip()
+    if not token:
+        return jsonify({"ok": False, "mensaje": "El token no puede estar vacío."})
+    actualizador.guardar_token(token)
+    return jsonify({"ok": True, "mensaje": "Token guardado en esta computadora."})
+
+
+@app.route("/actualizar_codigo", methods=["POST"])
+def actualizar_codigo():
+    if "usuario_app" not in session:
+        return jsonify({"ok": False, "mensaje": "Sesión no válida."}), 403
+    ok, mensaje = actualizador.actualizar_desde_github()
+    return jsonify({"ok": ok, "mensaje": mensaje})
+
+
+@app.route("/reiniciar_app", methods=["POST"])
+def reiniciar_app():
+    """Cierra este proceso y abre uno nuevo, para que la carpeta de
+    código que se acaba de actualizar quede activa de una vez (sin que
+    la persona tenga que ir a buscar y volver a abrir el .exe a mano)."""
+    if "usuario_app" not in session:
+        return jsonify({"ok": False, "mensaje": "Sesión no válida."}), 403
+
+    def reiniciar_de_verdad():
+        time.sleep(0.6)  # le da tiempo a esta respuesta de llegar al navegador antes de morir
+        try:
+            if getattr(sys, "frozen", False):
+                # Corriendo como .exe: sys.executable ES el propio lanzador.
+                subprocess.Popen([sys.executable])
+            else:
+                # Corriendo como "python lanzador.py" normal, en desarrollo.
+                subprocess.Popen([sys.executable] + sys.argv)
+        except Exception:
+            pass
+        os._exit(0)
+
+    threading.Thread(target=reiniciar_de_verdad, daemon=True).start()
+    return jsonify({"ok": True, "mensaje": "Reiniciando..."})
+
+
+def iniciar_app():
+    """Todo lo que arranca el programa de verdad: el servidor Flask en un
+    hilo aparte, y luego la ventana de escritorio. Vive en una función
+    (en vez de solo en el bloque de abajo) para que lanzador.py pueda
+    llamarla directamente después de cargar esta copia del código desde
+    la carpeta externa y actualizable."""
     error_arranque_flask = []  # lista en vez de variable suelta: así el hilo puede "avisarle" al programa principal
 
     def iniciar_servidor_flask():
@@ -662,7 +720,10 @@ if __name__ == "__main__":
         # ocupado la próxima vez que se intenta abrir el programa —
         # dando justo el error de "no se puede conectar" que se vio antes.
         # Por eso, en vez de dejar que Python "intente" cerrar todo solo,
-        # se fuerza el cierre completo del proceso aquí mismo.
+        # se fuerza el cierre completo del proceso aquí mismo. La única
+        # excepción es cuando este cierre lo pidió el botón "Reiniciar
+        # ahora" tras actualizar el código (ver /reiniciar_app): en ese
+        # caso ya se dejó lanzado el proceso nuevo antes de llegar aquí.
         os._exit(0)
     except ImportError:
         # Si pywebview no está instalado (ej: corriendo con
@@ -672,3 +733,7 @@ if __name__ == "__main__":
         webbrowser.open("http://localhost:5000")
         print("Servidor iniciado. Abre en tu navegador: http://localhost:5000")
         hilo_flask.join()
+
+
+if __name__ == "__main__":
+    iniciar_app()

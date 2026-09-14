@@ -470,6 +470,21 @@
     </div>
   </form>
 
+  <div class="seccion" id="panel_actualizacion">
+    <h2 onclick="toggleSeccion(this)">Actualizar código de la app</h2>
+    <div id="bloque_token_actualizacion" style="display:none;">
+      <small>Pega aquí el token de solo lectura del repositorio (solo hace falta la primera vez en esta computadora).</small>
+      <div class="fila-verificar" style="margin-top:0.4rem;">
+        <input type="password" id="input_token_actualizacion" placeholder="github_pat_...">
+        <button type="button" class="secundario" onclick="guardarTokenActualizacion()">Guardar token</button>
+      </div>
+    </div>
+    <div style="display:flex; align-items:center; gap:10px; margin-top:0.6rem; flex-wrap:wrap;">
+      <button type="button" class="secundario" onclick="actualizarCodigo()">🔄 Buscar y aplicar la última versión</button>
+      <span id="estado_actualizacion_codigo" style="font-size:0.82rem;"></span>
+    </div>
+  </div>
+
   <datalist id="lista_ciudades">
   {% if sedes_reales %}
     {% for sede in sedes_reales %}
@@ -864,6 +879,54 @@ async function verificarPersona(idInput, idResultado, tipoId) {
     } catch (e) {
         resultado.className = 'resultado-verificar no';
         resultado.textContent = '⚠️ Error de conexión al verificar.';
+    }
+}
+
+// --- Actualizar código de la app desde GitHub -----------------------
+async function revisarSiHaceFaltaToken() {
+    try {
+        var r = await fetch("{{ url_for('estado_actualizacion') }}");
+        var data = await r.json();
+        document.getElementById('bloque_token_actualizacion').style.display = data.token_configurado ? 'none' : 'block';
+    } catch (e) { /* si falla, se deja el bloque del token oculto por defecto y ya */ }
+}
+revisarSiHaceFaltaToken();
+
+async function guardarTokenActualizacion() {
+    var token = document.getElementById('input_token_actualizacion').value.trim();
+    var estado = document.getElementById('estado_actualizacion_codigo');
+    if (!token) { estado.textContent = 'Pega el token primero.'; estado.style.color = '#ff6b6b'; return; }
+    estado.textContent = 'Guardando...'; estado.style.color = '#918c80';
+    var body = new URLSearchParams({ token: token });
+    var r = await fetch("{{ url_for('guardar_token_actualizacion') }}", { method: 'POST', body: body });
+    var data = await r.json();
+    estado.textContent = data.mensaje;
+    estado.style.color = data.ok ? '#3fb950' : '#ff6b6b';
+    if (data.ok) {
+        document.getElementById('input_token_actualizacion').value = '';
+        document.getElementById('bloque_token_actualizacion').style.display = 'none';
+    }
+}
+
+async function actualizarCodigo() {
+    var estado = document.getElementById('estado_actualizacion_codigo');
+    if (!confirm('¿Buscar y aplicar la última versión del código desde el repositorio?')) return;
+    estado.textContent = 'Descargando y aplicando la actualización...';
+    estado.style.color = '#918c80';
+    try {
+        var r = await fetch("{{ url_for('actualizar_codigo') }}", { method: 'POST' });
+        var data = await r.json();
+        estado.textContent = data.mensaje;
+        estado.style.color = data.ok ? '#3fb950' : '#ff6b6b';
+        if (data.ok) {
+            if (confirm('Actualización aplicada. ¿Reiniciar la app ahora para que quede activa?')) {
+                await fetch("{{ url_for('reiniciar_app') }}", { method: 'POST' });
+                estado.textContent = 'Reiniciando la app...';
+            }
+        }
+    } catch (e) {
+        estado.textContent = 'No se pudo actualizar: ' + e;
+        estado.style.color = '#ff6b6b';
     }
 }
 
