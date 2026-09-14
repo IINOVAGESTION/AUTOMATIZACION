@@ -611,10 +611,23 @@ def reiniciar_app():
     def reiniciar_de_verdad():
         time.sleep(0.6)
         try:
+            # Al relanzarse a sí mismo, el proceso nuevo hereda por
+            # defecto TODAS las variables de entorno del actual — y entre
+            # ellas puede venir "_MEIPASS2", una que PyInstaller usa
+            # internamente para saber dónde extrajo sus propios archivos
+            # en ESTE arranque. Si el proceso hijo la hereda, puede
+            # confundirse pensando que debe reusar esa ubicación (que ya
+            # no le pertenece a él), y ahí es donde fallan justo los
+            # componentes nativos de la ventana (pythonnet/cffi), aunque
+            # el resto del programa arranque bien. Por eso se limpia esa
+            # variable antes de lanzar el proceso nuevo: así arranca
+            # exactamente igual que si se abriera manualmente.
+            entorno_limpio = os.environ.copy()
+            entorno_limpio.pop("_MEIPASS2", None)
             if getattr(sys, "frozen", False):
-                subprocess.Popen([sys.executable])
+                subprocess.Popen([sys.executable], env=entorno_limpio, cwd=os.path.dirname(sys.executable))
             else:
-                subprocess.Popen([sys.executable] + sys.argv)
+                subprocess.Popen([sys.executable] + sys.argv, env=entorno_limpio)
         except Exception:
             pass
         os._exit(0)
