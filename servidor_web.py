@@ -32,10 +32,10 @@ if getattr(sys, "frozen", False) and sys.stdout is None:
 
 from flask import Flask, request, session, redirect, url_for, render_template, jsonify
 import threading
+import subprocess
 import json
 import time
 import requests
-import subprocess
 from datetime import timedelta
 
 import rndc_core
@@ -52,13 +52,23 @@ from backend import actualizador
 
 
 def resource_path(nombre_carpeta):
-    """Ruta a una carpeta de recursos (templates/, static/). Con el
-    lanzador nuevo, servidor_web.py SIEMPRE corre desde la carpeta de
-    código externa y actualizable (ver lanzador.py/backend/actualizador.py),
-    nunca desde adentro del .exe — así que basta con mirar al lado de
-    este mismo archivo, tanto en modo normal como empaquetado."""
-    base = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(base, nombre_carpeta)
+    """Ruta a una carpeta de recursos empaquetados (templates/, static/).
+    Cuando el programa corre como .exe de un solo archivo (--onefile),
+    PyInstaller extrae esos recursos a una carpeta TEMPORAL distinta en
+    cada arranque (sys._MEIPASS); en modo normal (python servidor_web.py)
+    es simplemente la carpeta donde está este archivo.
+
+    Si el botón "Actualizar interfaz" (ver backend/actualizador.py) trajo
+    una versión más nueva desde GitHub, esa queda guardada al lado del
+    .exe en una carpeta "<nombre>_actualizado" — y esa es la que se usa
+    en vez de la que viene empacada, sin tener que reconstruir el .exe."""
+    base_empacada = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+    ruta_empacada = os.path.join(base_empacada, nombre_carpeta)
+
+    ruta_actualizada = os.path.join(rndc_core.obtener_carpeta_programa(), f"{nombre_carpeta}_actualizado")
+    if os.path.isdir(ruta_actualizada):
+        return ruta_actualizada
+    return ruta_empacada
 
 
 app = Flask(
@@ -568,8 +578,6 @@ def ver_pdf():
 
 @app.route("/estado_actualizacion", methods=["GET"])
 def estado_actualizacion():
-    """Le dice a la pantalla si ya hay un token guardado en esta
-    computadora (para no pedirlo de nuevo cada vez)."""
     return jsonify({"token_configurado": bool(actualizador.leer_token())})
 
 
@@ -584,30 +592,28 @@ def guardar_token_actualizacion():
     return jsonify({"ok": True, "mensaje": "Token guardado en esta computadora."})
 
 
-@app.route("/actualizar_codigo", methods=["POST"])
-def actualizar_codigo():
+@app.route("/actualizar_interfaz", methods=["POST"])
+def actualizar_interfaz():
     if "usuario_app" not in session:
         return jsonify({"ok": False, "mensaje": "Sesión no válida."}), 403
-    ok, mensaje = actualizador.actualizar_desde_github()
+    ok, mensaje = actualizador.actualizar_interfaz_desde_github()
     return jsonify({"ok": ok, "mensaje": mensaje})
 
 
 @app.route("/reiniciar_app", methods=["POST"])
 def reiniciar_app():
-    """Cierra este proceso y abre uno nuevo, para que la carpeta de
-    código que se acaba de actualizar quede activa de una vez (sin que
-    la persona tenga que ir a buscar y volver a abrir el .exe a mano)."""
+    """Cierra este proceso y abre uno nuevo, para que la interfaz recién
+    actualizada quede activa sin que la persona tenga que ir a buscar y
+    volver a abrir el .exe a mano."""
     if "usuario_app" not in session:
         return jsonify({"ok": False, "mensaje": "Sesión no válida."}), 403
 
     def reiniciar_de_verdad():
-        time.sleep(0.6)  # le da tiempo a esta respuesta de llegar al navegador antes de morir
+        time.sleep(0.6)
         try:
             if getattr(sys, "frozen", False):
-                # Corriendo como .exe: sys.executable ES el propio lanzador.
                 subprocess.Popen([sys.executable])
             else:
-                # Corriendo como "python lanzador.py" normal, en desarrollo.
                 subprocess.Popen([sys.executable] + sys.argv)
         except Exception:
             pass
@@ -617,12 +623,7 @@ def reiniciar_app():
     return jsonify({"ok": True, "mensaje": "Reiniciando..."})
 
 
-def iniciar_app():
-    """Todo lo que arranca el programa de verdad: el servidor Flask en un
-    hilo aparte, y luego la ventana de escritorio. Vive en una función
-    (en vez de solo en el bloque de abajo) para que lanzador.py pueda
-    llamarla directamente después de cargar esta copia del código desde
-    la carpeta externa y actualizable."""
+if __name__ == "__main__":
     error_arranque_flask = []  # lista en vez de variable suelta: así el hilo puede "avisarle" al programa principal
 
     def iniciar_servidor_flask():
@@ -720,10 +721,7 @@ def iniciar_app():
         # ocupado la próxima vez que se intenta abrir el programa —
         # dando justo el error de "no se puede conectar" que se vio antes.
         # Por eso, en vez de dejar que Python "intente" cerrar todo solo,
-        # se fuerza el cierre completo del proceso aquí mismo. La única
-        # excepción es cuando este cierre lo pidió el botón "Reiniciar
-        # ahora" tras actualizar el código (ver /reiniciar_app): en ese
-        # caso ya se dejó lanzado el proceso nuevo antes de llegar aquí.
+        # se fuerza el cierre completo del proceso aquí mismo.
         os._exit(0)
     except ImportError:
         # Si pywebview no está instalado (ej: corriendo con
@@ -733,7 +731,3 @@ def iniciar_app():
         webbrowser.open("http://localhost:5000")
         print("Servidor iniciado. Abre en tu navegador: http://localhost:5000")
         hilo_flask.join()
-
-
-if __name__ == "__main__":
-    iniciar_app()

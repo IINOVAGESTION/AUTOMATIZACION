@@ -21,7 +21,7 @@ if exist icono_app.ico (
 ) else (
     echo No se encontro icono_app.ico, se genera el .exe con el icono por defecto.
 )
-python -m PyInstaller --onefile --name AutomatizacionRNDC --noconsole %ICONO% --collect-all selenium --collect-all webdriver_manager --collect-all webview --collect-all flask --add-data "servidor_web.py;semilla" --add-data "rndc_core.py;semilla" --add-data "core;semilla/core" --add-data "backend;semilla/backend" --add-data "templates;semilla/templates" --add-data "static;semilla/static" lanzador.py
+python -m PyInstaller --onefile --name AutomatizacionRNDC --noconsole %ICONO% --collect-all selenium --collect-all webdriver_manager --collect-all webview --add-data "templates;templates" --add-data "static;static" servidor_web.py
 if errorlevel 1 (
     echo.
     echo HUBO UN PROBLEMA generando el .exe. Revisa el mensaje de arriba.
@@ -35,11 +35,5 @@ echo.
 echo El archivo quedo en: dist\AutomatizacionRNDC.exe
 echo Puedes copiar SOLO ese archivo .exe a otra carpeta o a otra
 echo computadora para probarlo (necesita tener Google Chrome instalado).
-echo.
-echo NOTA: la primera vez que se abre en una computadora, el programa copia
-echo su codigo a una carpeta propia en AppData (no hace falta hacer nada,
-echo es automatico). Desde ese momento, el boton "Actualizar codigo" dentro
-echo de la app puede traer lo ultimo del repositorio sin volver a generar
-echo este .exe.
 echo.
 pause
