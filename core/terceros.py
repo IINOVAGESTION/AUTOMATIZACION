@@ -15,16 +15,14 @@ from selenium.common.exceptions import (
     TimeoutException, NoAlertPresentException, StaleElementReferenceException,
     NoSuchElementException, UnexpectedAlertPresentException, WebDriverException,
 )
-from selenium import webdriver
 
 from .config import (
     URL_LOGIN, URL_REMESA, URL_MANIFIESTO, URL_TERCERO, URL_VEHICULO,
     URL_MAESTRO, ARCHIVO_SEDES, ARCHIVO_CONDUCTORES, FIJOS_REMESA,
     ruta_captura,
 )
-from .navegador import crear_opciones_chrome, obtener_chromedriver_path
+from .navegador import crear_opciones_chrome, obtener_chromedriver_path, crear_driver_con_limite
 from .utilidades import set_text, set_select, set_autocomplete_municipio, traducir_error, limpiar_numero
-from selenium.webdriver.chrome.service import Service
 
 def crear_tercero(driver, wait, tipo_id, numero_id, nombre, apellido1, apellido2, municipio, log):
     log(f"    Registrando Tercero nuevo: {tipo_id} {numero_id} - {nombre} {apellido1}...")
@@ -228,7 +226,7 @@ def verificar_tercero(tipo_id, numero_id, usuario, password, log):
     el campo exacto que use el sitio para mostrarlo).
     Devuelve: {"existe": bool, "nombre": str|None}"""
     chrome_options = crear_opciones_chrome()
-    driver = webdriver.Chrome(service=Service(obtener_chromedriver_path()), options=chrome_options)
+    driver = crear_driver_con_limite(chrome_options, obtener_chromedriver_path())
     driver.set_page_load_timeout(25)
     wait = WebDriverWait(driver, 20)
     try:
@@ -292,7 +290,7 @@ def obtener_lista_sedes_empresa(usuario, password, log):
     os.makedirs(os.path.dirname(ARCHIVO_SEDES) or ".", exist_ok=True)
 
     chrome_options = crear_opciones_chrome()
-    driver = webdriver.Chrome(service=Service(obtener_chromedriver_path()), options=chrome_options)
+    driver = crear_driver_con_limite(chrome_options, obtener_chromedriver_path())
     driver.set_page_load_timeout(25)  # si el sitio no responde, no se cuelga para siempre
     wait = WebDriverWait(driver, 20)
     try:
@@ -339,7 +337,7 @@ def obtener_lista_conductores_empresa(usuario, password, log):
     # pasando de página en página, y así es más rápido (el navegador no
     # gasta tiempo dibujando en pantalla lo que nadie está mirando).
     chrome_options = crear_opciones_chrome(invisible=True)
-    driver = webdriver.Chrome(service=Service(obtener_chromedriver_path()), options=chrome_options)
+    driver = crear_driver_con_limite(chrome_options, obtener_chromedriver_path())
     driver.set_page_load_timeout(25)
     wait = WebDriverWait(driver, 20)
     try:
