@@ -37,6 +37,8 @@ import os
 import sys
 import shutil
 import importlib
+import threading
+import time
 
 # Ver nota de arriba: necesarios aunque no se usen todos directamente.
 import flask  # noqa: F401
@@ -145,13 +147,60 @@ def main():
 
     # A partir de aquí, TODO lo relacionado con la ventana usa el
     # "import webview" normal de arriba del archivo — el mismo código,
-    # sin cambios, que siempre funcionó.
-    webview.create_window(
-        "Innova - Automatización RNDC",
-        "http://localhost:5000",
-        width=1250, height=850, min_size=(950, 650),
-    )
-    webview.start()
+    # sin cambios, que siempre funcionó. Este bloque también va dentro
+    # de su propio try/except: antes, si algo fallaba justo aquí (crear
+    # o arrancar la ventana), el programa se quedaba como proceso vivo
+    # en el Administrador de tareas SIN ninguna ventana y SIN ningún
+    # aviso — exactamente el error que no se podía diagnosticar.
+    #
+    # Además de eso, hay un segundo caso que un try/except NO agarra:
+    # que la ventana simplemente se CUELGUE al arrancar (sin lanzar
+    # ningún error, solo sin terminar nunca) — pasa a veces con el
+    # componente nativo de la ventana (WebView2/.NET) si algo lo
+    # interrumpe en el momento justo (ej. el antivirus revisándolo).
+    # Por eso hay un "vigilante" en un hilo aparte: si a los 20
+    # segundos la ventana todavía no terminó de cargar, avisa con un
+    # mensaje claro en vez de quedarse en silencio para siempre.
+    ventana_cargo = {"ok": False}
+
+    def vigilar_arranque_ventana():
+        time.sleep(20)
+        if not ventana_cargo["ok"]:
+            mostrar_error_nativo(
+                "Automatización RNDC - La ventana está tardando mucho",
+                "Ya pasaron 20 segundos y la ventana todavía no termina de abrir. "
+                "El programa sigue 'corriendo' (por eso aparece en el "
+                "Administrador de tareas) pero algo está bloqueando la ventana "
+                "misma — el sospechoso más común es el antivirus revisando un "
+                "componente de la ventana justo en ese momento.\n\n"
+                "Si el programa se queda así, ciérralo desde el Administrador "
+                "de tareas (busca 'AutomatizacionRNDC') y ábrelo de nuevo.",
+            )
+
+    threading.Thread(target=vigilar_arranque_ventana, daemon=True).start()
+
+    def marcar_ventana_cargada():
+        ventana_cargo["ok"] = True
+
+    try:
+        webview.create_window(
+            "Innova - Automatización RNDC",
+            "http://localhost:5000",
+            width=1250, height=850, min_size=(950, 650),
+        )
+        webview.start(marcar_ventana_cargada)
+    except Exception as e:
+        import traceback
+        detalle = traceback.format_exc()
+        mostrar_error_nativo(
+            "Automatización RNDC - No se pudo abrir la ventana",
+            f"El servidor interno sí arrancó bien, pero la ventana no pudo abrirse.\n\n"
+            f"Error: {e}\n\nDetalle técnico:\n{detalle[-1200:]}\n\n"
+            f"Si esto se repite seguido, puede ser el antivirus bloqueando un "
+            f"componente de la ventana (WebView2/.NET) en el momento justo de "
+            f"abrir. Intenta abrir el programa de nuevo.",
+        )
+        sys.exit(1)
 
     # Al cerrar la ventana (la X, o Alt+F4), se fuerza el cierre
     # completo del proceso, para que el servidor no se quede vivo de
