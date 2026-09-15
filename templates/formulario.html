@@ -890,12 +890,30 @@ async function guardarTokenActualizacion() {
     var estado = document.getElementById('estado_actualizacion_codigo');
     if (!token) { estado.textContent = 'Pega el token primero.'; estado.style.color = '#ff6b6b'; return; }
     estado.textContent = 'Guardando...'; estado.style.color = '#918c80';
-    var body = new URLSearchParams({ token: token });
-    var r = await fetch("{{ url_for('guardar_token_actualizacion') }}", { method: 'POST', body: body });
-    var data = await r.json();
-    estado.textContent = data.mensaje;
-    estado.style.color = data.ok ? '#3fb950' : '#ff6b6b';
-    if (data.ok) document.getElementById('input_token_actualizacion').value = '';
+    try {
+        var body = new URLSearchParams({ token: token });
+        var data = await pedirJSON("{{ url_for('guardar_token_actualizacion') }}", { method: 'POST', body: body });
+        estado.textContent = data.mensaje;
+        estado.style.color = data.ok ? '#3fb950' : '#ff6b6b';
+        if (data.ok) document.getElementById('input_token_actualizacion').value = '';
+    } catch (e) {
+        estado.textContent = (e.message === 'SESION_EXPIRADA')
+            ? 'Tu sesión expiró por inactividad. Cierra sesión y vuelve a entrar, luego intenta de nuevo.'
+            : 'No se pudo guardar: ' + e;
+        estado.style.color = '#ff6b6b';
+    }
+}
+
+async function pedirJSON(url, opciones) {
+    var r = await fetch(url, opciones);
+    if (r.redirected || !r.headers.get('content-type') || !r.headers.get('content-type').includes('application/json')) {
+        // Pasa cuando la sesión de la app expiró por inactividad: el
+        // servidor redirige al login (una página HTML), y sin esta
+        // comprobación el intento de leerla como JSON tira un error
+        // técnico confuso en vez de decir lo que de verdad pasó.
+        throw new Error('SESION_EXPIRADA');
+    }
+    return r.json();
 }
 
 async function actualizarCodigo() {
@@ -904,8 +922,7 @@ async function actualizarCodigo() {
     estado.textContent = 'Descargando y aplicando la actualización...';
     estado.style.color = '#918c80';
     try {
-        var r = await fetch("{{ url_for('actualizar_codigo') }}", { method: 'POST' });
-        var data = await r.json();
+        var data = await pedirJSON("{{ url_for('actualizar_codigo') }}", { method: 'POST' });
         estado.textContent = data.mensaje;
         estado.style.color = data.ok ? '#3fb950' : '#ff6b6b';
         if (data.ok) {
@@ -915,7 +932,11 @@ async function actualizarCodigo() {
             }
         }
     } catch (e) {
-        estado.textContent = 'No se pudo actualizar: ' + e;
+        if (e.message === 'SESION_EXPIRADA') {
+            estado.textContent = 'Tu sesión expiró por inactividad. Cierra sesión y vuelve a entrar, luego intenta de nuevo.';
+        } else {
+            estado.textContent = 'No se pudo actualizar: ' + e;
+        }
         estado.style.color = '#ff6b6b';
     }
 }
