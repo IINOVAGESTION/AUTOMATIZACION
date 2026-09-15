@@ -87,6 +87,20 @@ def revisar_inactividad():
         session.permanent = True
 
 
+@app.after_request
+def evitar_cache_del_navegador(respuesta):
+    """Como el botón "Actualizar" puede cambiar el HTML/JS de la app
+    mientras sigue corriendo el mismo servidor en localhost:5000, el
+    navegador interno (WebView2/Edge) NO debe guardar en caché estas
+    páginas — si lo hiciera, después de actualizar y reiniciar seguiría
+    mostrando la versión vieja (con los bugs viejos) aunque el archivo
+    en disco ya esté corregido, y ni cerrar sesión ni nada del lado del
+    servidor lo arreglaría, porque el caché vive en el navegador."""
+    respuesta.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    respuesta.headers["Pragma"] = "no-cache"
+    return respuesta
+
+
 # ============================================================
 # FILA DE TRABAJOS: en vez de bloquear mientras corre un viaje,
 # cada "Ejecutar" agrega un trabajo a esta fila. Un hilo dedicado los
