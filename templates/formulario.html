@@ -899,19 +899,26 @@ async function guardarTokenActualizacion() {
     } catch (e) {
         estado.textContent = (e.message === 'SESION_EXPIRADA')
             ? 'Tu sesión expiró por inactividad. Cierra sesión y vuelve a entrar, luego intenta de nuevo.'
-            : 'No se pudo guardar: ' + e;
+            : 'No se pudo guardar: ' + e.message;
         estado.style.color = '#ff6b6b';
     }
 }
 
 async function pedirJSON(url, opciones) {
     var r = await fetch(url, opciones);
-    if (r.redirected || !r.headers.get('content-type') || !r.headers.get('content-type').includes('application/json')) {
-        // Pasa cuando la sesión de la app expiró por inactividad: el
-        // servidor redirige al login (una página HTML), y sin esta
-        // comprobación el intento de leerla como JSON tira un error
-        // técnico confuso en vez de decir lo que de verdad pasó.
-        throw new Error('SESION_EXPIRADA');
+    var tipoContenido = r.headers.get('content-type') || '';
+    if (!tipoContenido.includes('application/json')) {
+        // No asume que siempre es "la sesión expiró" — eso solo pasa si
+        // hubo una redirección hacia el login. Si no, es algo distinto
+        // (ej. esa ruta no existe en esta versión del código = 404, o un
+        // error interno = 500), y hay que decirlo tal cual para poder
+        // diagnosticarlo, en vez de adivinar mal la causa.
+        if (r.redirected && r.url.indexOf('/login') !== -1) {
+            throw new Error('SESION_EXPIRADA');
+        }
+        var texto = '';
+        try { texto = (await r.text()).slice(0, 150); } catch (e) {}
+        throw new Error('RESPUESTA_NO_JSON: HTTP ' + r.status + ' — ' + texto);
     }
     return r.json();
 }
@@ -935,7 +942,7 @@ async function actualizarCodigo() {
         if (e.message === 'SESION_EXPIRADA') {
             estado.textContent = 'Tu sesión expiró por inactividad. Cierra sesión y vuelve a entrar, luego intenta de nuevo.';
         } else {
-            estado.textContent = 'No se pudo actualizar: ' + e;
+            estado.textContent = 'No se pudo actualizar: ' + e.message;
         }
         estado.style.color = '#ff6b6b';
     }
