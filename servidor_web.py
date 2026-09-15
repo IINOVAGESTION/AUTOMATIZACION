@@ -629,65 +629,6 @@ def actualizar_codigo():
     return jsonify({"ok": ok, "mensaje": mensaje})
 
 
-@app.route("/reiniciar_app", methods=["POST"])
-def reiniciar_app():
-    """Cierra este proceso y abre uno nuevo, para que la interfaz recién
-    actualizada quede activa sin que la persona tenga que ir a buscar y
-    volver a abrir el .exe a mano."""
-    if "usuario_app" not in session:
-        return jsonify({"ok": False, "mensaje": "Sesión no válida."}), 403
-
-    def reiniciar_de_verdad():
-        time.sleep(0.6)
-        try:
-            # Al relanzarse a sí mismo, el proceso nuevo hereda por
-            # defecto TODAS las variables de entorno del actual — y entre
-            # ellas puede venir "_MEIPASS2", una que PyInstaller usa
-            # internamente para saber dónde extrajo sus propios archivos
-            # en ESTE arranque. Si el proceso hijo la hereda, puede
-            # confundirse pensando que debe reusar esa ubicación (que ya
-            # no le pertenece a él), y ahí es donde fallan justo los
-            # componentes nativos de la ventana (pythonnet/cffi), aunque
-            # el resto del programa arranque bien. Por eso se limpia esa
-            # variable antes de lanzar el proceso nuevo: así arranca
-            # exactamente igual que si se abriera manualmente.
-            entorno_limpio = os.environ.copy()
-            entorno_limpio.pop("_MEIPASS2", None)
-
-            # DETACHED_PROCESS + CREATE_NEW_PROCESS_GROUP (solo existen en
-            # Windows): el proceso nuevo queda COMPLETAMENTE independiente
-            # del actual, sin heredar su consola ni quedar "amarrado" a
-            # él de ninguna forma. Sin esto, a veces Windows considera al
-            # nuevo proceso como parte del mismo grupo del viejo, y la
-            # limpieza que el viejo hace al cerrarse (borrar su propia
-            # carpeta temporal) puede pisarse con el arranque del nuevo
-            # (que en ese mismo instante está extrayendo SUS archivos),
-            # mostrando el aviso de "Failed to remove temporary directory"
-            # y, en el peor caso, dejando al nuevo a medio arrancar.
-            banderas = 0
-            if getattr(sys, "frozen", False):
-                banderas = getattr(subprocess, "DETACHED_PROCESS", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
-                subprocess.Popen(
-                    [sys.executable], env=entorno_limpio, cwd=os.path.dirname(sys.executable),
-                    creationflags=banderas, close_fds=True,
-                )
-            else:
-                subprocess.Popen([sys.executable] + sys.argv, env=entorno_limpio)
-        except Exception:
-            pass
-
-        # Le da tiempo de sobra al proceso nuevo para que termine de
-        # extraerse y arrancar bien ANTES de que este (el viejo) se
-        # cierre — reduce las chances de que ambas cosas (la limpieza
-        # de la carpeta temporal del viejo, y la extracción del nuevo)
-        # choquen entre sí al mismo tiempo.
-        time.sleep(2.5)
-        os._exit(0)
-
-    threading.Thread(target=reiniciar_de_verdad, daemon=True).start()
-    return jsonify({"ok": True, "mensaje": "Reiniciando..."})
-
-
 def iniciar_servidor_flask_en_hilo():
     """Arranca el servidor Flask en un hilo aparte y espera de verdad a
     que responda antes de devolver el control (en vez de una pausa fija,

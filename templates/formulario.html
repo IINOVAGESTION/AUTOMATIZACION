@@ -933,10 +933,14 @@ async function actualizarCodigo() {
         estado.textContent = data.mensaje;
         estado.style.color = data.ok ? '#3fb950' : '#ff6b6b';
         if (data.ok) {
-            if (confirm('Actualización aplicada. ¿Reiniciar la app ahora para que quede activa?')) {
-                await fetch("{{ url_for('reiniciar_app') }}", { method: 'POST' });
-                estado.textContent = 'Reiniciando la app...';
-            }
+            // El reinicio automático (relanzar el .exe solo) resultó
+            // poco confiable en la práctica — a veces el proceso viejo
+            // y el nuevo chocan entre sí (avisos de PyInstaller sobre
+            // carpetas temporales, ventanas en blanco). Es mejor pedirle
+            // a la persona que cierre y abra de nuevo a mano: un paso
+            // extra, pero mucho más seguro que arriesgar una ventana
+            // rota que además hay que cerrar a mano de todas formas.
+            estado.textContent = data.mensaje + ' Cierra la app (la X de la ventana) y ábrela de nuevo para que quede activa.';
         }
     } catch (e) {
         if (e.message === 'SESION_EXPIRADA') {
