@@ -25,6 +25,22 @@ import requests
 
 URL_REPO = "https://api.github.com/repos/IINOVAGESTION/AUTOMATIZACION/zipball/main"
 
+
+def _log_por_defecto(mensaje):
+    """El log() por defecto de esta función es print(), y esta función
+    se llama desde la ruta /actualizar_codigo del servidor SIN pasarle
+    un log propio. En el .exe empacado con --noconsole, print() con un
+    emoji (como el ✅ de más abajo) revienta con UnicodeEncodeError
+    porque la salida estándar ahí usa una codificación vieja (cp1252)
+    que no entiende emojis — y como esto pasaba DESPUÉS de aplicar la
+    actualización con éxito, el navegador recibía un error 500 en vez
+    de la confirmación, aunque el código sí se hubiera actualizado bien.
+    Por eso el log por defecto queda protegido aquí."""
+    try:
+        print(mensaje)
+    except Exception:
+        pass
+
 # Todo lo que sí se trae del repositorio y reemplaza la copia local.
 # lanzador.py se deja afuera a propósito: ese es el único archivo que
 # de verdad va sellado dentro del .exe y solo cambia reconstruyéndolo.
@@ -68,7 +84,7 @@ def guardar_token(token):
         f.write((token or "").strip())
 
 
-def actualizar_desde_github(log=print):
+def actualizar_desde_github(log=_log_por_defecto):
     """Descarga el .zip del repositorio y reemplaza el código local.
     El token es opcional: si el repositorio es público no hace falta
     ninguno. Devuelve (ok, mensaje)."""

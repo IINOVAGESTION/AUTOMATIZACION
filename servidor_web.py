@@ -154,54 +154,79 @@ def trabajador_de_fondo():
             time.sleep(1)
             continue
 
-        def log_trabajo(mensaje, _t=trabajo):
-            print(mensaje)
-            with candado:
-                _t["log"].append(mensaje)
-
         try:
+            def log_trabajo(mensaje, _t=trabajo):
+                # print() puede fallar con UnicodeEncodeError en el .exe
+                # empacado con --noconsole cuando el mensaje trae un emoji
+                # (✅⚠️❌, que usa TODO el programa) — la salida estándar ahí
+                # usa una codificación vieja (cp1252) que no los entiende.
+                # Sin este try/except, ese error pasaba ANTES de guardar el
+                # mensaje en el log que ve la pantalla, y además mataba este
+                # hilo de fondo por completo (siendo un "while True" sin
+                # nada que lo reinicie) — por eso un viaje se quedaba
+                # congelado para siempre justo después del primer mensaje
+                # con emoji, y ningún viaje más volvía a procesarse en toda
+                # esa sesión de la app, sin ningún error visible.
+                try:
+                    print(mensaje)
+                except Exception:
+                    pass
+                with candado:
+                    _t["log"].append(mensaje)
+
+            try:
+                if trabajo["v"].get("TipoViaje") == "Cola":
+                    resultado = rndc_core.ejecutar_cola(
+                        trabajo["v"]["_viajes_cola"], trabajo["usuario"], trabajo["password"], log_trabajo
+                    )
+                else:
+                    resultado = rndc_core.ejecutar_automatizacion(
+                        trabajo["v"], trabajo["usuario"], trabajo["password"], log_trabajo
+                    )
+            except Exception as e:
+                log_trabajo(f"❌ Error inesperado: {rndc_core.traducir_error(e)}")
+                resultado = {"ok": False}
+
+            with candado:
+                trabajo["estado"] = "terminado"
+                trabajo["ok"] = resultado.get("ok")
+                trabajo["archivos"] = resultado.get("archivos", [])
+
+            duracion = time.time() - trabajo["inicio"]
+
             if trabajo["v"].get("TipoViaje") == "Cola":
-                resultado = rndc_core.ejecutar_cola(
-                    trabajo["v"]["_viajes_cola"], trabajo["usuario"], trabajo["password"], log_trabajo
-                )
+                # Se registra cada viaje de la cola por separado (con su
+                # propia placa/conductor), no como un solo renglón genérico.
+                viajes_cola = trabajo["v"].get("_viajes_cola", [])
+                resultados_cola = resultado.get("resultados", [])
+                duracion_por_viaje = duracion / len(viajes_cola) if viajes_cola else duracion
+                for i, v_item in enumerate(viajes_cola):
+                    resultado_item = resultados_cola[i] if i < len(resultados_cola) else {"ok": resultado.get("ok")}
+                    ok_item = resultado_item.get("ok")
+                    desc_item = f"Consecutivo {v_item.get('Consecutivo') or '?'} ({v_item.get('Origen', '?')} → {v_item.get('Destino', '?')})"
+                    registrar_historial(
+                        desc_item, ok_item, duracion_por_viaje,
+                        placa=v_item.get("Placa"), cedula_conductor=v_item.get("Cedula_Conductor"),
+                    )
+                    if ok_item:
+                        registrar_en_sheets(v_item, resultado_item, log_trabajo)
             else:
-                resultado = rndc_core.ejecutar_automatizacion(
-                    trabajo["v"], trabajo["usuario"], trabajo["password"], log_trabajo
-                )
-        except Exception as e:
-            log_trabajo(f"❌ Error inesperado: {rndc_core.traducir_error(e)}")
-            resultado = {"ok": False}
-
-        with candado:
-            trabajo["estado"] = "terminado"
-            trabajo["ok"] = resultado.get("ok")
-            trabajo["archivos"] = resultado.get("archivos", [])
-
-        duracion = time.time() - trabajo["inicio"]
-
-        if trabajo["v"].get("TipoViaje") == "Cola":
-            # Se registra cada viaje de la cola por separado (con su
-            # propia placa/conductor), no como un solo renglón genérico.
-            viajes_cola = trabajo["v"].get("_viajes_cola", [])
-            resultados_cola = resultado.get("resultados", [])
-            duracion_por_viaje = duracion / len(viajes_cola) if viajes_cola else duracion
-            for i, v_item in enumerate(viajes_cola):
-                resultado_item = resultados_cola[i] if i < len(resultados_cola) else {"ok": resultado.get("ok")}
-                ok_item = resultado_item.get("ok")
-                desc_item = f"Consecutivo {v_item.get('Consecutivo') or '?'} ({v_item.get('Origen', '?')} → {v_item.get('Destino', '?')})"
                 registrar_historial(
-                    desc_item, ok_item, duracion_por_viaje,
-                    placa=v_item.get("Placa"), cedula_conductor=v_item.get("Cedula_Conductor"),
+                    trabajo["descripcion"], resultado.get("ok"), duracion,
+                    placa=trabajo["v"].get("Placa"), cedula_conductor=trabajo["v"].get("Cedula_Conductor"),
                 )
-                if ok_item:
-                    registrar_en_sheets(v_item, resultado_item, log_trabajo)
-        else:
-            registrar_historial(
-                trabajo["descripcion"], resultado.get("ok"), duracion,
-                placa=trabajo["v"].get("Placa"), cedula_conductor=trabajo["v"].get("Cedula_Conductor"),
-            )
-            if resultado.get("ok"):
-                registrar_en_sheets(trabajo["v"], resultado, log_trabajo)
+                if resultado.get("ok"):
+                    registrar_en_sheets(trabajo["v"], resultado, log_trabajo)
+        except Exception:
+            # Red de seguridad final: bajo NINGUNA circunstancia este hilo
+            # debe morir — si muriera, ningún viaje más se procesaría en
+            # el resto de la sesión de la app (se quedarían todos
+            # "Esperando turno en la fila..." para siempre), sin ningún
+            # aviso visible de que eso pasó. Mejor marcar este trabajo
+            # como fallido y seguir con el siguiente.
+            with candado:
+                trabajo["estado"] = "terminado"
+                trabajo["ok"] = False
 
 
 threading.Thread(target=trabajador_de_fondo, daemon=True).start()
