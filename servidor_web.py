@@ -699,7 +699,10 @@ if __name__ == "__main__":
     servidor_listo, mensaje_error = iniciar_servidor_flask_en_hilo()
 
     if servidor_listo is False:
-        print("⚠️ ", mensaje_error)
+        try:
+            print("AVISO:", mensaje_error)
+        except Exception:
+            pass
         try:
             import ctypes
             ctypes.windll.user32.MessageBoxW(0, mensaje_error, "Automatización RNDC - No se pudo iniciar", 0x10)
@@ -707,7 +710,10 @@ if __name__ == "__main__":
             pass
         sys.exit(1)
     elif servidor_listo is None:
-        print("⚠️ ", mensaje_error)
+        try:
+            print("AVISO:", mensaje_error)
+        except Exception:
+            pass
 
     try:
         import webview

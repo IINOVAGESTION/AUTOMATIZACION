@@ -92,7 +92,15 @@ def sembrar_si_hace_falta():
 
 
 def mostrar_error_nativo(titulo, mensaje):
-    print("⚠️ ", mensaje)
+    # El print() es solo un extra para cuando SÍ hay consola (ej. corriendo
+    # "python lanzador.py" en desarrollo); en el .exe empacado con
+    # --noconsole a veces la salida estándar usa una codificación vieja
+    # (cp1252) que no entiende emojis, y sin este try/except ese error
+    # tapaba el mensaje real que sí debía verse en el cuadro de diálogo.
+    try:
+        print("AVISO:", mensaje)
+    except Exception:
+        pass
     try:
         import ctypes
         ctypes.windll.user32.MessageBoxW(0, mensaje, titulo, 0x10)
@@ -121,7 +129,10 @@ def main():
         elif servidor_listo is None:
             # Solo lentitud, no un error real: se avisa pero se sigue
             # intentando abrir la ventana de todas formas.
-            print("⚠️ ", mensaje_error)
+            try:
+                print("AVISO:", mensaje_error)
+            except Exception:
+                pass
 
     except Exception as e:
         import traceback
