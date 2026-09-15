@@ -3,6 +3,7 @@ core/navegador.py — Todo lo relacionado con abrir/configurar Chrome
 (Selenium): opciones del navegador, caché del chromedriver, y el
 control de ventanas "abandonadas" cuando un viaje falla.
 """
+import concurrent.futures
 from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
 
@@ -38,10 +39,35 @@ def obtener_chromedriver_path():
     (ChromeDriverManager().install() hace una consulta a internet para
     verificar la versión cada vez que se llama, lo que suma varios
     segundos innecesarios si se abren muchos navegadores seguidos, como
-    en la Cola de viajes)."""
+    en la Cola de viajes).
+
+    Esa consulta a internet no tenía ningún límite de tiempo: si la
+    conexión de la computadora estaba lenta, bloqueada por un firewall/
+    antivirus corporativo, o simplemente caída, el programa se quedaba
+    esperando ahí PARA SIEMPRE sin mostrar ningún error (quedaba
+    "Ejecutando..." sin avanzar, y ni siquiera llegaba a abrir Chrome).
+    Por eso ahora se le pone un límite de 45 segundos."""
     global _RUTA_CHROMEDRIVER_CACHE
     if _RUTA_CHROMEDRIVER_CACHE is None:
-        _RUTA_CHROMEDRIVER_CACHE = ChromeDriverManager().install()
+        ejecutor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        futuro = ejecutor.submit(lambda: ChromeDriverManager().install())
+        try:
+            _RUTA_CHROMEDRIVER_CACHE = futuro.result(timeout=45)
+        except concurrent.futures.TimeoutError:
+            # shutdown(wait=False): si se usara "with" aquí (o el wait=True
+            # de por defecto), Python esperaría a que el hilo colgado
+            # termine antes de dejar salir esta función — justo lo que se
+            # quiere evitar. Se deja ese hilo de fondo, huérfano, y se
+            # sigue de inmediato para no bloquear el resto del programa.
+            ejecutor.shutdown(wait=False)
+            raise TimeoutError(
+                "No se pudo preparar Chrome: la descarga/verificación del "
+                "'chromedriver' (necesaria la primera vez, o tras una "
+                "actualización de Chrome) tardó más de 45 segundos. Revisa "
+                "que esta computadora tenga internet, y que el antivirus o "
+                "firewall no esté bloqueando la conexión."
+            )
+        ejecutor.shutdown(wait=False)
     return _RUTA_CHROMEDRIVER_CACHE
 
 

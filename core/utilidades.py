@@ -70,6 +70,12 @@ def traducir_error(e):
 
     if nombre_clase in traducciones:
         return f"{traducciones[nombre_clase]} (detalle técnico: {texto_original})"
+    if nombre_clase == "TimeoutError":
+        # Estos los lanza el propio programa (ej. la descarga del
+        # chromedriver) ya redactados en español para la persona, así
+        # que se muestran tal cual, sin envolverlos en el formato
+        # técnico de Python (que se vería como TimeoutError('...')).
+        return str(e)
     return texto_original
 
 
