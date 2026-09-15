@@ -100,6 +100,22 @@ def crear_driver_con_limite(chrome_options, chromedriver_path, timeout=45):
             "pasar, intenta reiniciar la computadora."
         )
     ejecutor.shutdown(wait=False)
+
+    # Esto es la protección más importante de las dos: pone un límite de
+    # tiempo a NIVEL DE CADA ORDEN que Selenium le manda a Chrome de aquí
+    # en adelante (abrir una página, maximizar la ventana, buscar un
+    # campo, etc.), no solo a la apertura inicial. Sin esto, cualquier
+    # orden individual (ej. driver.maximize_window(), que es justo lo que
+    # sigue después de esta función) puede colgarse para siempre sin
+    # ningún aviso, exactamente como pasaba antes con la apertura misma
+    # de Chrome — y cerrar la ventana a mano tampoco libera nada, porque
+    # el programa no está "mirando" la ventana, está esperando una
+    # respuesta a una orden que ya se envió y nunca contestó.
+    try:
+        driver.command_executor.set_timeout(40)
+    except Exception:
+        pass  # si esta versión de Selenium no lo soporta, se sigue igual (mejor sin esto que fallar aquí)
+
     return driver
 
 
