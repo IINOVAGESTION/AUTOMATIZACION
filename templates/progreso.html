@@ -74,6 +74,7 @@
       <span id="estado-badge" class="estado corriendo"><span class="punto"></span> {{ mensaje_inicial }}</span>
       <a class="verfila" href="{{ url_for('ver_cola') }}">📋 Ver toda la fila</a>
       <a class="volver" href="{{ url_for('formulario') }}">+ Agregar otro viaje →</a>
+      <a class="verfila" href="{{ url_for('logout') }}" onclick="return confirm('¿Cerrar sesión?');">🚪 Cerrar sesión</a>
     </div>
   </div>
 

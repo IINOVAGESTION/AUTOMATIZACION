@@ -199,6 +199,7 @@
     <div class="subtitulo">Logística Empresarial S.A.S &middot; Automatización RNDC</div>
   </div>
   <a href="{{ url_for('ver_cola') }}" style="margin-left:auto; color:#ff6a00; text-decoration:none; font-size:0.85rem; font-weight:700; border:1px solid #ff6a00; padding:0.5rem 1rem; border-radius:7px;">📋 Ver fila de viajes</a>
+  <a href="{{ url_for('logout') }}" onclick="return confirm('¿Cerrar sesión?');" style="color:#918c80; text-decoration:none; font-size:0.85rem; font-weight:700; border:1px solid #3a3733; padding:0.5rem 1rem; border-radius:7px;">🚪 Cerrar sesión</a>
 </div>
 
 {% if actualizacion and actualizacion.hay_nueva %}

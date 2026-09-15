@@ -66,7 +66,10 @@
       <div class="logo-mark"><img src="{{ url_for('static', filename='logo.png') }}" alt="Innova" style="height:100%; width:auto;"></div>
       <h1>INNOVA &mdash; Fila de trabajos</h1>
     </div>
-    <a class="volver" href="{{ url_for('formulario') }}">+ Agregar viaje</a>
+    <div style="display:flex; align-items:center; gap:0.75rem;">
+      <a class="volver" href="{{ url_for('formulario') }}">+ Agregar viaje</a>
+      <a href="{{ url_for('logout') }}" onclick="return confirm('¿Cerrar sesión?');" style="color:#918c80; text-decoration:none; font-size:0.85rem; font-weight:700; border:1px solid #3a3733; padding:0.5rem 1rem; border-radius:7px;">🚪 Cerrar sesión</a>
+    </div>
   </div>
 
   <div class="contenedor">
