@@ -24,6 +24,7 @@ import tempfile
 import requests
 
 URL_REPO = "https://api.github.com/repos/IINOVAGESTION/AUTOMATIZACION/zipball/main"
+URL_INFO_COMMIT = "https://api.github.com/repos/IINOVAGESTION/AUTOMATIZACION/commits/main"
 
 
 def _log_por_defecto(mensaje):
@@ -147,10 +148,47 @@ def actualizar_desde_github(log=_log_por_defecto):
                 os.replace(destino_temporal, destino_item)
 
             with open(os.path.join(destino, "_version_actualizada.json"), "w", encoding="utf-8") as f:
-                json.dump({"etag": resp.headers.get("ETag", "")}, f)
+                json.dump(obtener_info_commit_actual(encabezados), f)
 
     except Exception as e:
         return False, f"Falló al aplicar la actualización: {e}"
 
     log("✅ Código actualizado correctamente.")
-    return True, "Listo. Reinicia la app para que los cambios queden activos."
+    return True, "Listo."
+
+
+def obtener_info_commit_actual(encabezados):
+    """Le pregunta a GitHub cuál es el último cambio (commit) de la rama
+    principal — un identificador corto, la fecha, y el resumen del
+    cambio — para poder mostrarlo en la app y así confirmar de un
+    vistazo si de verdad se trajo lo más reciente. Si esta consulta
+    extra falla por cualquier motivo (ej. el límite de consultas de
+    GitHub sin token), no es grave: la actualización de código ya se
+    aplicó de todas formas, simplemente no se sabrá el detalle exacto."""
+    try:
+        resp = requests.get(URL_INFO_COMMIT, headers=encabezados, timeout=15)
+        if resp.status_code == 200:
+            datos = resp.json()
+            return {
+                "sha_corto": datos.get("sha", "")[:7],
+                "fecha": datos.get("commit", {}).get("author", {}).get("date", ""),
+                "resumen": datos.get("commit", {}).get("message", "").split("\n")[0][:100],
+            }
+    except Exception:
+        pass
+    return {}
+
+
+def leer_version_actual():
+    """Lee la info de la última actualización aplicada (si alguna vez
+    se usó el botón "Actualizar" en esta computadora). Devuelve un
+    diccionario vacío si nunca se ha actualizado — en ese caso, la app
+    sigue corriendo con la versión "de fábrica" que traía el .exe."""
+    ruta = os.path.join(carpeta_codigo(), "_version_actualizada.json")
+    if os.path.exists(ruta):
+        try:
+            with open(ruta, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}

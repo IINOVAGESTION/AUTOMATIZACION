@@ -607,7 +607,10 @@ def ver_pdf():
 
 @app.route("/estado_actualizacion", methods=["GET"])
 def estado_actualizacion():
-    return jsonify({"token_configurado": bool(actualizador.leer_token())})
+    return jsonify({
+        "token_configurado": bool(actualizador.leer_token()),
+        "version": actualizador.leer_version_actual(),
+    })
 
 
 @app.route("/guardar_token_actualizacion", methods=["POST"])
