@@ -268,16 +268,14 @@
       </details>
     </div>
 
-    <div class="fila" style="margin-top:1rem;">
+    <div class="fila" id="fila_datos_generales" style="margin-top:1rem;">
       <div id="campo_cliente">
         <label>Cliente<span class="ayuda-icono" data-tip="La persona o empresa que pidió este manifiesto (no es el remitente ni el destinatario, sino quien contrató el servicio).">i</span></label>
         <input type="text" name="Cliente" value="{{ v.get('Cliente', '') }}" tabindex="8">
       </div>
-      <div>
+      <div id="campo_consecutivo">
         <label>Consecutivo</label>
-        <div id="campo_consecutivo">
-          <input type="text" name="Consecutivo" id="input_consecutivo" value="{{ v.get('Consecutivo', '') }}" class="campo-clave" tabindex="1" oninput="verificarConsecutivo()">
-        </div>
+        <input type="text" name="Consecutivo" id="input_consecutivo" value="{{ v.get('Consecutivo', '') }}" class="campo-clave" tabindex="1" oninput="verificarConsecutivo()">
         <span id="aviso_consecutivo" style="display:none; align-items:center; gap:6px; background:rgba(255,106,0,0.14); border:1px solid #ff6a00; border-radius:6px; padding:6px 10px; margin-top:6px; font-size:0.82rem; color:#ff6a00;"></span>
       </div>
       <div id="campo_placa"><label>Placa</label><input type="text" name="Placa" id="input_placa" value="{{ v.get('Placa', '') }}" class="campo-clave" tabindex="2" oninput="sugerirConductor()"></div>
@@ -405,8 +403,8 @@
       </div>
     </div>
 
-    <div class="fila">
-      <div>
+    <div class="fila" id="fila_titular_conductor">
+      <div id="campo_titular">
         <label>Titular del manifiesto (Cédula/NIT)</label>
         <div class="fila-verificar">
           <input type="text" name="Cedula_Titular" id="input_cedula_titular" value="{{ v.get('Cedula_Titular', '') }}" required class="campo-clave" tabindex="12">
@@ -1008,12 +1006,29 @@ function toggleTipoViaje() {
     var etiquetaDestino = document.getElementById('etiqueta_destino_paradas');
     if (etiquetaDestino) etiquetaDestino.textContent = esIdaYRegreso ? 'Destino (vuelve al origen)' : 'Destino Final';
 
-    // En modo Cola, cada viaje trae su propio Consecutivo/Placa/Flete/
-    // Anticipo/Cédula del conductor, así que esos campos generales se
-    // ocultan (siguen enviándose vacíos, ya no son obligatorios).
+    // En modo Récord, cada viaje trae su propio Consecutivo/Flete/
+    // Anticipo/Fecha, así que esos campos generales se ocultan (siguen
+    // enviándose vacíos, ya no son obligatorios).
     ['campo_consecutivo', 'campo_flete', 'campo_anticipo', 'campo_fecha_opcional'].forEach(id => {
         document.getElementById(id).style.display = esCola ? 'none' : '';
     });
+
+    // En Récord, Titular y Conductor SÍ son compartidos por toda la
+    // lista (a diferencia de Consecutivo), así que se suben a la fila
+    // de "Datos generales" — en las demás pestañas vuelven a su fila
+    // propia de siempre. Son los mismos campos (no una copia), solo se
+    // mueven de lugar en la página.
+    var filaGenerales = document.getElementById('fila_datos_generales');
+    var filaTitularConductor = document.getElementById('fila_titular_conductor');
+    var campoTitular = document.getElementById('campo_titular');
+    var campoConductor = document.getElementById('campo_cedula_conductor');
+    if (esCola) {
+        filaGenerales.appendChild(campoTitular);
+        filaGenerales.appendChild(campoConductor);
+    } else {
+        filaTitularConductor.appendChild(campoTitular);
+        filaTitularConductor.appendChild(campoConductor);
+    }
 
     if (esParadas && document.getElementById('lista_paradas').children.length === 0) {
         agregarParada();
