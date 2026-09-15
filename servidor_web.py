@@ -653,12 +653,35 @@ def reiniciar_app():
             # exactamente igual que si se abriera manualmente.
             entorno_limpio = os.environ.copy()
             entorno_limpio.pop("_MEIPASS2", None)
+
+            # DETACHED_PROCESS + CREATE_NEW_PROCESS_GROUP (solo existen en
+            # Windows): el proceso nuevo queda COMPLETAMENTE independiente
+            # del actual, sin heredar su consola ni quedar "amarrado" a
+            # él de ninguna forma. Sin esto, a veces Windows considera al
+            # nuevo proceso como parte del mismo grupo del viejo, y la
+            # limpieza que el viejo hace al cerrarse (borrar su propia
+            # carpeta temporal) puede pisarse con el arranque del nuevo
+            # (que en ese mismo instante está extrayendo SUS archivos),
+            # mostrando el aviso de "Failed to remove temporary directory"
+            # y, en el peor caso, dejando al nuevo a medio arrancar.
+            banderas = 0
             if getattr(sys, "frozen", False):
-                subprocess.Popen([sys.executable], env=entorno_limpio, cwd=os.path.dirname(sys.executable))
+                banderas = getattr(subprocess, "DETACHED_PROCESS", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+                subprocess.Popen(
+                    [sys.executable], env=entorno_limpio, cwd=os.path.dirname(sys.executable),
+                    creationflags=banderas, close_fds=True,
+                )
             else:
                 subprocess.Popen([sys.executable] + sys.argv, env=entorno_limpio)
         except Exception:
             pass
+
+        # Le da tiempo de sobra al proceso nuevo para que termine de
+        # extraerse y arrancar bien ANTES de que este (el viejo) se
+        # cierre — reduce las chances de que ambas cosas (la limpieza
+        # de la carpeta temporal del viejo, y la extracción del nuevo)
+        # choquen entre sí al mismo tiempo.
+        time.sleep(2.5)
         os._exit(0)
 
     threading.Thread(target=reiniciar_de_verdad, daemon=True).start()
