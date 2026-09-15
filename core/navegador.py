@@ -4,6 +4,8 @@ core/navegador.py — Todo lo relacionado con abrir/configurar Chrome
 control de ventanas "abandonadas" cuando un viaje falla.
 """
 import concurrent.futures
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
 
@@ -69,6 +71,36 @@ def obtener_chromedriver_path():
             )
         ejecutor.shutdown(wait=False)
     return _RUTA_CHROMEDRIVER_CACHE
+
+
+def crear_driver_con_limite(chrome_options, chromedriver_path, timeout=45):
+    """Crea el objeto Selenium que controla Chrome (webdriver.Chrome),
+    pero con un límite de tiempo real — esa llamada NO tenía ninguno
+    por defecto, así que si Chrome no terminaba de arrancar bien (puerto
+    de depuración bloqueado por un antivirus, un perfil de Chrome
+    trabado, etc.) el programa se quedaba esperando PARA SIEMPRE, sin
+    ningún error, y ni siquiera cerrar la ventana de Chrome a mano lo
+    liberaba (el programa no estaba "mirando" la ventana, estaba
+    esperando una respuesta interna que nunca iba a llegar).
+
+    Devuelve el driver ya listo, o lanza TimeoutError con un mensaje
+    claro si se pasó del límite."""
+    ejecutor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    futuro = ejecutor.submit(
+        lambda: webdriver.Chrome(service=Service(chromedriver_path), options=chrome_options)
+    )
+    try:
+        driver = futuro.result(timeout=timeout)
+    except concurrent.futures.TimeoutError:
+        ejecutor.shutdown(wait=False)  # no esperar al hilo colgado (ver obtener_chromedriver_path)
+        raise TimeoutError(
+            "Chrome no terminó de abrirse en 45 segundos. Esto suele pasar por un "
+            "antivirus bloqueando el navegador, un perfil de Chrome dañado, o muy "
+            "poca memoria/CPU libre en la computadora en ese momento. Si vuelve a "
+            "pasar, intenta reiniciar la computadora."
+        )
+    ejecutor.shutdown(wait=False)
+    return driver
 
 
 def crear_opciones_chrome(carpeta_descargas=None, invisible=False):

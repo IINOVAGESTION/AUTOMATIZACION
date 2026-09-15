@@ -6,10 +6,8 @@ viajes seguidos reutilizando el mismo navegador).
 import time
 import os
 from datetime import datetime, timedelta
-from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait, Select
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import (
@@ -22,7 +20,10 @@ from .config import (
     URL_REIMPRIMIR_REMESA, URL_REIMPRIMIR_MANIFIESTO,
     CARPETA_DESCARGAS, FIJOS_REMESA, FIJOS_MANIFIESTO, ruta_captura,
 )
-from .navegador import crear_opciones_chrome, obtener_chromedriver_path, registrar_navegador_abandonado
+from .navegador import (
+    crear_opciones_chrome, obtener_chromedriver_path, registrar_navegador_abandonado,
+    crear_driver_con_limite,
+)
 from .utilidades import (
     set_text, set_select, set_select_por_texto_parcial, set_autocomplete_municipio,
     traducir_error, limpiar_numero, normalizar_tipo_id,
@@ -82,7 +83,7 @@ def ejecutar_automatizacion(v, usuario, password, log, driver_compartido=None, w
         os.makedirs(CARPETA_DESCARGAS, exist_ok=True)
         chrome_options = crear_opciones_chrome(carpeta_descargas=CARPETA_DESCARGAS, invisible=invisible)
         log(f"Abriendo navegador Chrome ({'invisible' if invisible else 'visible'}) y arrancando el proceso completo...")
-        driver = webdriver.Chrome(service=Service(obtener_chromedriver_path()), options=chrome_options)
+        driver = crear_driver_con_limite(chrome_options, obtener_chromedriver_path())
         driver.set_page_load_timeout(25)  # si el sitio no responde, no se cuelga para siempre
         if not invisible:
             driver.maximize_window()
@@ -888,7 +889,7 @@ def ejecutar_cola(lista_de_viajes, usuario, password, log):
         chrome_options = crear_opciones_chrome(carpeta_descargas=CARPETA_DESCARGAS, invisible=invisible)
         log(f"Abriendo UN SOLO navegador Chrome ({'invisible' if invisible else 'visible'}) "
             f"para toda la cola de {total} viaje(s)...")
-        d = webdriver.Chrome(service=Service(obtener_chromedriver_path()), options=chrome_options)
+        d = crear_driver_con_limite(chrome_options, obtener_chromedriver_path())
         d.set_page_load_timeout(25)
         if not invisible:
             d.maximize_window()
