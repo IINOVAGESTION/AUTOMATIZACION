@@ -66,7 +66,36 @@ app = Flask(
     template_folder=resource_path("templates"),
     static_folder=resource_path("static"),
 )
-app.secret_key = "cambia-esto-por-algo-secreto"  # cualquier texto, solo debe ser secreto
+def _obtener_secret_key():
+    """La clave que Flask usa para "sellar" las sesiones de cada persona
+    (para que nadie pueda falsificar su propia cookie de "ya inicié
+    sesión"). Antes estaba escrita fija en este archivo — pero como el
+    código ahora es público en GitHub, cualquiera podía verla ahí
+    mismo. En vez de eso, cada computadora genera la SUYA propia la
+    primera vez que corre, y la guarda por fuera de la carpeta de
+    código (que el botón "Actualizar" reemplaza por completo), para
+    que nunca quede visible en el repositorio y sobreviva a las
+    actualizaciones."""
+    import secrets
+    ruta = os.path.join(actualizador.carpeta_datos_appdata(), "flask_secret.txt")
+    if os.path.exists(ruta):
+        try:
+            with open(ruta, "r", encoding="utf-8") as f:
+                clave_guardada = f.read().strip()
+            if clave_guardada:
+                return clave_guardada
+        except Exception:
+            pass
+    clave_nueva = secrets.token_hex(32)
+    try:
+        with open(ruta, "w", encoding="utf-8") as f:
+            f.write(clave_nueva)
+    except Exception:
+        pass  # si por algo no se puede guardar, se usa igual solo para esta sesión
+    return clave_nueva
+
+
+app.secret_key = _obtener_secret_key()
 app.permanent_session_lifetime = timedelta(minutes=30)
 
 
