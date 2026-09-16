@@ -31,7 +31,9 @@ def registrar_en_sheets(v, resultado, log=print):
     de Google Sheets configurada (vía el 'Web App' de Apps Script), con
     el orden de columnas: Consecutivo, Fecha, Mes, Año, N (editable a
     mano), Pendiente/OK (editable a mano), Cliente, CC Conductor,
-    Nombre Conductor, CC Titular, Nombre Titular, Placa, Remolque.
+    Nombre Conductor, CC Titular, Nombre Titular, Placa, Remolque,
+    Usuario (quién de la empresa hizo el viaje, según con qué usuario
+    inició sesión en la app).
     Si no hay URL configurada, o algo falla, no interrumpe nada más
     (es un extra, no algo crítico para el viaje en sí)."""
     if not URL_WEBHOOK_SHEETS.strip():
@@ -49,6 +51,7 @@ def registrar_en_sheets(v, resultado, log=print):
         "nombre_titular": resultado.get("nombre_titular_real") or "",
         "placa": v.get("Placa", ""),
         "remolque": v.get("Placa_Remolque", ""),
+        "usuario": v.get("usuario_app", ""),
     }
     try:
         resp = requests.post(URL_WEBHOOK_SHEETS, json=payload, timeout=10, allow_redirects=True)

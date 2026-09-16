@@ -456,6 +456,13 @@ def ejecutar():
         "FechaPago": fecha_pago,
         "Invisible": f.get("Invisible") == "on",
         "ModoPractica": f.get("ModoPractica") == "on",
+        # Quién de la empresa hizo este viaje (con qué usuario inició
+        # sesión en la app) — no es lo mismo que usuario_rndc, que es la
+        # cuenta del RNDC en sí (varias personas pueden compartir la
+        # misma cuenta vinculada del RNDC). Viaja junto con "v" hasta el
+        # registro en Google Sheets al final, y también lo heredan los
+        # viajes de la cola de Récord (todos comparten este mismo dato).
+        "usuario_app": session.get("usuario_app", ""),
     }
     usuario_rndc = session.get("usuario_rndc_vinculado") or f.get("usuario_rndc", "").strip()
     password_rndc = session.get("password_rndc_vinculado") or f.get("password_rndc", "").strip()
