@@ -643,29 +643,40 @@ def ver_pdf():
 
 @app.route("/estado_actualizacion", methods=["GET"])
 def estado_actualizacion():
-    return jsonify({
-        "token_configurado": bool(actualizador.leer_token()),
-        "version": actualizador.leer_version_actual(),
-    })
+    try:
+        return jsonify({
+            "token_configurado": bool(actualizador.leer_token()),
+            "version": actualizador.leer_version_actual(),
+        })
+    except Exception as e:
+        return jsonify({"token_configurado": False, "version": {}, "error": str(e)})
 
 
 @app.route("/guardar_token_actualizacion", methods=["POST"])
 def guardar_token_actualizacion():
     if "usuario_app" not in session:
         return jsonify({"ok": False, "mensaje": "Sesión no válida."}), 403
-    token = (request.form.get("token") or "").strip()
-    if not token:
-        return jsonify({"ok": False, "mensaje": "El token no puede estar vacío."})
-    actualizador.guardar_token(token)
-    return jsonify({"ok": True, "mensaje": "Token guardado en esta computadora."})
+    try:
+        token = (request.form.get("token") or "").strip()
+        if not token:
+            return jsonify({"ok": False, "mensaje": "El token no puede estar vacío."})
+        actualizador.guardar_token(token)
+        return jsonify({"ok": True, "mensaje": "Token guardado en esta computadora."})
+    except Exception as e:
+        return jsonify({"ok": False, "mensaje": f"Error inesperado guardando el token: {e}"})
 
 
 @app.route("/actualizar_codigo", methods=["POST"])
 def actualizar_codigo():
     if "usuario_app" not in session:
         return jsonify({"ok": False, "mensaje": "Sesión no válida."}), 403
-    ok, mensaje = actualizador.actualizar_desde_github()
-    return jsonify({"ok": ok, "mensaje": mensaje})
+    try:
+        ok, mensaje = actualizador.actualizar_desde_github()
+        return jsonify({"ok": ok, "mensaje": mensaje})
+    except Exception as e:
+        import traceback
+        detalle = traceback.format_exc()[-500:]
+        return jsonify({"ok": False, "mensaje": f"Error inesperado actualizando: {e}\n{detalle}"})
 
 
 def iniciar_servidor_flask_en_hilo():

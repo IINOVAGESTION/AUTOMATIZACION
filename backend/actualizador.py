@@ -73,10 +73,13 @@ def ruta_token():
 
 
 def leer_token():
-    ruta = ruta_token()
-    if os.path.exists(ruta):
-        with open(ruta, "r", encoding="utf-8") as f:
-            return f.read().strip()
+    try:
+        ruta = ruta_token()
+        if os.path.exists(ruta):
+            with open(ruta, "r", encoding="utf-8") as f:
+                return f.read().strip()
+    except Exception:
+        pass
     return ""
 
 
