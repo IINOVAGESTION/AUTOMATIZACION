@@ -58,7 +58,7 @@ def registrar_en_sheets(v, resultado, log=print):
         cuerpo = (resp.text or "").strip()
         parece_html_de_google = cuerpo.lower().startswith(("<!doctype html", "<html"))
         if resp.status_code == 200 and not parece_html_de_google:
-            log("    📊 Fila registrada en la tabla de Google Sheets.")
+            log(f"    📊 Fila registrada en la tabla de Google Sheets (usuario: '{payload['usuario']}').")
         else:
             adelanto = cuerpo[:200].replace("\n", " ")
             log(f"    ⚠️  Google respondió, pero no parece que haya guardado la fila de verdad "
