@@ -21,7 +21,7 @@ if exist icono_app.ico (
 ) else (
     echo No se encontro icono_app.ico, se genera el .exe con el icono por defecto.
 )
-python -m PyInstaller --onefile --name AutomatizacionRNDC --noconsole %ICONO% --collect-all selenium --collect-all webdriver_manager --collect-all webview --collect-all flask --add-data "servidor_web.py;semilla" --add-data "rndc_core.py;semilla" --add-data "core;semilla/core" --add-data "backend;semilla/backend" --add-data "templates;semilla/templates" --add-data "static;semilla/static" lanzador.py
+python -m PyInstaller --onefile --name AutomatizacionRNDC --noconsole %ICONO% --collect-all selenium --collect-all webdriver_manager --collect-all webview --collect-all flask --collect-all psutil --add-data "servidor_web.py;semilla" --add-data "rndc_core.py;semilla" --add-data "core;semilla/core" --add-data "backend;semilla/backend" --add-data "templates;semilla/templates" --add-data "static;semilla/static" lanzador.py
 if errorlevel 1 (
     echo.
     echo HUBO UN PROBLEMA generando el .exe. Revisa el mensaje de arriba.

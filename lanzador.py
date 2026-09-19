@@ -45,6 +45,7 @@ import flask  # noqa: F401
 import requests  # noqa: F401
 import selenium  # noqa: F401
 import webdriver_manager  # noqa: F401
+import psutil
 import webview
 
 
@@ -79,18 +80,32 @@ def sembrar_si_hace_falta():
     viene empacada dentro del .exe."""
     destino = carpeta_codigo()
     ya_sembrada = os.path.exists(os.path.join(destino, "servidor_web.py"))
-    if ya_sembrada:
-        return
-    origen = ruta_semilla("semilla")
-    for nombre in ELEMENTOS_SEMILLA:
-        origen_item = os.path.join(origen, nombre)
-        destino_item = os.path.join(destino, nombre)
-        if not os.path.exists(origen_item):
-            continue
-        if os.path.isdir(origen_item):
-            shutil.copytree(origen_item, destino_item, dirs_exist_ok=True)
-        else:
-            shutil.copy2(origen_item, destino_item)
+    if not ya_sembrada:
+        origen = ruta_semilla("semilla")
+        for nombre in ELEMENTOS_SEMILLA:
+            origen_item = os.path.join(origen, nombre)
+            destino_item = os.path.join(destino, nombre)
+            if not os.path.exists(origen_item):
+                continue
+            if os.path.isdir(origen_item):
+                shutil.copytree(origen_item, destino_item, dirs_exist_ok=True)
+            else:
+                shutil.copy2(origen_item, destino_item)
+
+    # El token "de fábrica" (solo lectura, sube el límite de consultas
+    # a GitHub de 60 a 5.000/hora) NO puede vivir en el código que se
+    # sube a GitHub — el propio GitHub bloquea cualquier intento de
+    # subir un token real a un repositorio, como medida de seguridad.
+    # Por eso viaja empacado DENTRO del .exe (fuera de git por
+    # completo) y se copia aquí a una carpeta aparte, por fuera de la
+    # carpeta de código que el botón "Actualizar" reemplaza — así
+    # sobrevive a las actualizaciones. Solo se copia si todavía no
+    # existe, para no pisar un token más nuevo si algún día se
+    # reconstruye el .exe con uno distinto.
+    origen_token = os.path.join(ruta_semilla("semilla"), "token_por_defecto.txt")
+    destino_token = os.path.join(carpeta_datos_appdata(), "token_por_defecto.txt")
+    if os.path.exists(origen_token) and not os.path.exists(destino_token):
+        shutil.copy2(origen_token, destino_token)
 
 
 def mostrar_error_nativo(titulo, mensaje):
@@ -110,8 +125,64 @@ def mostrar_error_nativo(titulo, mensaje):
         pass
 
 
+def limpiar_chromedriver_huerfano_de_antes():
+    """Al ABRIR la app (antes de arrancar nada más): busca procesos de
+    "chromedriver" que hayan quedado vivos de una sesión ANTERIOR de
+    este mismo programa que se cerró mal (ej. la ventana se cerró
+    mientras un viaje seguía corriendo, y el cierre forzado no le dio
+    tiempo a Selenium de cerrar el navegador). Esos procesos quedan
+    "huérfanos" — no pertenecen a ningún proceso vivo — y a veces
+    bastan para que la próxima vez que se abre el programa, algo no
+    arranque bien, obligando a cerrarlos a mano desde el Administrador
+    de tareas antes de poder abrir la app.
+
+    Solo mata "chromedriver" específicamente (nunca "chrome" a secas):
+    un chromedriver.exe corriendo por su cuenta SIEMPRE es sobrante de
+    algún programa de automatización (nadie lo abre para navegar), así
+    que es seguro cerrarlo. Un chrome.exe normal, en cambio, podría ser
+    una ventana de navegación real de la persona — ese nunca se toca
+    aquí, para no cerrarle algo que esté usando de verdad."""
+    try:
+        for proceso in psutil.process_iter(["pid", "name"]):
+            try:
+                nombre = (proceso.info.get("name") or "").lower()
+                if "chromedriver" in nombre:
+                    proceso.terminate()
+            except Exception:
+                pass  # ese proceso en particular no se pudo cerrar (permisos, ya se cerró solo, etc.) — se sigue con los demás
+    except Exception:
+        pass  # si psutil falla por completo, no vale la pena bloquear el arranque por esto
+
+
+def matar_procesos_hijos_huerfanos():
+    """Al CERRAR la app (justo antes de terminar el proceso del todo):
+    mata cualquier proceso que ESTE programa haya abierto y que siga
+    vivo — típicamente chromedriver y el/los Chrome que haya lanzado —
+    para no dejar nada huérfano que la próxima apertura tenga que
+    limpiar. Es el complemento de limpiar_chromedriver_huerfano_de_antes():
+    esa limpia lo que quedó de sesiones viejas: esta evita que la
+    sesión ACTUAL deje algo nuevo regado."""
+    try:
+        proceso_actual = psutil.Process()
+        hijos = proceso_actual.children(recursive=True)
+        for hijo in hijos:
+            try:
+                hijo.terminate()
+            except Exception:
+                pass
+        _, vivos = psutil.wait_procs(hijos, timeout=2)
+        for hijo in vivos:
+            try:
+                hijo.kill()
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+
 def main():
     try:
+        limpiar_chromedriver_huerfano_de_antes()
         sembrar_si_hace_falta()
         destino = carpeta_codigo()
 
@@ -201,6 +272,11 @@ def main():
             f"abrir. Intenta abrir el programa de nuevo.",
         )
         sys.exit(1)
+
+    # Antes de cerrar del todo, se mata cualquier chromedriver/Chrome
+    # que ESTA sesión haya dejado vivo (ver matar_procesos_hijos_huerfanos),
+    # para que la próxima apertura no se tope con nada atascado.
+    matar_procesos_hijos_huerfanos()
 
     # Al cerrar la ventana (la X, o Alt+F4), se fuerza el cierre
     # completo del proceso, para que el servidor no se quede vivo de
