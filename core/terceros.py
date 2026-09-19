@@ -31,7 +31,7 @@ def crear_tercero(driver, wait, tipo_id, numero_id, nombre, apellido1, apellido2
         wait.until(EC.presence_of_element_located((By.ID, "dnn_ctr394_Tercero_TIPOIDTERCERO")))
     except TimeoutException:
         pass
-    time.sleep(0.55)
+    time.sleep(0.4)
 
     set_select(driver, "dnn_ctr394_Tercero_TIPOIDTERCERO", tipo_id)
 
@@ -48,7 +48,7 @@ def crear_tercero(driver, wait, tipo_id, numero_id, nombre, apellido1, apellido2
 
     set_autocomplete_municipio(driver, wait, "dnn_ctr394_Tercero_MUNICIPIORNDC", municipio, log, modo_flexible=True)
     set_text(driver, "dnn_ctr394_Tercero_NOMSEDETERCERO", municipio)
-    time.sleep(0.55)
+    time.sleep(0.4)
 
     driver.save_screenshot(ruta_captura(f"debug_tercero_{numero_id}_llenado.png"))
     driver.find_element(By.ID, "dnn_ctr394_Tercero_btGuardar").click()
@@ -86,7 +86,7 @@ def crear_vehiculo(driver, wait, placa, log):
         wait.until(EC.presence_of_element_located((By.ID, "dnn_ctr394_Vehiculo_NUMPLACA")))
     except TimeoutException:
         pass
-    time.sleep(0.55)
+    time.sleep(0.4)
 
     campo_placa = driver.find_element(By.ID, "dnn_ctr394_Vehiculo_NUMPLACA")
     campo_placa.clear()
@@ -130,7 +130,7 @@ def crear_vehiculo(driver, wait, placa, log):
             campo_peso.clear()
             campo_peso.send_keys(peso_vacio)
             campo_peso.send_keys(Keys.TAB)
-            time.sleep(0.5)
+            time.sleep(0.35)
             valor_quedo = campo_peso.get_attribute("value")
             log(f"    Peso Vacío en el campo tras escribirlo: '{valor_quedo}'")
             driver.find_element(By.ID, "dnn_ctr394_Vehiculo_btGuardar").click()
@@ -191,7 +191,7 @@ def buscar_nombre_tercero_con_sesion_activa(driver, wait, tipo_id, numero_id, lo
         campo_tipo = driver.find_element(By.ID, "dnn_ctr394_Manifiesto_TIPOIDCONDUCTOR")
         Select(campo_tipo).select_by_value(tipo_id or "C")
         campo_tipo.send_keys(Keys.TAB)
-        time.sleep(0.5)
+        time.sleep(0.35)
 
         campo = driver.find_element(By.ID, "dnn_ctr394_Manifiesto_NUMIDCONDUCTOR")
         campo.clear()
@@ -247,7 +247,7 @@ def verificar_tercero(tipo_id, numero_id, usuario, password, log):
         campo_tipo = driver.find_element(By.ID, "dnn_ctr394_Manifiesto_TIPOIDCONDUCTOR")
         Select(campo_tipo).select_by_value(tipo_id or "C")
         campo_tipo.send_keys(Keys.TAB)
-        time.sleep(0.5)
+        time.sleep(0.35)
 
         campo = driver.find_element(By.ID, "dnn_ctr394_Manifiesto_NUMIDCONDUCTOR")
         campo.clear()
@@ -360,7 +360,7 @@ def obtener_lista_conductores_empresa(usuario, password, log):
         campo_combo = wait.until(EC.element_to_be_clickable(
             (By.ID, "dnn_ctr394_Maestros_cbProceso_I")))
         campo_combo.click()
-        time.sleep(0.6)
+        time.sleep(0.45)
         opciones_combo = wait.until(EC.presence_of_all_elements_located(
             (By.CSS_SELECTOR, "td.dxeListBoxItem")))
         encontrado = False
@@ -373,7 +373,7 @@ def obtener_lista_conductores_empresa(usuario, password, log):
             log("❌ No se encontró la opción 'Tercero' en el combo de Maestros. "
                 "Puede que el sitio haya cambiado.")
             return {}
-        time.sleep(0.5)
+        time.sleep(0.35)
 
         wait.until(EC.element_to_be_clickable(
             (By.ID, "dnn_ctr394_Maestros_btConsultar"))).click()
@@ -492,7 +492,7 @@ def obtener_lista_conductores_empresa(usuario, password, log):
                         return True
                 except Exception:
                     pass
-                time.sleep(0.15)
+                time.sleep(0.1)
             return False
 
         conductores.update(leer_pagina_actual(mostrar_diagnostico=True))

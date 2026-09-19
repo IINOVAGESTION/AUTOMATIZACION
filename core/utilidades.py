@@ -114,7 +114,7 @@ def set_text(driver, field_id, value, blur=True):
     el.send_keys(value)
     if blur:
         el.send_keys(Keys.TAB)
-        time.sleep(0.55)
+        time.sleep(0.4)
     return el
 
 
@@ -123,7 +123,7 @@ def set_select(driver, field_id, value):
     sel = Select(campo)
     sel.select_by_value(value)
     campo.send_keys(Keys.TAB)
-    time.sleep(0.55)
+    time.sleep(0.4)
 
 
 def quitar_tildes(texto):
@@ -144,7 +144,7 @@ def set_select_por_texto_parcial(driver, field_id, texto_parcial, log, espera_pr
     for opcion in sel.options:
         if quitar_tildes(opcion.text.strip().upper()) == objetivo:
             sel.select_by_visible_text(opcion.text)
-            time.sleep(0.55)
+            time.sleep(0.4)
             return True
 
     coincidencias = [o for o in sel.options if objetivo in quitar_tildes(o.text.upper())]
@@ -158,7 +158,7 @@ def set_select_por_texto_parcial(driver, field_id, texto_parcial, log, espera_pr
         log(f"    Se eligió la primera por defecto: '{opciones_texto[0]}'.")
 
     sel.select_by_visible_text(coincidencias[0].text)
-    time.sleep(0.55)
+    time.sleep(0.4)
     return True
 
 
@@ -183,7 +183,7 @@ def _buscar_sugerencias_municipio(driver, wait, el, termino_busqueda, log, field
             el.dispatchEvent(new Event('keyup', {bubbles: true}));
             el.dispatchEvent(new Event('change', {bubbles: true}));
         """, el, termino_busqueda)
-        time.sleep(0.6)
+        time.sleep(0.45)
 
         def hay_sugerencias_visibles(d):
             try:
@@ -254,9 +254,9 @@ def set_autocomplete_municipio(driver, wait, field_id, texto_completo, log, indi
         log(f"⚠️  '{texto_completo}' no coincide exacto en {field_id}. "
             f"Opciones vistas: {opciones_texto}. Probando con: '{elegida.text}'...")
         elegida.click()
-        time.sleep(0.5)
+        time.sleep(0.35)
         el.send_keys(Keys.TAB)
-        time.sleep(0.55)
+        time.sleep(0.4)
         return True
 
     if indice >= len(coincidencias_exactas):
@@ -269,9 +269,9 @@ def set_autocomplete_municipio(driver, wait, field_id, texto_completo, log, indi
 
     elegida = coincidencias_exactas[indice]
     elegida.click()
-    time.sleep(0.5)
+    time.sleep(0.35)
     el.send_keys(Keys.TAB)
-    time.sleep(0.55)
+    time.sleep(0.4)
     return True
 
 
@@ -295,7 +295,7 @@ def esperar_nueva_descarga_en(carpeta, archivos_antes, timeout):
             # sea .pdf reconocible), se toma como respaldo en vez de
             # devolver nada.
             return nuevos[0]
-        time.sleep(0.5)
+        time.sleep(0.35)
     return None
 
 
@@ -346,7 +346,7 @@ def esperar_confirmacion_manifiesto(driver, timeout=35):
         if elementos:
             return ("exito", elementos[0].text.strip())
 
-        time.sleep(0.5)
+        time.sleep(0.35)
     return (None, None)
 
 

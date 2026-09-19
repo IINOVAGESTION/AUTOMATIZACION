@@ -117,23 +117,23 @@ def ejecutar_automatizacion(v, usuario, password, log, driver_compartido=None, w
                     # del sitio que aparecía al crear varias remesas seguidas.
                     try:
                         driver.get(URL_LOGOUT)
-                        time.sleep(0.5)
+                        time.sleep(0.35)
                     except Exception:
                         pass
                     driver.get(URL_LOGIN)
-                    time.sleep(0.4)
+                    time.sleep(0.3)
                     campo_usuario = wait.until(EC.visibility_of_element_located(
                         (By.ID, "dnn_ctr390_FormLogIn_edUsername")))
                     campo_usuario.clear()
                     campo_usuario.send_keys(usuario)
                     driver.find_element(By.ID, "dnn_ctr390_FormLogIn_edPassword").send_keys(password)
                     driver.find_element(By.ID, "dnn_ctr390_FormLogIn_btIngresar").click()
-                    time.sleep(0.5)
+                    time.sleep(0.35)
                     log("✅ Login realizado.")
                     return True
                 except (TimeoutException, NoSuchElementException):
                     log(f"⚠️  La página de login tardó en cargar (intento {intento}/3). Reintentando...")
-                    time.sleep(0.6)
+                    time.sleep(0.45)
                 except WebDriverException as e:
                     texto_error = str(e).lower()
                     palabras_sitio_caido = ("err_connection", "err_name_not_resolved", "err_internet",
@@ -176,7 +176,7 @@ def ejecutar_automatizacion(v, usuario, password, log, driver_compartido=None, w
                 wait.until(EC.presence_of_element_located((By.ID, "dnn_ctr394_Remesa_TIPOIDPROPIETARIO")))
             except TimeoutException:
                 pass  # seguimos igual; el resto del código ya maneja los reintentos si algo falta
-            time.sleep(0.35)
+            time.sleep(0.25)
 
             # A veces el sitio del RNDC muestra un error interno propio
             # (sesión corrupta) y la página queda en blanco/rota. Se
@@ -441,7 +441,7 @@ def ejecutar_automatizacion(v, usuario, password, log, driver_compartido=None, w
                 wait.until(EC.presence_of_element_located((By.ID, "dnn_ctr394_Manifiesto_NUMMANIFIESTOCARGA")))
             except TimeoutException:
                 pass
-            time.sleep(0.35)
+            time.sleep(0.25)
 
             texto_pagina = driver.find_element(By.TAG_NAME, "body").text
             errores_conocidos_sitio = ["Object reference not set", "DataBinding:", "A critical error has occurred"]
@@ -598,7 +598,7 @@ def ejecutar_automatizacion(v, usuario, password, log, driver_compartido=None, w
             valor_ica = calcular_retencion_ica(ciudad_cargue_real, ciudad_descargue_real, fm["RETENCIONICA"])
             campo_ica.send_keys(valor_ica)
             driver.execute_script("RETENCIONICA_onexit();")
-            time.sleep(0.55)
+            time.sleep(0.4)
 
             if v.get("Anticipo"):
                 set_text(driver, "dnn_ctr394_Manifiesto_VALORANTICIPOMANIFIESTO", v["Anticipo"])
@@ -609,7 +609,7 @@ def ejecutar_automatizacion(v, usuario, password, log, driver_compartido=None, w
                 campo_fopat.clear()
                 campo_fopat.send_keys(str(valor_fopat))
                 driver.execute_script("RETENCIONFOPAT_onexit();")
-                time.sleep(0.55)
+                time.sleep(0.4)
                 log(f"Retención FOPAT calculada: {valor_fopat}")
 
             if fopat_aplica:
@@ -671,7 +671,7 @@ def ejecutar_automatizacion(v, usuario, password, log, driver_compartido=None, w
                                 campo_fopat.clear()
                                 campo_fopat.send_keys(Keys.TAB)
                                 driver.execute_script("RETENCIONFOPAT_onexit();")
-                                time.sleep(0.5)
+                                time.sleep(0.35)
                             except NoSuchElementException:
                                 pass
                             fopat_aplica = False
@@ -683,7 +683,7 @@ def ejecutar_automatizacion(v, usuario, password, log, driver_compartido=None, w
                             f"Subiendo a {valor_flete_actual:,.0f} y reintentando...")
                         actualizar_flete(valor_flete_actual)
                         driver.execute_script("RETENCIONICA_onexit();")
-                        time.sleep(0.55)
+                        time.sleep(0.4)
                         if fopat_aplica:
                             llenar_fopat()  # recalcular FOPAT con el nuevo valor del flete
                         continue
