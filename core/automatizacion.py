@@ -34,7 +34,7 @@ from .terceros import crear_tercero, crear_vehiculo, buscar_nombre_tercero_con_s
 from .documentos import descargar_pdf_documento
 
 def ejecutar_automatizacion(v, usuario, password, log, driver_compartido=None, wait_compartido=None,
-                             ya_logueado=False, cerrar_al_terminar=True):
+                             ya_logueado=False, cerrar_al_terminar=True, sufijo_archivo_viaje=""):
     """
     v: diccionario con los datos del viaje (Consecutivo, Origen, Destino,
        Producto, Peso, Multiparada, Paradas, Cedula_Titular, Placa,
@@ -387,7 +387,7 @@ def ejecutar_automatizacion(v, usuario, password, log, driver_compartido=None, w
                 consecutivo_tramo = f"{v['Consecutivo']}{letras[i]}"
                 radicado, origen_real, destino_real = crear_remesa(
                     consecutivo_tramo, parada["Origen"], parada["Destino"],
-                    parada["Producto"], parada["Peso"], sufijo_archivo=f"_{letras[i]}",
+                    parada["Producto"], parada["Peso"], sufijo_archivo=f"{sufijo_archivo_viaje}_{letras[i]}",
                     tipoid_remitente_tramo=parada.get("TipoID_Remitente") or None,
                     numid_remitente_tramo=parada.get("NIT_Remitente") or None,
                     tipoid_destinatario_tramo=parada.get("TipoID_Destinatario") or None,
@@ -405,7 +405,8 @@ def ejecutar_automatizacion(v, usuario, password, log, driver_compartido=None, w
                 })
         else:
             radicado, origen_real, destino_real = crear_remesa(
-                v["Consecutivo"], v["Origen"], v["Destino"], v["Producto"], v["Peso"]
+                v["Consecutivo"], v["Origen"], v["Destino"], v["Producto"], v["Peso"],
+                sufijo_archivo=sufijo_archivo_viaje,
             )
             if not radicado:
                 detener_por_error("No se pudo confirmar la creación de la REMESA tras varios intentos.")
@@ -835,7 +836,8 @@ def ejecutar_automatizacion(v, usuario, password, log, driver_compartido=None, w
         else:
             log("Descargando el PDF del manifiesto (vía Reimprimir Manifiesto)...")
             archivo_manifiesto = descargar_pdf_documento(
-                driver, wait, URL_REIMPRIMIR_MANIFIESTO, radicado_manifiesto, v["Placa"], CARPETA_DESCARGAS,
+                driver, wait, URL_REIMPRIMIR_MANIFIESTO, radicado_manifiesto,
+                f"{v['Placa']}{sufijo_archivo_viaje}", CARPETA_DESCARGAS,
                 "dnn_ctr394_ReimprimirManifiesto_RADICADO", "dnn_ctr394_ReimprimirManifiesto_btImprimir", log,
                 id_boton_consultar="dnn_ctr394_ReimprimirManifiesto_btConsultar"
             )
@@ -946,6 +948,7 @@ def ejecutar_cola(lista_de_viajes, usuario, password, log):
                 driver_compartido=driver, wait_compartido=wait,
                 ya_logueado=(i > 1),  # el primer viaje sí hace login; los demás reutilizan la sesión
                 cerrar_al_terminar=False,
+                sufijo_archivo_viaje=f"_viaje{i}",  # para que no se reemplacen entre sí en Descargas (misma placa)
             )
         except WebDriverException as e:
             # El navegador compartido se rompió (se cerró solo, se colgó,
@@ -963,6 +966,7 @@ def ejecutar_cola(lista_de_viajes, usuario, password, log):
                     v, usuario, password, log,
                     driver_compartido=driver, wait_compartido=wait,
                     ya_logueado=False, cerrar_al_terminar=False,
+                    sufijo_archivo_viaje=f"_viaje{i}",
                 )
             except Exception as e2:
                 log(f"❌ No se pudo recuperar el navegador: {traducir_error(e2)}")
