@@ -440,6 +440,7 @@ def ejecutar():
         "Placa": f.get("Placa", "").strip(),
         "Placa_Remolque": f.get("Placa_Remolque", "").strip(),
         "Cedula_Conductor": f.get("Cedula_Conductor", "").strip(),
+        "Cedula_Conductor2": f.get("Cedula_Conductor2", "").strip(),
         "Nombre_Conductor": f.get("Nombre_Conductor", "").strip(),
         "Apellido1_Conductor": f.get("Apellido1_Conductor", "").strip(),
         "Apellido2_Conductor": f.get("Apellido2_Conductor", "").strip(),

@@ -422,6 +422,20 @@
         <span id="resultado_cedula_conductor" class="resultado-verificar"></span>
       </div>
     </div>
+
+    <details class="nit-desplegable" style="margin-top:0.6rem;">
+      <summary style="font-size:0.85rem;">¿Este viaje lleva segundo conductor? (solo si el cliente lo pide)</summary>
+      <div class="contenido-nit" style="margin-top:0.5rem;">
+        <div id="campo_cedula_conductor2">
+          <label>Segundo conductor (Cédula)</label>
+          <div class="fila-verificar">
+            <input type="text" name="Cedula_Conductor2" id="input_cedula_conductor2" value="{{ v.get('Cedula_Conductor2', '') }}" class="campo-clave" list="lista_conductores">
+            <button type="button" class="secundario" onclick="verificarPersona('input_cedula_conductor2', 'resultado_cedula_conductor2')">🔍 Verificar</button>
+          </div>
+          <span id="resultado_cedula_conductor2" class="resultado-verificar"></span>
+        </div>
+      </div>
+    </details>
     </div>
 
     <div class="seccion">

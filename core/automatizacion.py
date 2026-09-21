@@ -581,6 +581,41 @@ def ejecutar_automatizacion(v, usuario, password, log, driver_compartido=None, w
             except NoAlertPresentException:
                 pass  # el conductor ya existía, seguir normal
 
+            # --- Segundo conductor (opcional, solo si el cliente lo pide) ---
+            # NOTA IMPORTANTE: el nombre exacto de esta casilla en el sitio del
+            # RNDC no se pudo confirmar en vivo (no hay forma de probarlo sin
+            # acceso al sitio real) — se usa el mismo patrón que ya usa el
+            # primer conductor (NUMIDCONDUCTOR -> NUMIDCONDUCTOR2), que es lo
+            # más probable según cómo el RNDC nombra sus demás casillas
+            # dobles. Por eso todo este bloque está protegido: si la casilla
+            # no existe con ese nombre, se avisa claro en el log y el
+            # manifiesto sigue con el resto normal (no se cae por esto).
+            if v.get("Cedula_Conductor2"):
+                try:
+                    set_select(driver, "dnn_ctr394_Manifiesto_TIPOIDCONDUCTOR2", fm["TIPOIDCONDUCTOR"])
+                    campo_conductor2 = driver.find_element(By.ID, "dnn_ctr394_Manifiesto_NUMIDCONDUCTOR2")
+                    campo_conductor2.clear()
+                    campo_conductor2.send_keys(v["Cedula_Conductor2"])
+                    campo_conductor2.send_keys(Keys.TAB)
+                    time.sleep(1.1)
+                    try:
+                        alerta2 = driver.switch_to.alert
+                        texto_alerta2 = alerta2.text
+                        alerta2.accept()
+                        log(f"⚠️  El segundo conductor no existe como Tercero todavía: {texto_alerta2}. "
+                            f"Regístralo primero (pestaña de verificar) y vuelve a intentar — "
+                            f"el manifiesto sigue sin el segundo conductor por ahora.")
+                    except NoAlertPresentException:
+                        log("✅ Segundo conductor diligenciado.")
+                except NoSuchElementException:
+                    log("⚠️  No se encontró la casilla del segundo conductor en el sitio con el nombre "
+                        "esperado (dnn_ctr394_Manifiesto_NUMIDCONDUCTOR2) — puede que el RNDC use otro "
+                        "nombre para esa casilla. El manifiesto sigue sin el segundo conductor; avísale "
+                        "a soporte para ajustar esto.")
+                except Exception as e:
+                    log(f"⚠️  No se pudo diligenciar el segundo conductor: {traducir_error(e)}. "
+                        f"El manifiesto sigue sin él.")
+
             valor_flete_actual = float(v["Flete"])
             fopat_aplica = bool(v["Placa_Remolque"])
 
