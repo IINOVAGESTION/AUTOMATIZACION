@@ -186,7 +186,7 @@ def ejecutar_automatizacion(v, usuario, password, log, driver_compartido=None, w
             texto_pagina = driver.find_element(By.TAG_NAME, "body").text
             errores_conocidos_sitio = ["Object reference not set", "DataBinding:", "A critical error has occurred"]
             if any(err in texto_pagina for err in errores_conocidos_sitio) and intentos_reinicio < 15:
-                espera = 3  # antes eran 8s fijos; se agilizó el reingreso
+                espera = 2  # antes eran 8s, luego 3s; se agilizó más el reingreso
                 log(f"    ⚠️  El sitio mostró un error interno propio al cargar la página de Remesa. "
                     f"Esperando {espera}s antes de reiniciar sesión y volver a intentar "
                     f"(intento {intentos_reinicio + 1}/15)...")
@@ -447,8 +447,8 @@ def ejecutar_automatizacion(v, usuario, password, log, driver_compartido=None, w
             errores_conocidos_sitio = ["Object reference not set", "DataBinding:", "A critical error has occurred"]
             if any(err in texto_pagina for err in errores_conocidos_sitio):
                 log("    ⚠️  El sitio mostró un error interno propio al cargar la página de Manifiesto. "
-                    "Esperando 3s antes de reiniciar sesión y volver a intentar...")
-                time.sleep(3)
+                    "Esperando 2s antes de reiniciar sesión y volver a intentar...")
+                time.sleep(2)
                 hacer_login()
                 return None, None, "pagina"
 
