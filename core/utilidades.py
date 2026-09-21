@@ -357,6 +357,23 @@ def esperar_confirmacion_manifiesto(driver, timeout=35):
         if elementos:
             return ("exito", elementos[0].text.strip())
 
+        # Red de seguridad: a veces el sitio SÍ muestra el aviso de éxito
+        # ("Manifiesto Creado") pero, por lo que sea (la página tardó en
+        # terminar de cargar del todo, un cambio del sitio, etc.), la
+        # casilla específica de donde normalmente se lee el radicado no
+        # aparece. Antes, esto se trataba como "no se sabe qué pasó" y el
+        # programa reiniciaba y reintentaba todo el manifiesto desde
+        # cero — arriesgándose a crear un SEGUNDO manifiesto duplicado
+        # sobre uno que en realidad ya se había guardado bien. Ahora, si
+        # se ve ese aviso de éxito (aunque sea sin el radicado), se avisa
+        # de inmediato y se detiene en vez de reintentar a ciegas.
+        try:
+            texto_pagina = driver.find_element(By.TAG_NAME, "body").text
+            if "Manifiesto Creado" in texto_pagina:
+                return ("exito_sin_radicado", texto_pagina[:400])
+        except Exception:
+            pass
+
         time.sleep(0.35)
     return (None, None)
 

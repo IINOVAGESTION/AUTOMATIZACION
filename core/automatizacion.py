@@ -689,6 +689,21 @@ def ejecutar_automatizacion(v, usuario, password, log, driver_compartido=None, w
                     log(f"✅ Radicado del manifiesto: {radicado_manifiesto}")
                     break
 
+                elif resultado == "exito_sin_radicado":
+                    # El sitio SÍ dijo "Manifiesto Creado", pero no se pudo
+                    # leer el número de radicado. NO se reintenta — hacerlo
+                    # podría crear un SEGUNDO manifiesto duplicado sobre uno
+                    # que en realidad ya se guardó bien. Se detiene aquí y
+                    # se avisa bien claro para que se revise a mano en el
+                    # RNDC antes de hacer cualquier otra cosa con este viaje.
+                    driver.save_screenshot(ruta_captura("debug_manifiesto_sin_radicado.png"))
+                    log("🛑 El sitio confirmó \"Manifiesto Creado\", pero no se pudo leer el número "
+                        "de radicado en la página (posible cambio o lentitud del sitio). "
+                        "NO se va a reintentar, para no arriesgarse a crear un manifiesto duplicado. "
+                        "Entra al RNDC y busca este manifiesto a mano (Consultas) para confirmar el "
+                        f"radicado real. Consecutivo: {v['Consecutivo']}.")
+                    return None, "Manifiesto creado pero sin radicado legible — revisar a mano en el RNDC.", None
+
                 elif resultado == "error":
                     log(f"⚠️  El sitio mostró un mensaje de error al guardar el manifiesto: {mensaje}")
 
