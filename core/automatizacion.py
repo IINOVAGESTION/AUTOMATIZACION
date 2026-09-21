@@ -582,14 +582,12 @@ def ejecutar_automatizacion(v, usuario, password, log, driver_compartido=None, w
                 pass  # el conductor ya existía, seguir normal
 
             # --- Segundo conductor (opcional, solo si el cliente lo pide) ---
-            # NOTA IMPORTANTE: el nombre exacto de esta casilla en el sitio del
-            # RNDC no se pudo confirmar en vivo (no hay forma de probarlo sin
-            # acceso al sitio real) — se usa el mismo patrón que ya usa el
-            # primer conductor (NUMIDCONDUCTOR -> NUMIDCONDUCTOR2), que es lo
-            # más probable según cómo el RNDC nombra sus demás casillas
-            # dobles. Por eso todo este bloque está protegido: si la casilla
-            # no existe con ese nombre, se avisa claro en el log y el
-            # manifiesto sigue con el resto normal (no se cae por esto).
+            # Casilla confirmada en vivo por el usuario:
+            # dnn_ctr394_Manifiesto_NUMIDCONDUCTOR2 / TIPOIDCONDUCTOR2.
+            # set_select() ya selecciona el tipo de identificación Y tabula
+            # después (es justo lo que hace esa función), que es lo que el
+            # sitio necesita antes de dejar escribir en la casilla del
+            # número de identificación.
             if v.get("Cedula_Conductor2"):
                 try:
                     set_select(driver, "dnn_ctr394_Manifiesto_TIPOIDCONDUCTOR2", fm["TIPOIDCONDUCTOR"])

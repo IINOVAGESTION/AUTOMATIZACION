@@ -423,7 +423,7 @@
       </div>
     </div>
 
-    <details class="nit-desplegable" style="margin-top:0.6rem;">
+    <details class="nit-desplegable" id="bloque_segundo_conductor" style="margin-top:0.6rem;">
       <summary style="font-size:0.85rem;">¿Este viaje lleva segundo conductor? (solo si el cliente lo pide)</summary>
       <div class="contenido-nit" style="margin-top:0.5rem;">
         <div id="campo_cedula_conductor2">
@@ -1097,12 +1097,19 @@ function toggleTipoViaje() {
     var filaTitularConductor = document.getElementById('fila_titular_conductor');
     var campoTitular = document.getElementById('campo_titular');
     var campoConductor = document.getElementById('campo_cedula_conductor');
+    var bloqueConductor2 = document.getElementById('bloque_segundo_conductor');
     if (esCola) {
         filaGenerales.appendChild(campoTitular);
         filaGenerales.appendChild(campoConductor);
+        // El segundo conductor no es un campo cortico como los de arriba
+        // (es un desplegable), así que en vez de meterlo EN la fila, se
+        // deja pegado justo debajo de ella — se ve mejor y sigue
+        // cumpliendo "debajo del conductor" en cualquier pestaña.
+        filaGenerales.insertAdjacentElement('afterend', bloqueConductor2);
     } else {
         filaTitularConductor.appendChild(campoTitular);
         filaTitularConductor.appendChild(campoConductor);
+        filaTitularConductor.insertAdjacentElement('afterend', bloqueConductor2);
     }
 
     if (esParadas && document.getElementById('lista_paradas').children.length === 0) {
