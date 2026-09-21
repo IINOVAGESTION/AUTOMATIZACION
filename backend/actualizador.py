@@ -21,30 +21,10 @@ import json
 import shutil
 import zipfile
 import tempfile
-import base64
 import requests
 
 URL_REPO = "https://api.github.com/repos/IINOVAGESTION/AUTOMATIZACION/zipball/main"
 URL_INFO_COMMIT = "https://api.github.com/repos/IINOVAGESTION/AUTOMATIZACION/commits/main"
-
-# Token de solo lectura (permiso "Contents: Read-only" ÚNICAMENTE),
-# limitado solo a este repositorio. Como el repositorio ya es público,
-# esto no le da a nadie ningún acceso que no tuviera ya con solo mirar
-# GitHub — lo único que hace es subir el límite de consultas de 60 a
-# 5.000 por hora, para que todo el equipo pueda usar el botón
-# "Actualizar" sin toparse con el límite de quien no se identifica.
-#
-# Va guardado codificado (no como texto plano) porque GitHub bloquea
-# automáticamente cualquier intento de subir algo que "parezca" un
-# token real a un repositorio — y si lograra pasar, luego lo revoca
-# solo, por su cuenta de seguridad, dejándolo inútil de todas formas.
-# Esto NO es para ocultarlo (cualquiera puede decodificarlo en un
-# segundo, y no pasa nada si lo hace: es de solo lectura sobre un
-# repositorio público) — es solo para que ese chequeo automático no lo
-# reconozca como un token de verdad.
-_TOKEN_LECTURA_CODIFICADO = "Z2l0aHViX3BhdF8xMUNPUFhSU1EwNDhPaXBpZGxkWW5DX1F4c3h2d2RwNnd3aEdaUGwwZjI0QjgwcTRRa244dkpGOGh0eXQ4N28wcGRZVzVTRE1DSGNZQnZFUGdX"
-TOKEN_LECTURA_POR_DEFECTO = base64.b64decode(_TOKEN_LECTURA_CODIFICADO).decode()
-
 
 def _log_por_defecto(mensaje):
     """El log() por defecto de esta función es print(), y esta función
@@ -91,12 +71,25 @@ def ruta_token():
     return os.path.join(carpeta_datos_appdata(), "token_actualizacion.txt")
 
 
+def ruta_token_por_defecto():
+    """El token "de fábrica" (de solo lectura, para subir el límite de
+    consultas a GitHub de 60 a 5.000 por hora para todo el equipo) NO
+    vive en el código que se sube a GitHub — GitHub lo detecta y lo
+    revoca automáticamente por su cuenta de seguridad, incluso si se
+    aprueba manualmente el aviso de "secreto expuesto" (ya pasó una
+    vez). En vez de eso, vive en un archivo aparte que solo se empaca
+    DENTRO del .exe al construirlo (ver construir_exe.bat), y
+    lanzador.py lo copia aquí la primera vez que corre en cada
+    computadora — así nunca pasa por GitHub en absoluto."""
+    return os.path.join(carpeta_datos_appdata(), "token_por_defecto.txt")
+
+
 def leer_token():
     """El token que usa el botón "Actualizar" para consultar GitHub. Si
     la persona guardó uno propio en el panel de la app, ese tiene
-    prioridad; si no, se usa el de solo lectura de más arriba (así el
-    límite de 5.000 consultas por hora aplica para todo el equipo, sin
-    que nadie tenga que configurar nada)."""
+    prioridad; si no, se usa el "de fábrica" que trajo el .exe (si lo
+    trae). Si no hay ninguno de los dos, se consulta sin token (con el
+    límite normal de 60 consultas por hora)."""
     try:
         ruta = ruta_token()
         if os.path.exists(ruta):
@@ -106,7 +99,14 @@ def leer_token():
                 return clave_guardada
     except Exception:
         pass
-    return TOKEN_LECTURA_POR_DEFECTO
+    try:
+        ruta_defecto = ruta_token_por_defecto()
+        if os.path.exists(ruta_defecto):
+            with open(ruta_defecto, "r", encoding="utf-8") as f:
+                return f.read().strip()
+    except Exception:
+        pass
+    return ""
 
 
 def guardar_token(token):
