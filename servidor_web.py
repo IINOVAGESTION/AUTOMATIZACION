@@ -524,6 +524,36 @@ def ejecutar():
     return render_template('progreso.html', id_trabajo=id_trabajo, mensaje_inicial=mensaje_inicial)
 
 
+@app.route("/reintentar/<int:id_trabajo>")
+def reintentar_trabajo(id_trabajo):
+    """Retoma un viaje ya TERMINADO (exitoso o con error) de la fila,
+    llevando a la persona de vuelta al formulario con todos sus datos
+    ya puestos — para poder corregir lo que haga falta y darle
+    "Ejecutar" de nuevo, en vez de tener que volver a escribir todo
+    desde cero. Solo funciona con trabajos que ya terminaron (no tiene
+    sentido "corregir" uno que sigue corriendo o esperando turno)."""
+    if "usuario_app" not in session:
+        return redirect(url_for("login"))
+    with candado:
+        trabajo = next((t for t in trabajos if t["id"] == id_trabajo), None)
+    if not trabajo or trabajo["estado"] != "terminado":
+        return redirect(url_for("ver_cola"))
+
+    global ultimo_formulario
+    nueva_v = dict(trabajo["v"])
+    # El formulario reconstruye las filas de Multiparada/Ida y Regreso y
+    # de Récord a partir de estos dos campos en formato texto (JSON) —
+    # "Paradas"/"_viajes_cola" son la versión ya lista para Python que
+    # se guardó junto con el trabajo, así que solo hace falta devolverla
+    # a texto para que la página la vuelva a leer igual que la primera vez.
+    if nueva_v.get("Paradas"):
+        nueva_v["ParadasJSON"] = json.dumps(nueva_v["Paradas"])
+    if nueva_v.get("_viajes_cola"):
+        nueva_v["ColaJSON"] = json.dumps(nueva_v["_viajes_cola"])
+    ultimo_formulario = nueva_v
+    return redirect(url_for("formulario"))
+
+
 @app.route("/cola")
 def ver_cola():
     """Página con TODA la fila de trabajos (pendientes, corriendo y
