@@ -194,7 +194,18 @@ def _buscar_sugerencias_municipio(driver, wait, el, termino_busqueda, log, field
             except StaleElementReferenceException:
                 return False
 
-        wait.until(hay_sugerencias_visibles, message="timeout esperando sugerencias visibles")
+        # Antes esto reutilizaba el "wait" global de 20 segundos — pero
+        # esta espera es solo para ver si el sitio SUGIERE algo (nada
+        # que ver con confirmar un envío ni con evitar duplicados, así
+        # que no hay ningún riesgo real en acortarla). Si el término no
+        # trae sugerencias, el código YA prueba otra combinación de
+        # palabras por su cuenta — con 20s por intento fallido, un
+        # nombre de ciudad compuesto (corregimientos, veredas) podía
+        # sumar 40-60+ segundos solo en intentos que no iban a servir.
+        # 7 segundos sigue siendo bastante margen para una respuesta
+        # normal del sitio, y corta mucho más rápido los intentos que
+        # de verdad no tienen sugerencias.
+        WebDriverWait(driver, 7).until(hay_sugerencias_visibles, message="timeout esperando sugerencias visibles")
         todas = driver.find_elements(By.CSS_SELECTOR, "ul.ui-autocomplete li.ui-menu-item")
         encontradas = [s for s in todas if s.is_displayed()]
         log(f"    -> {len(encontradas)} sugerencia(s) encontradas para '{termino_busqueda}'.")
