@@ -686,6 +686,8 @@ def ejecutar_automatizacion(v, usuario, password, log, driver_compartido=None, w
             mensaje = None
             max_intentos = 20
             intentos_fopat_fallidos = 0  # para no ciclar sin fin llenando/borrando el FOPAT
+            intentos_flete_bajo = 0      # para no ciclar sin fin subiendo el flete de a poquito
+            incremento_flete = 200000    # se va DUPLICANDO cada vez que $200.000 no alcanza
             for intento in range(1, max_intentos + 1):
                 log(f"Guardando el manifiesto (intento {intento})...")
                 driver.find_element(By.ID, "dnn_ctr394_Manifiesto_btGuardar").click()
@@ -786,14 +788,37 @@ def ejecutar_automatizacion(v, usuario, password, log, driver_compartido=None, w
                             for palabra in ("INSUFICIENTE", "BAJO", "MINIMO", "MÍNIMO", "SICETAC", "INFERIOR")
                         ))
                     ) and intento < max_intentos:
-                        valor_flete_actual += 200000
+                        intentos_flete_bajo += 1
+                        if intentos_flete_bajo > 7:
+                            # SiceTac calcula el mínimo según la ruta/vehículo,
+                            # algo que no se puede saber de antemano — solo se
+                            # puede ir "tanteando" subiendo el flete. Si ya
+                            # subió bastante (acá ya se habría subido más de
+                            # $25 millones acumulados) y el sitio lo sigue
+                            # rechazando, algo más raro está pasando — mejor
+                            # detenerse y avisar que seguir tanteando a ciegas.
+                            log(f"🛑 El flete sigue sin alcanzar el mínimo de SiceTac después de "
+                                f"{intentos_flete_bajo} intentos subiéndolo (llegó a "
+                                f"{valor_flete_actual:,.0f}). Revisa a mano el valor mínimo real para "
+                                f"esta ruta en el RNDC — puede que la ruta tenga un costo eficiente "
+                                f"mucho más alto de lo normal. NO se sigue reintentando.")
+                            driver.save_screenshot(ruta_captura("debug_manifiesto_flete_sicetac.png"))
+                            return None, mensaje, None
+
+                        valor_flete_actual += incremento_flete
                         log(f"    El valor del flete es muy bajo para SiceTac. "
-                            f"Subiendo a {valor_flete_actual:,.0f} y reintentando...")
+                            f"Subiendo a {valor_flete_actual:,.0f} y reintentando "
+                            f"(intento {intentos_flete_bajo} de este ajuste)...")
                         actualizar_flete(valor_flete_actual)
                         driver.execute_script("RETENCIONICA_onexit();")
                         time.sleep(0.4)
                         if fopat_aplica:
                             llenar_fopat()  # recalcular FOPAT con el nuevo valor del flete
+                        # Si $200.000 no alcanzó, el siguiente salto es el
+                        # doble — así converge rápido incluso cuando la
+                        # diferencia real con el mínimo de SiceTac es grande,
+                        # en vez de tardar muchísimas vueltas de a poquito.
+                        incremento_flete *= 2
                         continue
 
                     elif ("MAN220" in mensaje.upper() and not v["Multiparada"] and not v["IdaYRegreso"]
