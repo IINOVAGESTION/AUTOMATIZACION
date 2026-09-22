@@ -349,6 +349,14 @@ def esperar_confirmacion_manifiesto(driver, timeout=35):
             alerta = driver.switch_to.alert
             texto_alerta = alerta.text
             alerta.accept()
+            # Sin esta pequeña pausa, quien llama a esta función a veces
+            # intentaba tocar la página de inmediato (por ejemplo, subir el
+            # flete o ajustar el FOPAT) mientras el navegador todavía estaba
+            # terminando de cerrar la alerta — eso puede hacer que Selenium
+            # crea que TODAVÍA hay una alerta abierta y lance un error de
+            # "alerta inesperada", lo que reiniciaba TODO el manifiesto desde
+            # cero en vez de solo ajustar el dato puntual y seguir.
+            time.sleep(0.3)
             return ("error", texto_alerta)
         except NoAlertPresentException:
             pass
