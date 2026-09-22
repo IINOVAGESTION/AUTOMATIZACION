@@ -618,7 +618,12 @@ def ejecutar_automatizacion(v, usuario, password, log, driver_compartido=None, w
                         f"El manifiesto sigue sin él.")
 
             valor_flete_actual = float(v["Flete"])
-            fopat_aplica = bool(v["Placa_Remolque"])
+            # Antes solo aplicaba si había remolque — pero el aviso del RNDC
+            # (Ley 2251 de 2022 y Resolución 0008 del 25/marzo/2026 de la
+            # DIAN) dice que la Retención FOPAT es obligatoria SIEMPRE, no
+            # solo con remolque. Se llena desde el principio en todos los
+            # casos, para no depender de que el sitio lo rechace primero.
+            fopat_aplica = True
 
             def actualizar_flete(nuevo_valor):
                 campo_valor_flete = driver.find_element(By.ID, "dnn_ctr394_Manifiesto_VALORFLETEPACTADOVIAJE")
@@ -680,6 +685,7 @@ def ejecutar_automatizacion(v, usuario, password, log, driver_compartido=None, w
             radicado_manifiesto = None
             mensaje = None
             max_intentos = 20
+            intentos_fopat_fallidos = 0  # para no ciclar sin fin llenando/borrando el FOPAT
             for intento in range(1, max_intentos + 1):
                 log(f"Guardando el manifiesto (intento {intento})...")
                 driver.find_element(By.ID, "dnn_ctr394_Manifiesto_btGuardar").click()
@@ -742,18 +748,35 @@ def ejecutar_automatizacion(v, usuario, password, log, driver_compartido=None, w
                             log("    Parece que falta la Retención FOPAT. Calculándola y reintentando...")
                             fopat_aplica = True
                             llenar_fopat()
-                        else:
-                            log("    El sitio sigue rechazando por FOPAT aunque ya estaba puesto. "
-                                "Quitándolo y reintentando...")
-                            try:
-                                campo_fopat = driver.find_element(By.ID, "dnn_ctr394_Manifiesto_RETENCIONFOPAT")
-                                campo_fopat.clear()
-                                campo_fopat.send_keys(Keys.TAB)
-                                driver.execute_script("RETENCIONFOPAT_onexit();")
-                                time.sleep(0.35)
-                            except NoSuchElementException:
-                                pass
-                            fopat_aplica = False
+                            continue
+
+                        intentos_fopat_fallidos += 1
+                        if intentos_fopat_fallidos >= 2:
+                            # Ya se intentó llenar el FOPAT (con la fórmula del
+                            # 0.1% del flete) y el sitio lo sigue rechazando con
+                            # el mismo motivo. Seguir borrando y volviendo a
+                            # poner el MISMO valor solo repetiría el mismo
+                            # rechazo en bucle sin avanzar nunca — mejor
+                            # detenerse aquí y avisar claro, que agotar los 20
+                            # intentos sin resolver nada.
+                            log(f"🛑 El sitio sigue rechazando la Retención FOPAT ({mensaje}) después de "
+                                f"{intentos_fopat_fallidos} intentos con el valor calculado (0.1% del flete). "
+                                f"Puede que la fórmula real sea distinta a la esperada — revisa el valor de "
+                                f"FOPAT a mano en el RNDC para este viaje. NO se sigue reintentando.")
+                            driver.save_screenshot(ruta_captura("debug_manifiesto_fopat.png"))
+                            return None, mensaje, None
+
+                        log("    El sitio sigue rechazando por FOPAT aunque ya estaba puesto. "
+                            "Quitándolo y reintentando...")
+                        try:
+                            campo_fopat = driver.find_element(By.ID, "dnn_ctr394_Manifiesto_RETENCIONFOPAT")
+                            campo_fopat.clear()
+                            campo_fopat.send_keys(Keys.TAB)
+                            driver.execute_script("RETENCIONFOPAT_onexit();")
+                            time.sleep(0.35)
+                        except NoSuchElementException:
+                            pass
+                        fopat_aplica = False
                         continue
 
                     elif (
