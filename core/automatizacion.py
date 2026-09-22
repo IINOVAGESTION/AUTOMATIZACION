@@ -729,7 +729,15 @@ def ejecutar_automatizacion(v, usuario, password, log, driver_compartido=None, w
                 elif resultado == "error":
                     log(f"⚠️  El sitio mostró un mensaje de error al guardar el manifiesto: {mensaje}")
 
-                    if "FOPAT" in mensaje.upper() and intento < max_intentos:
+                    # Se amplían las palabras que se reconocen para estos dos
+                    # casos (FOPAT y flete insuficiente), porque el mensaje
+                    # exacto que muestra el sitio puede variar y no siempre
+                    # contiene literalmente "FOPAT" o el código "MAN045" —
+                    # si no se reconoce, el programa caía al caso genérico
+                    # (reiniciar sesión completa) en vez de solo ajustar el
+                    # dato puntual y seguir, lo cual tarda mucho más de lo
+                    # necesario.
+                    if ("FOPAT" in mensaje.upper() or "PEAJE" in mensaje.upper()) and intento < max_intentos:
                         if not fopat_aplica:
                             log("    Parece que falta la Retención FOPAT. Calculándola y reintentando...")
                             fopat_aplica = True
@@ -748,7 +756,13 @@ def ejecutar_automatizacion(v, usuario, password, log, driver_compartido=None, w
                             fopat_aplica = False
                         continue
 
-                    elif "MAN045" in mensaje.upper() and intento < max_intentos:
+                    elif (
+                        "MAN045" in mensaje.upper()
+                        or ("FLETE" in mensaje.upper() and any(
+                            palabra in mensaje.upper()
+                            for palabra in ("INSUFICIENTE", "BAJO", "MINIMO", "MÍNIMO", "SICETAC", "INFERIOR")
+                        ))
+                    ) and intento < max_intentos:
                         valor_flete_actual += 200000
                         log(f"    El valor del flete es muy bajo para SiceTac. "
                             f"Subiendo a {valor_flete_actual:,.0f} y reintentando...")
@@ -788,8 +802,9 @@ def ejecutar_automatizacion(v, usuario, password, log, driver_compartido=None, w
                         continue
 
                     else:
-                        log("    Error no reconocido específicamente. Reiniciando sesión y "
-                            "recargando el manifiesto completo desde cero...")
+                        log(f"    Error no reconocido específicamente: \"{mensaje}\" — si esto se repite "
+                            f"seguido, copia este mensaje tal cual para ajustar el programa. "
+                            f"Reiniciando sesión y recargando el manifiesto completo desde cero...")
                         driver.save_screenshot(ruta_captura("debug_manifiesto_guardado.png"))
                         hacer_login()
                         return None, mensaje, "pagina"
