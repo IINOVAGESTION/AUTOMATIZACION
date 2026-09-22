@@ -428,6 +428,8 @@ def ejecutar_automatizacion(v, usuario, password, log, driver_compartido=None, w
         )
 
         # ======================= MANIFIESTO =======================
+        manifiesto_descargado_por_consecutivo = [False]  # lista para poder modificarla desde adentro (closure)
+
         def intentar_llenar_manifiesto():
           try:
             """Llena y guarda el Manifiesto una vez. Si en el camino el
@@ -691,15 +693,35 @@ def ejecutar_automatizacion(v, usuario, password, log, driver_compartido=None, w
 
                 elif resultado == "exito_sin_radicado":
                     # El sitio SÍ dijo "Manifiesto Creado", pero no se pudo
-                    # leer el número de radicado. NO se reintenta — hacerlo
-                    # podría crear un SEGUNDO manifiesto duplicado sobre uno
-                    # que en realidad ya se guardó bien. Se detiene aquí y
-                    # se avisa bien claro para que se revise a mano en el
-                    # RNDC antes de hacer cualquier otra cosa con este viaje.
+                    # leer el número de radicado en pantalla. En vez de
+                    # reintentar a ciegas (riesgo de duplicado), se intenta
+                    # encontrar el mismo manifiesto por su CONSECUTIVO en la
+                    # página de Reimprimir — tiene una casilla aparte para
+                    # eso (NUMMANIFIESTOCARGA), separada de la de radicado.
                     driver.save_screenshot(ruta_captura("debug_manifiesto_sin_radicado.png"))
-                    log("🛑 El sitio confirmó \"Manifiesto Creado\", pero no se pudo leer el número "
-                        "de radicado en la página (posible cambio o lentitud del sitio). "
-                        "NO se va a reintentar, para no arriesgarse a crear un manifiesto duplicado. "
+                    log("⚠️  El sitio confirmó \"Manifiesto Creado\", pero no se pudo leer el número "
+                        "de radicado en la página. Buscándolo por el consecutivo en vez de reintentar "
+                        "(así no se arriesga a crear uno duplicado)...")
+                    archivo_por_consecutivo = descargar_pdf_documento(
+                        driver, wait, URL_REIMPRIMIR_MANIFIESTO, v["Consecutivo"],
+                        f"{v['Placa']}{sufijo_archivo_viaje}", CARPETA_DESCARGAS,
+                        "dnn_ctr394_ReimprimirManifiesto_NUMMANIFIESTOCARGA",
+                        "dnn_ctr394_ReimprimirManifiesto_btImprimir", log,
+                        id_boton_consultar="dnn_ctr394_ReimprimirManifiesto_btConsultar",
+                    )
+                    if archivo_por_consecutivo:
+                        archivos_generados.append(os.path.basename(archivo_por_consecutivo))
+                        manifiesto_descargado_por_consecutivo[0] = True
+                        log(f"✅ Manifiesto encontrado y descargado por el consecutivo {v['Consecutivo']} "
+                            f"(el radicado exacto no se pudo leer, pero el PDF sí quedó guardado en Descargas).")
+                        return v["Consecutivo"], "Encontrado por consecutivo", None
+
+                    # Ni siquiera por consecutivo se pudo encontrar/descargar
+                    # — ahí sí no queda más que detenerse y avisar para que
+                    # se revise a mano, en vez de seguir intentando algo que
+                    # ya demostró no funcionar por dos caminos distintos.
+                    log("🛑 Tampoco se pudo encontrar el manifiesto por el consecutivo. "
+                        "NO se va a reintentar crear uno nuevo, para no arriesgarse a un duplicado. "
                         "Entra al RNDC y busca este manifiesto a mano (Consultas) para confirmar el "
                         f"radicado real. Consecutivo: {v['Consecutivo']}.")
                     return None, "Manifiesto creado pero sin radicado legible — revisar a mano en el RNDC.", None
@@ -848,6 +870,8 @@ def ejecutar_automatizacion(v, usuario, password, log, driver_compartido=None, w
 
         if v.get("ModoPractica"):
             log("🎓 MODO PRÁCTICA: no se descarga ningún PDF (no se creó nada real).")
+        elif manifiesto_descargado_por_consecutivo[0]:
+            log("    (El PDF del manifiesto ya se descargó por el consecutivo más arriba, no hace falta de nuevo.)")
         else:
             log("Descargando el PDF del manifiesto (vía Reimprimir Manifiesto)...")
             archivo_manifiesto = descargar_pdf_documento(
