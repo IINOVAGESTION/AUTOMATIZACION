@@ -338,11 +338,14 @@ def renombrar_descarga(carpeta, nombre_nuevo_sin_extension, archivos_antes, log,
     return destino
 
 
-def esperar_confirmacion_manifiesto(driver, timeout=35):
-    """timeout subido de 20s a 35s: con 20s, si el sitio tardaba en mostrar
-    la confirmación, el programa asumía que el guardado había fallado y
-    reiniciaba TODO el manifiesto desde cero -> terminaba creando un
-    manifiesto duplicado aunque el primero sí se hubiera guardado bien."""
+def esperar_confirmacion_manifiesto(driver, timeout=60):
+    """timeout subido de 20s a 35s, y ahora a 60s: validaciones como la de
+    SiceTac (revisar si el flete alcanza el mínimo de esa ruta) parecen
+    hacer una consulta real contra una base de datos de referencia del
+    RNDC, no una validación instantánea del navegador — con 35s no
+    siempre alcanzaba a aparecer la alerta a tiempo, y el programa
+    terminaba reiniciando TODO el manifiesto desde cero pensando que
+    había fallado, aunque en realidad solo necesitaba más margen."""
 
     def atender_alerta_si_hay():
         """Intenta agarrar y cerrar una alerta que YA se sabe que existe
