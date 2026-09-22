@@ -618,12 +618,19 @@ def ejecutar_automatizacion(v, usuario, password, log, driver_compartido=None, w
                         f"El manifiesto sigue sin él.")
 
             valor_flete_actual = float(v["Flete"])
-            # Antes solo aplicaba si había remolque — pero el aviso del RNDC
-            # (Ley 2251 de 2022 y Resolución 0008 del 25/marzo/2026 de la
-            # DIAN) dice que la Retención FOPAT es obligatoria SIEMPRE, no
-            # solo con remolque. Se llena desde el principio en todos los
-            # casos, para no depender de que el sitio lo rechace primero.
-            fopat_aplica = True
+            # Se vuelve a la regla original (aplica solo con remolque). El
+            # cambio a "siempre aplica" (v3.3) se basó en un mensaje del
+            # RNDC que sonaba a obligatorio para todos — pero otro mensaje
+            # posterior (MAN273) aclaró que en realidad es condicional:
+            # "Vehículos con PBV <= 10.500 kilos NO les aplica el FOPAT".
+            # Meterle FOPAT a un vehículo que no lo necesita parece dejar
+            # el manifiesto en un estado que el sitio tarda muchísimo en
+            # resolver (o no resuelve nunca) — algo que no pasaba antes de
+            # ese cambio. La corrección automática de más abajo (agregarlo
+            # si el sitio dice que falta, quitarlo si dice que no aplica)
+            # sigue ahí como respaldo, por si el remolque no es un buen
+            # indicio en algún caso puntual.
+            fopat_aplica = bool(v["Placa_Remolque"])
 
             def actualizar_flete(nuevo_valor):
                 campo_valor_flete = driver.find_element(By.ID, "dnn_ctr394_Manifiesto_VALORFLETEPACTADOVIAJE")
