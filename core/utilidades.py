@@ -343,6 +343,20 @@ def esperar_confirmacion_manifiesto(driver, timeout=35):
     la confirmación, el programa asumía que el guardado había fallado y
     reiniciaba TODO el manifiesto desde cero -> terminaba creando un
     manifiesto duplicado aunque el primero sí se hubiera guardado bien."""
+
+    def atender_alerta_si_hay():
+        """Intenta agarrar y cerrar una alerta que YA se sabe que existe
+        (por un UnexpectedAlertPresentException), sin esperar al próximo
+        sondeo. Devuelve el texto si lo logra, o None si no."""
+        try:
+            alerta = driver.switch_to.alert
+            texto_alerta = alerta.text
+            alerta.accept()
+            time.sleep(0.3)
+            return texto_alerta
+        except Exception:
+            return None
+
     fin = time.time() + timeout
     while time.time() < fin:
         try:
@@ -360,6 +374,16 @@ def esperar_confirmacion_manifiesto(driver, timeout=35):
             return ("error", texto_alerta)
         except NoAlertPresentException:
             pass
+        except UnexpectedAlertPresentException:
+            # Selenium a veces "sabe" que hay una alerta abierta (por eso
+            # lanza este error en vez de decir que no hay ninguna) pero el
+            # primer intento de engancharse a ella con switch_to.alert no
+            # lo logra del todo. Antes esto se perdía en el sondeo normal —
+            # ahora se reintenta agarrarla de inmediato, sin esperar otra
+            # vuelta completa del ciclo.
+            texto_alerta = atender_alerta_si_hay()
+            if texto_alerta is not None:
+                return ("error", texto_alerta)
 
         elementos = driver.find_elements(By.ID, "dnn_ctr394_ManifiestoNew_lbIngreso")
         if elementos:
@@ -379,6 +403,13 @@ def esperar_confirmacion_manifiesto(driver, timeout=35):
             texto_pagina = driver.find_element(By.TAG_NAME, "body").text
             if "Manifiesto Creado" in texto_pagina:
                 return ("exito_sin_radicado", texto_pagina[:400])
+        except UnexpectedAlertPresentException:
+            # Misma idea que arriba: si al intentar leer la página se
+            # descubre que hay una alerta bloqueándola, se atiende de una
+            # vez en vez de dejarla pasar en silencio.
+            texto_alerta = atender_alerta_si_hay()
+            if texto_alerta is not None:
+                return ("error", texto_alerta)
         except Exception:
             pass
 
