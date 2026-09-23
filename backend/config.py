@@ -9,7 +9,7 @@ RUTAS_SIN_ACTIVIDAD = {"estado", "static"}
 
 URL_HOJA_USUARIOS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSotDHXpy-hRY4T84tvx9czqG8LSQR_3kqS4lIJ6aHiH4MTFgxTUR3jfU5ronsEKYDm8hIcgAzPuKP0/pub?gid=0&single=true&output=csv"
 
-VERSION_APP = "3.12"
+VERSION_APP = "3.13"
 
 URL_HOJA_VERSION = ""
 

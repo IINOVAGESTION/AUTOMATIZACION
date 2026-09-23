@@ -636,15 +636,6 @@ def ejecutar_automatizacion(v, usuario, password, log, driver_compartido=None, w
                 campo_valor_flete = driver.find_element(By.ID, "dnn_ctr394_Manifiesto_VALORFLETEPACTADOVIAJE")
                 campo_valor_flete.clear()
                 campo_valor_flete.send_keys(str(int(nuevo_valor)))
-                # Antes solo se llamaba a la función onexit() del sitio por
-                # JavaScript, sin tabular fuera del campo de verdad — el
-                # mismo tipo de problema que se encontró con el botón de
-                # Agregar remesa: llamar a UNA función específica por script
-                # no es exactamente lo mismo que un evento de blur real, y
-                # puede que el sitio dependa de otros listeners que solo se
-                # disparan con un TAB de verdad. Se manda el TAB real
-                # primero, y de paso también la función, por si acaso.
-                campo_valor_flete.send_keys(Keys.TAB)
                 driver.execute_script("VALORFLETEPACTADOVIAJE_onexit();")
                 time.sleep(1.1)
 
@@ -654,7 +645,6 @@ def ejecutar_automatizacion(v, usuario, password, log, driver_compartido=None, w
             campo_ica.clear()
             valor_ica = calcular_retencion_ica(ciudad_cargue_real, ciudad_descargue_real, fm["RETENCIONICA"])
             campo_ica.send_keys(valor_ica)
-            campo_ica.send_keys(Keys.TAB)
             driver.execute_script("RETENCIONICA_onexit();")
             time.sleep(0.4)
 
@@ -666,31 +656,8 @@ def ejecutar_automatizacion(v, usuario, password, log, driver_compartido=None, w
                 campo_fopat = driver.find_element(By.ID, "dnn_ctr394_Manifiesto_RETENCIONFOPAT")
                 campo_fopat.clear()
                 campo_fopat.send_keys(str(valor_fopat))
-                campo_fopat.send_keys(Keys.TAB)
                 driver.execute_script("RETENCIONFOPAT_onexit();")
                 time.sleep(0.4)
-
-                # Verificación: a veces, sobre todo al RECALCULAR el FOPAT
-                # después de subir el flete (no la primera vez), el sitio
-                # parece "pisar" el valor que se acaba de escribir con su
-                # propio recálculo automático, o el campo no queda
-                # actualizado del todo — dejando el número viejo puesto.
-                # Se relee la casilla y, si no quedó con el valor correcto,
-                # se reintenta una vez más.
-                try:
-                    campo_fopat_verificar = driver.find_element(By.ID, "dnn_ctr394_Manifiesto_RETENCIONFOPAT")
-                    valor_actual_en_pantalla = (campo_fopat_verificar.get_attribute("value") or "").strip()
-                    if valor_actual_en_pantalla != str(valor_fopat):
-                        log(f"    El FOPAT en pantalla muestra '{valor_actual_en_pantalla}' en vez de "
-                            f"'{valor_fopat}' — reintentando ponerlo bien...")
-                        campo_fopat_verificar.clear()
-                        campo_fopat_verificar.send_keys(str(valor_fopat))
-                        campo_fopat_verificar.send_keys(Keys.TAB)
-                        driver.execute_script("RETENCIONFOPAT_onexit();")
-                        time.sleep(0.4)
-                except Exception:
-                    pass
-
                 log(f"Retención FOPAT calculada: {valor_fopat}")
 
             if fopat_aplica:
@@ -710,32 +677,9 @@ def ejecutar_automatizacion(v, usuario, password, log, driver_compartido=None, w
             recomendaciones.send_keys(v.get("Observaciones") or fm["RECOMENDACIONES"])
 
             for remesa_info in remesas_creadas:
-                # blur=True (antes False): sin tabular fuera del campo antes
-                # de darle clic a "Agregar", el sitio a veces no alcanzaba a
-                # "confirmar" el consecutivo escrito — el botón lo agregaba
-                # sin saber bien cuál remesa era, dejando la lista de
-                # REMESAS del manifiesto VACÍA. Con eso vacío, el manifiesto
-                # se quedaba esperando una confirmación que nunca llegaba
-                # (ni éxito ni error), pareciendo que el programa "no hacía
-                # nada" al guardar.
-                set_text(driver, "dnn_ctr394_Manifiesto_REMESA", remesa_info["consecutivo"], blur=True)
+                set_text(driver, "dnn_ctr394_Manifiesto_REMESA", remesa_info["consecutivo"], blur=False)
                 driver.find_element(By.ID, "dnn_ctr394_Manifiesto_BTAGREGAR").click()
                 time.sleep(1.1)
-                # Verificación: si la tabla de remesas del manifiesto sigue
-                # diciendo "No hay Registros para mostrar" después de darle
-                # a Agregar, es que no quedó agregada de verdad — mejor
-                # avisar esto YA (antes de guardar) que descubrirlo 60
-                # segundos después con una espera que nunca se resuelve.
-                try:
-                    texto_pagina_tras_agregar = driver.find_element(By.TAG_NAME, "body").text
-                    if "No hay Registros para mostrar" in texto_pagina_tras_agregar:
-                        log(f"⚠️  La remesa {remesa_info['consecutivo']} no quedó agregada a la lista "
-                            f"del manifiesto (la tabla de REMESAS sigue vacía) — reintentando agregarla...")
-                        set_text(driver, "dnn_ctr394_Manifiesto_REMESA", remesa_info["consecutivo"], blur=True)
-                        driver.find_element(By.ID, "dnn_ctr394_Manifiesto_BTAGREGAR").click()
-                        time.sleep(1.1)
-                except Exception:
-                    pass
 
             driver.save_screenshot(ruta_captura("debug_manifiesto_llenado.png"))
 
@@ -873,7 +817,6 @@ def ejecutar_automatizacion(v, usuario, password, log, driver_compartido=None, w
                             f"Subiendo a {valor_flete_actual:,.0f} y reintentando "
                             f"(intento {intentos_flete_bajo} de este ajuste)...")
                         actualizar_flete(valor_flete_actual)
-                        campo_ica.send_keys(Keys.TAB)
                         driver.execute_script("RETENCIONICA_onexit();")
                         time.sleep(0.4)
                         if fopat_aplica:
