@@ -669,6 +669,28 @@ def ejecutar_automatizacion(v, usuario, password, log, driver_compartido=None, w
                 campo_fopat.send_keys(Keys.TAB)
                 driver.execute_script("RETENCIONFOPAT_onexit();")
                 time.sleep(0.4)
+
+                # Verificación: a veces, sobre todo al RECALCULAR el FOPAT
+                # después de subir el flete (no la primera vez), el sitio
+                # parece "pisar" el valor que se acaba de escribir con su
+                # propio recálculo automático, o el campo no queda
+                # actualizado del todo — dejando el número viejo puesto.
+                # Se relee la casilla y, si no quedó con el valor correcto,
+                # se reintenta una vez más.
+                try:
+                    campo_fopat_verificar = driver.find_element(By.ID, "dnn_ctr394_Manifiesto_RETENCIONFOPAT")
+                    valor_actual_en_pantalla = (campo_fopat_verificar.get_attribute("value") or "").strip()
+                    if valor_actual_en_pantalla != str(valor_fopat):
+                        log(f"    El FOPAT en pantalla muestra '{valor_actual_en_pantalla}' en vez de "
+                            f"'{valor_fopat}' — reintentando ponerlo bien...")
+                        campo_fopat_verificar.clear()
+                        campo_fopat_verificar.send_keys(str(valor_fopat))
+                        campo_fopat_verificar.send_keys(Keys.TAB)
+                        driver.execute_script("RETENCIONFOPAT_onexit();")
+                        time.sleep(0.4)
+                except Exception:
+                    pass
+
                 log(f"Retención FOPAT calculada: {valor_fopat}")
 
             if fopat_aplica:
