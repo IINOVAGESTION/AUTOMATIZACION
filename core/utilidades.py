@@ -360,8 +360,21 @@ def esperar_confirmacion_manifiesto(driver, timeout=60):
         except Exception:
             return None
 
+    # Contadores de diagnóstico: si esta función se rinde sin encontrar
+    # nada, este resumen dice EXACTAMENTE qué pasó durante la espera
+    # (cuántas veces no había alerta, cuántas veces hubo un problema
+    # "enganchándose" a ella, o si pasó algo totalmente distinto) — así,
+    # si se repite, se puede ver en una sola captura del log qué está
+    # pasando de verdad, en vez de tener que adivinar.
+    conteo_sondeos = 0
+    conteo_sin_alerta = 0
+    conteo_alerta_inesperada = 0
+    conteo_alerta_inesperada_recuperada = 0
+    otros_errores = {}
+
     fin = time.time() + timeout
     while time.time() < fin:
+        conteo_sondeos += 1
         try:
             alerta = driver.switch_to.alert
             texto_alerta = alerta.text
@@ -376,7 +389,7 @@ def esperar_confirmacion_manifiesto(driver, timeout=60):
             time.sleep(0.3)
             return ("error", texto_alerta)
         except NoAlertPresentException:
-            pass
+            conteo_sin_alerta += 1
         except UnexpectedAlertPresentException:
             # Selenium a veces "sabe" que hay una alerta abierta (por eso
             # lanza este error en vez de decir que no hay ninguna) pero el
@@ -384,9 +397,14 @@ def esperar_confirmacion_manifiesto(driver, timeout=60):
             # lo logra del todo. Antes esto se perdía en el sondeo normal —
             # ahora se reintenta agarrarla de inmediato, sin esperar otra
             # vuelta completa del ciclo.
+            conteo_alerta_inesperada += 1
             texto_alerta = atender_alerta_si_hay()
             if texto_alerta is not None:
+                conteo_alerta_inesperada_recuperada += 1
                 return ("error", texto_alerta)
+        except Exception as e:
+            clave = type(e).__name__
+            otros_errores[clave] = otros_errores.get(clave, 0) + 1
 
         elementos = driver.find_elements(By.ID, "dnn_ctr394_ManifiestoNew_lbIngreso")
         if elementos:
@@ -413,11 +431,25 @@ def esperar_confirmacion_manifiesto(driver, timeout=60):
             texto_alerta = atender_alerta_si_hay()
             if texto_alerta is not None:
                 return ("error", texto_alerta)
-        except Exception:
-            pass
+        except Exception as e:
+            clave = type(e).__name__
+            otros_errores[clave] = otros_errores.get(clave, 0) + 1
 
         time.sleep(0.35)
-    return (None, None)
+
+    # Se rindió sin encontrar nada — en vez de devolver solo "no se sabe
+    # qué pasó", se arma un resumen de diagnóstico con lo que de verdad
+    # ocurrió durante los sondeos, para poder ver en una sola línea del
+    # log qué está pasando (sin esto, tocaba adivinar a ciegas).
+    resumen_diagnostico = (
+        f"(diagnóstico: {conteo_sondeos} sondeos en {timeout}s — "
+        f"{conteo_sin_alerta}x sin alerta, "
+        f"{conteo_alerta_inesperada}x 'alerta inesperada' "
+        f"({conteo_alerta_inesperada_recuperada} recuperadas)"
+        + (f", otros errores: {otros_errores}" if otros_errores else "")
+        + ")"
+    )
+    return (None, resumen_diagnostico)
 
 
 def leer_radicado_y_aceptar_alerta(driver, wait, nombre_documento, log):

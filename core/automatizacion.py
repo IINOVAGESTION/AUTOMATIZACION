@@ -864,8 +864,9 @@ def ejecutar_automatizacion(v, usuario, password, log, driver_compartido=None, w
                         hacer_login()
                         return None, mensaje, "pagina"
                 else:
-                    log("⚠️  No apareció ni confirmación ni alerta de error para el manifiesto "
-                        "(posible lentitud del sitio). Reiniciando sesión y recargando desde cero...")
+                    log(f"⚠️  No apareció ni confirmación ni alerta de error para el manifiesto "
+                        f"(posible lentitud del sitio) {mensaje or ''}. Reiniciando sesión y "
+                        f"recargando desde cero...")
                     driver.save_screenshot(ruta_captura("debug_manifiesto_guardado.png"))
                     hacer_login()
                     return None, mensaje, "pagina"
