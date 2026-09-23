@@ -677,9 +677,32 @@ def ejecutar_automatizacion(v, usuario, password, log, driver_compartido=None, w
             recomendaciones.send_keys(v.get("Observaciones") or fm["RECOMENDACIONES"])
 
             for remesa_info in remesas_creadas:
-                set_text(driver, "dnn_ctr394_Manifiesto_REMESA", remesa_info["consecutivo"], blur=False)
+                # blur=True (antes False): sin tabular fuera del campo antes
+                # de darle clic a "Agregar", el sitio a veces no alcanzaba a
+                # "confirmar" el consecutivo escrito — el botón lo agregaba
+                # sin saber bien cuál remesa era, dejando la lista de
+                # REMESAS del manifiesto VACÍA. Con eso vacío, el manifiesto
+                # se quedaba esperando una confirmación que nunca llegaba
+                # (ni éxito ni error), pareciendo que el programa "no hacía
+                # nada" al guardar.
+                set_text(driver, "dnn_ctr394_Manifiesto_REMESA", remesa_info["consecutivo"], blur=True)
                 driver.find_element(By.ID, "dnn_ctr394_Manifiesto_BTAGREGAR").click()
                 time.sleep(1.1)
+                # Verificación: si la tabla de remesas del manifiesto sigue
+                # diciendo "No hay Registros para mostrar" después de darle
+                # a Agregar, es que no quedó agregada de verdad — mejor
+                # avisar esto YA (antes de guardar) que descubrirlo 60
+                # segundos después con una espera que nunca se resuelve.
+                try:
+                    texto_pagina_tras_agregar = driver.find_element(By.TAG_NAME, "body").text
+                    if "No hay Registros para mostrar" in texto_pagina_tras_agregar:
+                        log(f"⚠️  La remesa {remesa_info['consecutivo']} no quedó agregada a la lista "
+                            f"del manifiesto (la tabla de REMESAS sigue vacía) — reintentando agregarla...")
+                        set_text(driver, "dnn_ctr394_Manifiesto_REMESA", remesa_info["consecutivo"], blur=True)
+                        driver.find_element(By.ID, "dnn_ctr394_Manifiesto_BTAGREGAR").click()
+                        time.sleep(1.1)
+                except Exception:
+                    pass
 
             driver.save_screenshot(ruta_captura("debug_manifiesto_llenado.png"))
 
