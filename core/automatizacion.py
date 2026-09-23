@@ -636,6 +636,15 @@ def ejecutar_automatizacion(v, usuario, password, log, driver_compartido=None, w
                 campo_valor_flete = driver.find_element(By.ID, "dnn_ctr394_Manifiesto_VALORFLETEPACTADOVIAJE")
                 campo_valor_flete.clear()
                 campo_valor_flete.send_keys(str(int(nuevo_valor)))
+                # Antes solo se llamaba a la función onexit() del sitio por
+                # JavaScript, sin tabular fuera del campo de verdad — el
+                # mismo tipo de problema que se encontró con el botón de
+                # Agregar remesa: llamar a UNA función específica por script
+                # no es exactamente lo mismo que un evento de blur real, y
+                # puede que el sitio dependa de otros listeners que solo se
+                # disparan con un TAB de verdad. Se manda el TAB real
+                # primero, y de paso también la función, por si acaso.
+                campo_valor_flete.send_keys(Keys.TAB)
                 driver.execute_script("VALORFLETEPACTADOVIAJE_onexit();")
                 time.sleep(1.1)
 
@@ -645,6 +654,7 @@ def ejecutar_automatizacion(v, usuario, password, log, driver_compartido=None, w
             campo_ica.clear()
             valor_ica = calcular_retencion_ica(ciudad_cargue_real, ciudad_descargue_real, fm["RETENCIONICA"])
             campo_ica.send_keys(valor_ica)
+            campo_ica.send_keys(Keys.TAB)
             driver.execute_script("RETENCIONICA_onexit();")
             time.sleep(0.4)
 
@@ -656,6 +666,7 @@ def ejecutar_automatizacion(v, usuario, password, log, driver_compartido=None, w
                 campo_fopat = driver.find_element(By.ID, "dnn_ctr394_Manifiesto_RETENCIONFOPAT")
                 campo_fopat.clear()
                 campo_fopat.send_keys(str(valor_fopat))
+                campo_fopat.send_keys(Keys.TAB)
                 driver.execute_script("RETENCIONFOPAT_onexit();")
                 time.sleep(0.4)
                 log(f"Retención FOPAT calculada: {valor_fopat}")
@@ -840,6 +851,7 @@ def ejecutar_automatizacion(v, usuario, password, log, driver_compartido=None, w
                             f"Subiendo a {valor_flete_actual:,.0f} y reintentando "
                             f"(intento {intentos_flete_bajo} de este ajuste)...")
                         actualizar_flete(valor_flete_actual)
+                        campo_ica.send_keys(Keys.TAB)
                         driver.execute_script("RETENCIONICA_onexit();")
                         time.sleep(0.4)
                         if fopat_aplica:
