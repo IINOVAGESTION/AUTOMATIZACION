@@ -25,8 +25,10 @@ try:
 except ImportError:
     _ZEEP_DISPONIBLE = False
 
-from .config import FIJOS_REMESA, FIJOS_MANIFIESTO
+from .config import FIJOS_REMESA, FIJOS_MANIFIESTO, CARPETA_DESCARGAS, URL_REIMPRIMIR_REMESA, URL_REIMPRIMIR_MANIFIESTO
 from .utilidades import calcular_retencion_ica
+from .navegador import crear_opciones_chrome, crear_driver_con_limite, obtener_chromedriver_path
+from .documentos import descargar_pdf_documento
 
 CARPETA_WSDL = os.path.join(os.path.dirname(os.path.abspath(__file__)), "wsdl")
 
@@ -343,6 +345,22 @@ def ejecutar_viaje_api(v, usuario, password, log):
     peso_kg = _limpiar_numero(v["Peso"])
     flete = _limpiar_numero(v["Flete"])
 
+    if v.get("ModoPractica"):
+        # No hay forma de "llenar pero no guardar" con el Web Service --
+        # a diferencia del navegador, la llamada crea o no crea, sin punto
+        # medio. Por eso aquí ni siquiera se llama a la API real: se avisa
+        # y se devuelve un radicado de mentira, igual que hace Selenium.
+        log(f"🎓 MODO PRÁCTICA: aquí se habrían creado la remesa y el manifiesto "
+            f"{v['Consecutivo']}. No se creó nada real, no se descarga ningún PDF.")
+        radicado_practica = f"PRACTICA-{int(time.time())}"
+        return {
+            "ok": True, "error": None,
+            "resumen": [f"(modo práctica) Remesa/Manifiesto {v['Consecutivo']}"],
+            "archivos": [],
+            "radicado_remesa": radicado_practica,
+            "radicado_manifiesto": radicado_practica,
+        }
+
     try:
         log(f"Creando remesa {v['Consecutivo']} vía Web Service...")
         radicado_remesa = crear_remesa_api(
@@ -414,8 +432,76 @@ def ejecutar_viaje_api(v, usuario, password, log):
         log(f"❌ El RNDC rechazó la solicitud: {e.mensaje}")
         return {"ok": False, "error": e.mensaje, "resumen": resumen, "archivos": []}
 
+    archivos = descargar_pdfs_del_viaje(
+        usuario, password, v, radicado_remesa, radicado_manifiesto, "", log
+    )
     return {
-        "ok": True, "error": None, "resumen": resumen, "archivos": [],
+        "ok": True, "error": None, "resumen": resumen, "archivos": archivos,
         "radicado_remesa": radicado_remesa,
         "radicado_manifiesto": radicado_manifiesto,
     }
+
+
+def descargar_pdfs_del_viaje(usuario, password, v, radicado_remesa, radicado_manifiesto,
+                              sufijo_archivo_viaje, log):
+    """Después de crear la Remesa y el Manifiesto por el Web Service, se
+    abre un navegador SOLO para bajar los dos PDF (el Web Service no los
+    entrega directamente) -- reutiliza exactamente la misma función de
+    descarga que ya usa la vía de Selenium, así que el nombre y el
+    formato del archivo quedan iguales de cualquiera de las dos formas.
+    Devuelve la lista de nombres de archivo descargados (puede tener 0,
+    1 o 2 elementos si alguna descarga falla -- no se considera un
+    fallo del viaje en sí, ya se creó bien)."""
+    archivos = []
+    driver = None
+    try:
+        log("    Abriendo el navegador solo para descargar los PDF...")
+        chrome_options = crear_opciones_chrome()
+        driver = crear_driver_con_limite(chrome_options, obtener_chromedriver_path())
+        driver.set_page_load_timeout(25)
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.common.keys import Keys
+        import time as _time
+
+        wait = WebDriverWait(driver, 20)
+        driver.get("https://rndc2.mintransporte.gov.co/Ingresar/Iniciar-Sesión")
+        _time.sleep(1)
+        wait.until(lambda d: d.find_element(By.ID, "dnn_ctr390_FormLogIn_edUsername")).send_keys(usuario)
+        driver.find_element(By.ID, "dnn_ctr390_FormLogIn_edPassword").send_keys(password)
+        driver.find_element(By.ID, "dnn_ctr390_FormLogIn_btIngresar").click()
+        _time.sleep(2)
+
+        nombre_remesa = f"remesa{v['Placa']}{sufijo_archivo_viaje}"
+        archivo_remesa = descargar_pdf_documento(
+            driver, wait, URL_REIMPRIMIR_REMESA, radicado_remesa, nombre_remesa,
+            CARPETA_DESCARGAS, "dnn_ctr394_ReimprimirRemesa_RADICADO",
+            "dnn_ctr394_ReimprimirRemesa_btImprimir", log,
+        )
+        if archivo_remesa:
+            import os as _os
+            archivos.append(_os.path.basename(archivo_remesa))
+            log(f"✅ PDF de la remesa descargado: {_os.path.basename(archivo_remesa)}")
+
+        nombre_manifiesto = f"{v['Placa']}{sufijo_archivo_viaje}"
+        archivo_manifiesto = descargar_pdf_documento(
+            driver, wait, URL_REIMPRIMIR_MANIFIESTO, radicado_manifiesto, nombre_manifiesto,
+            CARPETA_DESCARGAS, "dnn_ctr394_ReimprimirManifiesto_RADICADO",
+            "dnn_ctr394_ReimprimirManifiesto_btImprimir", log,
+            id_boton_consultar="dnn_ctr394_ReimprimirManifiesto_btConsultar",
+        )
+        if archivo_manifiesto:
+            import os as _os
+            archivos.append(_os.path.basename(archivo_manifiesto))
+            log(f"✅ PDF del manifiesto descargado: {_os.path.basename(archivo_manifiesto)}")
+
+    except Exception as e:
+        log(f"⚠️  No se pudieron descargar los PDF (el viaje ya quedó creado igual): {e}")
+    finally:
+        if driver:
+            try:
+                driver.quit()
+            except Exception:
+                pass
+
+    return archivos
