@@ -210,15 +210,13 @@ def trabajador_de_fondo():
                     )
                 elif (
                     trabajo["v"].get("UsarAPI")
-                    and trabajo["v"].get("TipoViaje") == "Normal"
+                    and trabajo["v"].get("TipoViaje") in ("Normal", "IdaYRegreso")
                     and not trabajo["v"].get("Multiparada")
-                    and not trabajo["v"].get("IdaYRegreso")
                     and not trabajo["v"].get("Cedula_Conductor2")
                 ):
-                    # Camino nuevo (Web Service) -- solo para el caso más
-                    # simple por ahora (un viaje normal, sin Multiparada,
-                    # Ida y Regreso, ni segundo conductor). Todavía no
-                    # descarga el PDF -- eso sigue pendiente de conectar.
+                    # Camino nuevo (Web Service) -- cubre viajes Normales e
+                    # Ida y Regreso por ahora. Multiparada y segundo
+                    # conductor todavía van por Selenium.
                     log_trabajo("    (usando el Web Service en vez del navegador)")
                     resultado = rndc_core.ejecutar_viaje_api(
                         trabajo["v"], trabajo["usuario"], trabajo["password"], log_trabajo
