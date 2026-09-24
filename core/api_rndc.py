@@ -26,7 +26,7 @@ except ImportError:
     _ZEEP_DISPONIBLE = False
 
 from .config import FIJOS_REMESA, FIJOS_MANIFIESTO, CARPETA_DESCARGAS, URL_REIMPRIMIR_REMESA, URL_REIMPRIMIR_MANIFIESTO
-from .utilidades import calcular_retencion_ica
+from .utilidades import calcular_retencion_ica, quitar_tildes
 from .navegador import crear_opciones_chrome, crear_driver_con_limite, obtener_chromedriver_path
 from .documentos import descargar_pdf_documento
 
@@ -161,34 +161,58 @@ def _obtener_sedes(usuario, password, nit_empresa, log=None):
 def buscar_sede(usuario, password, nit_empresa, texto_buscar, log=None):
     """Busca, entre las sedes YA registradas para nit_empresa (usa la
     caché de _obtener_sedes, no repite la consulta gigante), la que
-    coincida con texto_buscar (sin importar mayúsculas) -- el mismo
-    comportamiento que hoy tiene la lista desplegable de sedes en el
-    sitio web. Devuelve un dict {'codigo_sede': ..., 'municipio': ...},
-    o None si no encuentra ninguna que coincida.
+    coincida con texto_buscar. Usa la misma estrategia que ya usa
+    Selenium para el autocompletado de ciudades: primero intenta una
+    coincidencia EXACTA (sin tildes ni mayúsculas) probando con el texto
+    completo y, si no hay, quitando palabras del final una por una --
+    porque el departamento suele venir al final (ej: buscar
+    "APARTADO ANTIOQUIA" debe encontrar una sede que solo se llama
+    "APARTADO"). Si tampoco hay ninguna coincidencia exacta así, cae a
+    una coincidencia parcial (que el texto buscado esté contenido en el
+    nombre de la sede, o al revés). Devuelve un dict
+    {'codigo_sede': ..., 'municipio': ...}, o None si no encuentra nada.
 
-    Cuando hay varias sedes con el mismo nombre (algunas empresas tienen
-    entradas repetidas o antiguas), se prefiere la que tenga un código
-    "limpio" (sin un '+' adelante) -- los códigos con '+' parecen venir
-    de una carga antigua de datos, y hay indicios de que el RNDC a veces
-    los interpreta mal (quitándoles el '+' y leyéndolos como un código
-    totalmente distinto), lo que puede causar que el municipio del
-    Manifiesto no coincida con el de la Remesa aunque ambos hayan
-    buscado el mismo nombre de ciudad."""
+    Cuando hay varias sedes que coinciden, se prefiere la que tenga un
+    código "limpio" (sin un '+' adelante) -- los códigos con '+' parecen
+    venir de una carga antigua de datos, y hay indicios de que el RNDC a
+    veces los interpreta mal (quitándoles el '+' y leyéndolos como un
+    código totalmente distinto)."""
     sedes = _obtener_sedes(usuario, password, nit_empresa, log=log)
-    texto_buscar_norm = texto_buscar.strip().upper()
-    coincidencias = [s for s in sedes if texto_buscar_norm in s["nombre"].upper()]
-    if not coincidencias:
-        return None
 
-    limpias = [s for s in coincidencias if not s["codigo_sede"].startswith("+")]
-    elegida = limpias[0] if limpias else coincidencias[0]
+    def normalizar(texto):
+        return quitar_tildes(" ".join(texto.strip().upper().split()))
 
-    if log:
-        log(f"    '{texto_buscar}' -> sede {elegida['codigo_sede']} "
-            f"({elegida['nombre']}, municipio {elegida['municipio']})"
-            + (f" [de {len(coincidencias)} coincidencias, se evitaron las "
-               f"que empiezan con '+']" if len(coincidencias) > 1 else ""))
-    return {"codigo_sede": elegida["codigo_sede"], "municipio": elegida["municipio"]}
+    def elegir(coincidencias, motivo):
+        limpias = [s for s in coincidencias if not s["codigo_sede"].startswith("+")]
+        elegida = limpias[0] if limpias else coincidencias[0]
+        if log:
+            extra = (f" [de {len(coincidencias)} coincidencias, se evitaron las "
+                      f"que empiezan con '+']") if len(coincidencias) > 1 else ""
+            log(f"    '{texto_buscar}' -> sede {elegida['codigo_sede']} "
+                f"({elegida['nombre']}, municipio {elegida['municipio']}) [{motivo}]{extra}")
+        return {"codigo_sede": elegida["codigo_sede"], "municipio": elegida["municipio"]}
+
+    palabras = texto_buscar.strip().split()
+    # Primero se prueba con el texto completo, luego quitando palabras del
+    # final de a una (el departamento casi siempre es la última palabra).
+    frases_a_probar = [" ".join(palabras[:n]) for n in range(len(palabras), 0, -1)]
+
+    for frase in frases_a_probar:
+        frase_norm = normalizar(frase)
+        exactas = [s for s in sedes if normalizar(s["nombre"]) == frase_norm]
+        if exactas:
+            return elegir(exactas, "coincidencia exacta")
+
+    # Ninguna coincidencia exacta -- se cae a una coincidencia parcial con
+    # el texto completo original, en cualquiera de los dos sentidos.
+    texto_buscar_norm = normalizar(texto_buscar)
+    parciales = [
+        s for s in sedes
+        if texto_buscar_norm in normalizar(s["nombre"]) or normalizar(s["nombre"]) in texto_buscar_norm
+    ]
+    if parciales:
+        return elegir(parciales, "coincidencia parcial")
+    return None
 
 
 def crear_remesa_api(usuario, password, nit_empresa, consecutivo_remesa,
