@@ -364,6 +364,7 @@ def ejecutar_viaje_api(v, usuario, password, log):
 
         log(f"Creando manifiesto {v['Consecutivo']} vía Web Service...")
         intentos_fopat = 0
+        intentos_flete = 0
         while True:
             try:
                 radicado_manifiesto = crear_manifiesto_api(
@@ -380,16 +381,32 @@ def ejecutar_viaje_api(v, usuario, password, log):
                 )
                 break
             except ErrorRNDC as e:
-                # Si el rechazo es específicamente por el FOPAT (falta o
-                # sobra), se ajusta y se reintenta -- una sola vez, para
-                # no ciclar sin fin si el rechazo fuera por otra razón.
-                es_por_fopat = "FOPAT" in e.mensaje.upper() or "PEAJE" in e.mensaje.upper()
-                if not es_por_fopat or intentos_fopat >= 2:
+                mensaje_mayus = e.mensaje.upper()
+                es_por_fopat = "FOPAT" in mensaje_mayus or "PEAJE" in mensaje_mayus
+                es_por_flete_bajo = any(
+                    palabra in mensaje_mayus
+                    for palabra in ("VALOR PACTADO MUY BAJO", "SICETAC", "COSTO MINIMO",
+                                     "COSTOS EFICIENTES", "VALOR MINIMO")
+                )
+                if es_por_fopat and intentos_fopat < 2:
+                    # Si el rechazo es específicamente por el FOPAT (falta o
+                    # sobra), se ajusta y se reintenta -- unas pocas veces,
+                    # para no ciclar sin fin si el rechazo fuera por otra razón.
+                    intentos_fopat += 1
+                    fopat_aplica = not fopat_aplica
+                    log(f"    El RNDC rechazó por el FOPAT ({e.mensaje}) -- "
+                        f"{'agregándolo' if fopat_aplica else 'quitándolo'} y reintentando...")
+                elif es_por_flete_bajo and intentos_flete < 10:
+                    # El flete no alcanza el mínimo (SiceTac u otra validación
+                    # parecida) -- se sube de $300.000 en $300.000 y se
+                    # reintenta, hasta 10 veces (hasta $3.000.000 de más).
+                    intentos_flete += 1
+                    flete = str(int(flete) + 300000)
+                    log(f"    El RNDC rechazó por el valor del flete ({e.mensaje}) -- "
+                        f"subiéndolo a {int(flete):,} y reintentando "
+                        f"(intento {intentos_flete} de 10)...")
+                else:
                     raise
-                intentos_fopat += 1
-                fopat_aplica = not fopat_aplica
-                log(f"    El RNDC rechazó por el FOPAT ({e.mensaje}) -- "
-                    f"{'agregándolo' if fopat_aplica else 'quitándolo'} y reintentando...")
         log(f"✅ Radicado del manifiesto: {radicado_manifiesto}")
         resumen.append(f"Manifiesto {v['Consecutivo']} -> radicado: {radicado_manifiesto}")
 
