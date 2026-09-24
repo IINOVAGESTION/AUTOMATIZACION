@@ -30,7 +30,7 @@ if exist token_por_defecto.txt (
     echo de 60 consultas por hora en vez de 5000, a menos que cada quien configure
     echo su propio token desde la app^).
 )
-python -m PyInstaller --onefile --name AutomatizacionRNDC --noconsole %ICONO% --collect-all selenium --collect-all webdriver_manager --collect-all webview --collect-all flask --collect-all psutil --add-data "servidor_web.py;semilla" --add-data "rndc_core.py;semilla" --add-data "core;semilla/core" --add-data "backend;semilla/backend" --add-data "templates;semilla/templates" --add-data "static;semilla/static" %TOKEN_DATA% lanzador.py
+python -m PyInstaller --onefile --name AutomatizacionRNDC --noconsole %ICONO% --collect-all selenium --collect-all webdriver_manager --collect-all webview --collect-all flask --collect-all psutil --collect-all zeep --collect-all lxml --add-data "servidor_web.py;semilla" --add-data "rndc_core.py;semilla" --add-data "core;semilla/core" --add-data "backend;semilla/backend" --add-data "templates;semilla/templates" --add-data "static;semilla/static" %TOKEN_DATA% lanzador.py
 if errorlevel 1 (
     echo.
     echo HUBO UN PROBLEMA generando el .exe. Revisa el mensaje de arriba.
