@@ -317,6 +317,15 @@ def crear_manifiesto_api(usuario, password, nit_empresa, consecutivo_manifiesto,
     return radicado
 
 
+def _limpiar_numero(texto):
+    """Deja solo los dígitos de un texto -- para números como Peso o
+    Flete que la gente suele escribir con puntos o comas de miles
+    ("3.000" o "3,000"). Sin esto, ese separador se manda tal cual al
+    RNDC, que lo lee como un punto decimal -- "3.000" termina
+    guardándose como el número 3 (tres), no tres mil."""
+    return "".join(c for c in str(texto) if c.isdigit())
+
+
 def ejecutar_viaje_api(v, usuario, password, log):
     """Crea la Remesa y el Manifiesto de un viaje "Normal" (sin
     Multiparada/Récord todavía) usando el Web Service, en vez de manejar
@@ -331,6 +340,8 @@ def ejecutar_viaje_api(v, usuario, password, log):
     """
     nit_empresa = FIJOS_REMESA["NUMIDPROPIETARIO"]
     resumen = []
+    peso_kg = _limpiar_numero(v["Peso"])
+    flete = _limpiar_numero(v["Flete"])
 
     try:
         log(f"Creando remesa {v['Consecutivo']} vía Web Service...")
@@ -339,7 +350,7 @@ def ejecutar_viaje_api(v, usuario, password, log):
             origen=v["Origen"], destino=v["Destino"],
             producto_codigo=FIJOS_REMESA["CODIGOPRODUCTO"],
             descripcion_producto=v["Producto"],
-            peso_kg=v["Peso"],
+            peso_kg=peso_kg,
             sede_propietario_contiene=FIJOS_REMESA["SEDE_PROPIETARIO_CONTIENE"],
             log=log,
         )
@@ -359,7 +370,7 @@ def ejecutar_viaje_api(v, usuario, password, log):
             placa_remolque=v.get("Placa_Remolque"),
             cedula_conductor=v["Cedula_Conductor"],
             cedula_conductor2=v.get("Cedula_Conductor2"),
-            flete=v["Flete"], retencion_ica=retencion_ica,
+            flete=flete, retencion_ica=retencion_ica,
             retencion_fuente="1",
             fopat_aplica=fopat_aplica,
             log=log,
