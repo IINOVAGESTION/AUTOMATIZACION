@@ -468,6 +468,10 @@
       <input type="checkbox" name="ModoPractica" {{ 'checked' if v.get('ModoPractica') else '' }} tabindex="31">
       🎓 Modo de práctica (hace todo igual, pero NO guarda nada real ni descarga PDF — para entrenar sin riesgo)
     </label>
+    <label class="check-multiparada" style="background:#0a2a1a; border-color:#2ecc71;">
+      <input type="checkbox" name="UsarAPI" {{ 'checked' if v.get('UsarAPI') else '' }} tabindex="32">
+      🧪 Usar Web Service en vez del navegador (experimental — solo para viajes Normales, sin Multiparada/Ida y Regreso/segundo conductor; todavía no descarga el PDF)
+    </label>
     </div>
 
     <div style="font-size: 0.72rem; color: #666; margin: 0.6rem 0;">

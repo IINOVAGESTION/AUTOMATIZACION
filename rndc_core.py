@@ -45,3 +45,5 @@ from core.terceros import (
 from core.documentos import descargar_pdf_documento
 
 from core.automatizacion import ejecutar_automatizacion, ejecutar_cola
+
+from core.api_rndc import ejecutar_viaje_api

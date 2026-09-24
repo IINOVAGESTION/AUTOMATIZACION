@@ -208,6 +208,21 @@ def trabajador_de_fondo():
                     resultado = rndc_core.ejecutar_cola(
                         trabajo["v"]["_viajes_cola"], trabajo["usuario"], trabajo["password"], log_trabajo
                     )
+                elif (
+                    trabajo["v"].get("UsarAPI")
+                    and trabajo["v"].get("TipoViaje") == "Normal"
+                    and not trabajo["v"].get("Multiparada")
+                    and not trabajo["v"].get("IdaYRegreso")
+                    and not trabajo["v"].get("Cedula_Conductor2")
+                ):
+                    # Camino nuevo (Web Service) -- solo para el caso más
+                    # simple por ahora (un viaje normal, sin Multiparada,
+                    # Ida y Regreso, ni segundo conductor). Todavía no
+                    # descarga el PDF -- eso sigue pendiente de conectar.
+                    log_trabajo("    (usando el Web Service en vez del navegador)")
+                    resultado = rndc_core.ejecutar_viaje_api(
+                        trabajo["v"], trabajo["usuario"], trabajo["password"], log_trabajo
+                    )
                 else:
                     resultado = rndc_core.ejecutar_automatizacion(
                         trabajo["v"], trabajo["usuario"], trabajo["password"], log_trabajo
@@ -457,6 +472,7 @@ def ejecutar():
         "FechaPago": fecha_pago,
         "Invisible": f.get("Invisible") == "on",
         "ModoPractica": f.get("ModoPractica") == "on",
+        "UsarAPI": f.get("UsarAPI") == "on",
         # Quién de la empresa hizo este viaje (con qué usuario inició
         # sesión en la app) — no es lo mismo que usuario_rndc, que es la
         # cuenta del RNDC en sí (varias personas pueden compartir la
