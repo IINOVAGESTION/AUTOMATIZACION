@@ -363,18 +363,33 @@ def ejecutar_viaje_api(v, usuario, password, log):
         )
 
         log(f"Creando manifiesto {v['Consecutivo']} vía Web Service...")
-        radicado_manifiesto = crear_manifiesto_api(
-            usuario, password, nit_empresa, v["Consecutivo"], v["Consecutivo"],
-            origen=v["Origen"], destino=v["Destino"],
-            cedula_titular=v["Cedula_Titular"], placa=v["Placa"],
-            placa_remolque=v.get("Placa_Remolque"),
-            cedula_conductor=v["Cedula_Conductor"],
-            cedula_conductor2=v.get("Cedula_Conductor2"),
-            flete=flete, retencion_ica=retencion_ica,
-            retencion_fuente="1",
-            fopat_aplica=fopat_aplica,
-            log=log,
-        )
+        intentos_fopat = 0
+        while True:
+            try:
+                radicado_manifiesto = crear_manifiesto_api(
+                    usuario, password, nit_empresa, v["Consecutivo"], v["Consecutivo"],
+                    origen=v["Origen"], destino=v["Destino"],
+                    cedula_titular=v["Cedula_Titular"], placa=v["Placa"],
+                    placa_remolque=v.get("Placa_Remolque"),
+                    cedula_conductor=v["Cedula_Conductor"],
+                    cedula_conductor2=v.get("Cedula_Conductor2"),
+                    flete=flete, retencion_ica=retencion_ica,
+                    retencion_fuente="1",
+                    fopat_aplica=fopat_aplica,
+                    log=log,
+                )
+                break
+            except ErrorRNDC as e:
+                # Si el rechazo es específicamente por el FOPAT (falta o
+                # sobra), se ajusta y se reintenta -- una sola vez, para
+                # no ciclar sin fin si el rechazo fuera por otra razón.
+                es_por_fopat = "FOPAT" in e.mensaje.upper() or "PEAJE" in e.mensaje.upper()
+                if not es_por_fopat or intentos_fopat >= 2:
+                    raise
+                intentos_fopat += 1
+                fopat_aplica = not fopat_aplica
+                log(f"    El RNDC rechazó por el FOPAT ({e.mensaje}) -- "
+                    f"{'agregándolo' if fopat_aplica else 'quitándolo'} y reintentando...")
         log(f"✅ Radicado del manifiesto: {radicado_manifiesto}")
         resumen.append(f"Manifiesto {v['Consecutivo']} -> radicado: {radicado_manifiesto}")
 
