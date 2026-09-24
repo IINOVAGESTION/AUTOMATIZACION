@@ -158,20 +158,35 @@ def _obtener_sedes(usuario, password, nit_empresa, log=None):
 
 def buscar_sede(usuario, password, nit_empresa, texto_buscar, log=None):
     """Busca, entre las sedes YA registradas para nit_empresa (usa la
-    caché de _obtener_sedes, no repite la consulta gigante), la primera
-    cuyo nombre contenga texto_buscar (sin importar mayúsculas) -- el
-    mismo comportamiento que hoy tiene la lista desplegable de sedes en
-    el sitio web. Devuelve un dict {'codigo_sede': ..., 'municipio': ...},
-    o None si no encuentra ninguna que coincida."""
+    caché de _obtener_sedes, no repite la consulta gigante), la que
+    coincida con texto_buscar (sin importar mayúsculas) -- el mismo
+    comportamiento que hoy tiene la lista desplegable de sedes en el
+    sitio web. Devuelve un dict {'codigo_sede': ..., 'municipio': ...},
+    o None si no encuentra ninguna que coincida.
+
+    Cuando hay varias sedes con el mismo nombre (algunas empresas tienen
+    entradas repetidas o antiguas), se prefiere la que tenga un código
+    "limpio" (sin un '+' adelante) -- los códigos con '+' parecen venir
+    de una carga antigua de datos, y hay indicios de que el RNDC a veces
+    los interpreta mal (quitándoles el '+' y leyéndolos como un código
+    totalmente distinto), lo que puede causar que el municipio del
+    Manifiesto no coincida con el de la Remesa aunque ambos hayan
+    buscado el mismo nombre de ciudad."""
     sedes = _obtener_sedes(usuario, password, nit_empresa, log=log)
     texto_buscar_norm = texto_buscar.strip().upper()
-    for sede in sedes:
-        if texto_buscar_norm in sede["nombre"].upper():
-            if log:
-                log(f"    '{texto_buscar}' -> sede {sede['codigo_sede']} "
-                    f"({sede['nombre']}, municipio {sede['municipio']})")
-            return {"codigo_sede": sede["codigo_sede"], "municipio": sede["municipio"]}
-    return None
+    coincidencias = [s for s in sedes if texto_buscar_norm in s["nombre"].upper()]
+    if not coincidencias:
+        return None
+
+    limpias = [s for s in coincidencias if not s["codigo_sede"].startswith("+")]
+    elegida = limpias[0] if limpias else coincidencias[0]
+
+    if log:
+        log(f"    '{texto_buscar}' -> sede {elegida['codigo_sede']} "
+            f"({elegida['nombre']}, municipio {elegida['municipio']})"
+            + (f" [de {len(coincidencias)} coincidencias, se evitaron las "
+               f"que empiezan con '+']" if len(coincidencias) > 1 else ""))
+    return {"codigo_sede": elegida["codigo_sede"], "municipio": elegida["municipio"]}
 
 
 def crear_remesa_api(usuario, password, nit_empresa, consecutivo_remesa,
