@@ -6,15 +6,24 @@ Es un módulo NUEVO y SEPARADO del resto de la automatización -- no
 reemplaza core/automatizacion.py todavía. La idea es poder probarlo a
 fondo por su cuenta antes de que la app lo use por defecto.
 
-Requiere el paquete "zeep" (pip install zeep).
+Requiere el paquete "zeep". Como el botón de "Actualizar" solo trae
+archivos de código, no instala paquetes nuevos en el .exe ya armado, el
+import se hace de forma opcional -- si zeep no está instalado (porque el
+.exe no se ha reconstruido con este requisito todavía), el resto de la
+app sigue funcionando normal, y solo la función de este módulo avisa
+claro que hace falta reconstruir el .exe, en vez de tumbar la app entera.
 """
 import os
 import time
 import xml.etree.ElementTree as ET
 
-from zeep import Client
-from zeep.transports import Transport
-import requests
+try:
+    from zeep import Client
+    from zeep.transports import Transport
+    import requests
+    _ZEEP_DISPONIBLE = True
+except ImportError:
+    _ZEEP_DISPONIBLE = False
 
 from .config import FIJOS_REMESA, FIJOS_MANIFIESTO
 from .utilidades import calcular_retencion_ica
@@ -42,6 +51,13 @@ class ErrorRNDC(Exception):
 
 
 def _cliente_para(servidor):
+    if not _ZEEP_DISPONIBLE:
+        raise ErrorRNDC(
+            "El Web Service (experimental) todavía no está disponible en esta "
+            "instalación -- hace falta reconstruir el .exe para incluir el "
+            "paquete 'zeep'. Mientras tanto, desmarca la casilla de \"Usar Web "
+            "Service\" y sigue usando el navegador normal."
+        )
     if servidor not in _clientes_cacheados:
         ruta_wsdl = os.path.join(CARPETA_WSDL, WSDL_POR_SERVIDOR[servidor])
         sesion = requests.Session()
