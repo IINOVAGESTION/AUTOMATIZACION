@@ -379,13 +379,13 @@ def _limpiar_numero(texto):
 
 
 def ejecutar_viaje_api(v, usuario, password, log):
-    """Crea la Remesa (o remesas, para Ida y Regreso) y el Manifiesto de
-    un viaje usando el Web Service, en vez de manejar un navegador.
-    Recibe 'v' con la misma forma que ya usa ejecutar_automatizacion, y
-    devuelve un diccionario compatible con lo que ese devuelve, para que
-    el resto de la app no tenga que cambiar.
+    """Crea la Remesa (o remesas, para Ida y Regreso/Multiparada) y el
+    Manifiesto de un viaje usando el Web Service, en vez de manejar un
+    navegador. Recibe 'v' con la misma forma que ya usa
+    ejecutar_automatizacion, y devuelve un diccionario compatible con lo
+    que ese devuelve, para que el resto de la app no tenga que cambiar.
 
-    NOTA: por ahora cubre "Normal" e "Ida y Regreso" -- Multiparada,
+    NOTA: por ahora cubre "Normal", "Ida y Regreso" y "Multiparada" --
     Récord (cola) y segundo conductor todavía no están conectados aquí;
     para esos, seguir usando ejecutar_automatizacion (Selenium) mientras
     se completa esta parte.
@@ -438,7 +438,7 @@ def ejecutar_viaje_api(v, usuario, password, log):
         # viaje Normal, o varios (uno por parada, con letra) para Ida y
         # Regreso -- igual que hace Selenium.
         letras = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-        if v.get("IdaYRegreso"):
+        if v.get("IdaYRegreso") or v.get("Multiparada"):
             tramos = [
                 {
                     "consecutivo": f"{v['Consecutivo']}{letras[i]}",
@@ -485,7 +485,7 @@ def ejecutar_viaje_api(v, usuario, password, log):
         fopat_aplica = bool(v.get("Placa_Remolque"))
         origen_manifiesto = tramos[0]["origen"]
         destino_manifiesto = tramos[-1]["destino"]
-        tipo_operacion = "I" if v.get("IdaYRegreso") else "G"
+        tipo_operacion = "M" if v.get("Multiparada") else ("I" if v.get("IdaYRegreso") else "G")
         consecutivos_remesa = [t["consecutivo"] for t in tramos]
 
         retencion_ica = calcular_retencion_ica(
