@@ -97,8 +97,14 @@ def _extraer_radicado_o_error(xml_respuesta):
         if ingresoid is not None and ingresoid.text:
             return ingresoid.text.strip(), None
         error = raiz.find("ErrorMSG")
-        if error is not None and error.text:
-            return None, error.text.strip()
+        if error is not None:
+            # A veces el RNDC anida el ErrorMSG adentro de otro ErrorMSG
+            # (un formato raro que no se había visto antes) -- error.text
+            # solo lee el texto DIRECTO, así que con itertext() se junta
+            # el texto de adentro sin importar cuántos niveles tenga.
+            texto_error = "".join(error.itertext()).strip()
+            if texto_error:
+                return None, texto_error
     except ET.ParseError:
         # A veces el mensaje de error del RNDC trae algún carácter que
         # rompe la lectura estricta de XML (una tilde o símbolo mal
@@ -501,6 +507,21 @@ def ejecutar_viaje_api(v, usuario, password, log):
                     log(f"    El RNDC rechazó por el valor del flete ({e.mensaje}) -- "
                         f"subiéndolo a {int(flete):,} y reintentando "
                         f"(intento {intentos_flete} de 10)...")
+                elif "EXPIDIENDO" in mensaje_mayus or "PROCESANDO" in mensaje_mayus:
+                    # Mensaje nunca antes visto, con pinta de que el RNDC
+                    # se quedó a medio procesar la solicitud (no es un
+                    # rechazo de negocio normal, como el FOPAT o el flete).
+                    # No se sabe con certeza si el manifiesto quedó creado
+                    # o no -- reintentar a ciegas podría crear uno
+                    # duplicado, así que mejor detenerse aquí y avisar
+                    # para que se revise a mano antes de hacer cualquier
+                    # otra cosa con este viaje.
+                    log(f"🛑 El RNDC devolvió una respuesta rara, que no se ve como un "
+                        f"rechazo normal: \"{e.mensaje}\" -- puede que el manifiesto SÍ haya "
+                        f"quedado creado. NO se va a reintentar, para no arriesgarse a un "
+                        f"duplicado. Entra al RNDC y busca este manifiesto a mano (Consultas) "
+                        f"para confirmarlo. Consecutivo: {v['Consecutivo']}.")
+                    raise
                 else:
                     raise
         log(f"✅ Radicado del manifiesto: {radicado_manifiesto}")
