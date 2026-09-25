@@ -397,11 +397,13 @@ def ejecutar_viaje_api(v, usuario, password, log):
     # El remitente/destinatario pueden ser un cliente distinto de la
     # empresa (si el viaje es para otro cliente) -- si el formulario no
     # trae esos datos, se usa la empresa misma como respaldo, igual que
-    # hace Selenium.
-    tipoid_remitente = normalizar_tipo_id(v.get("TipoID_Remitente_Cliente") or FIJOS_REMESA["TIPOIDREMITENTE"])
-    numid_remitente = v.get("NIT_Remitente_Cliente") or FIJOS_REMESA["NUMIDREMITENTE"]
-    tipoid_destinatario = normalizar_tipo_id(v.get("TipoID_Destinatario_Cliente") or FIJOS_REMESA["TIPOIDDESTINATARIO"])
-    numid_destinatario = v.get("NIT_Destinatario_Cliente") or FIJOS_REMESA["NUMIDDESTINATARIO"]
+    # hace Selenium. Estos son los valores por DEFECTO para todo el
+    # viaje; cada parada de Ida y Regreso puede pisarlos con los suyos
+    # propios más abajo.
+    tipoid_remitente_defecto = normalizar_tipo_id(v.get("TipoID_Remitente_Cliente") or FIJOS_REMESA["TIPOIDREMITENTE"])
+    numid_remitente_defecto = v.get("NIT_Remitente_Cliente") or FIJOS_REMESA["NUMIDREMITENTE"]
+    tipoid_destinatario_defecto = normalizar_tipo_id(v.get("TipoID_Destinatario_Cliente") or FIJOS_REMESA["TIPOIDDESTINATARIO"])
+    numid_destinatario_defecto = v.get("NIT_Destinatario_Cliente") or FIJOS_REMESA["NUMIDDESTINATARIO"]
 
     # Las fechas de cargue/descargue de la Remesa siempre son de hoy (así
     # lo hace también Selenium); la Fecha de Expedición y la Fecha de
@@ -442,6 +444,14 @@ def ejecutar_viaje_api(v, usuario, password, log):
                     "consecutivo": f"{v['Consecutivo']}{letras[i]}",
                     "origen": parada["Origen"], "destino": parada["Destino"],
                     "producto": parada["Producto"], "peso": _limpiar_numero(parada["Peso"]),
+                    "tipoid_remitente": normalizar_tipo_id(
+                        parada.get("TipoID_Remitente") or v.get("TipoID_Remitente_Cliente") or FIJOS_REMESA["TIPOIDREMITENTE"]
+                    ),
+                    "numid_remitente": parada.get("NIT_Remitente") or numid_remitente_defecto,
+                    "tipoid_destinatario": normalizar_tipo_id(
+                        parada.get("TipoID_Destinatario") or v.get("TipoID_Destinatario_Cliente") or FIJOS_REMESA["TIPOIDDESTINATARIO"]
+                    ),
+                    "numid_destinatario": parada.get("NIT_Destinatario") or numid_destinatario_defecto,
                 }
                 for i, parada in enumerate(v["Paradas"])
             ]
@@ -450,6 +460,8 @@ def ejecutar_viaje_api(v, usuario, password, log):
                 "consecutivo": v["Consecutivo"],
                 "origen": v["Origen"], "destino": v["Destino"],
                 "producto": v["Producto"], "peso": _limpiar_numero(v["Peso"]),
+                "tipoid_remitente": tipoid_remitente_defecto, "numid_remitente": numid_remitente_defecto,
+                "tipoid_destinatario": tipoid_destinatario_defecto, "numid_destinatario": numid_destinatario_defecto,
             }]
 
         for tramo in tramos:
@@ -461,8 +473,8 @@ def ejecutar_viaje_api(v, usuario, password, log):
                 descripcion_producto=tramo["producto"],
                 peso_kg=tramo["peso"],
                 sede_propietario_contiene=FIJOS_REMESA["SEDE_PROPIETARIO_CONTIENE"],
-                tipoid_remitente=tipoid_remitente, numid_remitente=numid_remitente,
-                tipoid_destinatario=tipoid_destinatario, numid_destinatario=numid_destinatario,
+                tipoid_remitente=tramo["tipoid_remitente"], numid_remitente=tramo["numid_remitente"],
+                tipoid_destinatario=tramo["tipoid_destinatario"], numid_destinatario=tramo["numid_destinatario"],
                 fecha_cargue=fecha_cargue, fecha_descargue=fecha_descargue,
                 log=log,
             )
@@ -488,7 +500,8 @@ def ejecutar_viaje_api(v, usuario, password, log):
                 radicado_manifiesto = crear_manifiesto_api(
                     usuario, password, nit_empresa, v["Consecutivo"], consecutivos_remesa,
                     origen=origen_manifiesto, destino=destino_manifiesto,
-                    numid_remitente=numid_remitente, numid_destinatario=numid_destinatario,
+                    numid_remitente=tramos[0]["numid_remitente"],
+                    numid_destinatario=tramos[-1]["numid_destinatario"],
                     cedula_titular=v["Cedula_Titular"], placa=v["Placa"],
                     placa_remolque=v.get("Placa_Remolque"),
                     cedula_conductor=v["Cedula_Conductor"],
