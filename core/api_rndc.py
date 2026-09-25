@@ -16,6 +16,7 @@ claro que hace falta reconstruir el .exe, en vez de tumbar la app entera.
 import os
 import time
 import xml.etree.ElementTree as ET
+from datetime import datetime, timedelta
 
 try:
     from zeep import Client
@@ -26,7 +27,7 @@ except ImportError:
     _ZEEP_DISPONIBLE = False
 
 from .config import FIJOS_REMESA, FIJOS_MANIFIESTO, CARPETA_DESCARGAS, URL_REIMPRIMIR_REMESA, URL_REIMPRIMIR_MANIFIESTO
-from .utilidades import calcular_retencion_ica, quitar_tildes
+from .utilidades import calcular_retencion_ica, quitar_tildes, normalizar_tipo_id, calcular_fecha_pago_por_defecto
 from .navegador import crear_opciones_chrome, crear_driver_con_limite, obtener_chromedriver_path
 from .documentos import descargar_pdf_documento
 
@@ -223,19 +224,25 @@ def buscar_sede(usuario, password, nit_empresa, texto_buscar, log=None):
 
 def crear_remesa_api(usuario, password, nit_empresa, consecutivo_remesa,
                       origen, destino, producto_codigo, descripcion_producto,
-                      peso_kg, sede_propietario_contiene, log=None):
-    """Crea una Remesa vía Web Service.
+                      peso_kg, sede_propietario_contiene,
+                      tipoid_remitente, numid_remitente,
+                      tipoid_destinatario, numid_destinatario,
+                      fecha_cargue, fecha_descargue, log=None):
+    """Crea una Remesa vía Web Service. tipoid/numid remitente y
+    destinatario pueden ser un cliente distinto de la empresa (si el
+    viaje es para otro cliente) -- la sede de cada uno se busca con su
+    propio NIT/cédula, no siempre con el de la empresa.
     Devuelve el radicado (texto) si funciona; lanza ErrorRNDC si no."""
 
-    sede_remitente = buscar_sede(usuario, password, nit_empresa, origen, log=log)
+    sede_remitente = buscar_sede(usuario, password, numid_remitente, origen, log=log)
     if not sede_remitente:
         raise ErrorRNDC(f"No se encontró ninguna sede que contenga '{origen}' "
-                         f"para el NIT {nit_empresa}. Hay que crearla en el RNDC primero.")
+                         f"para el remitente {numid_remitente}. Hay que crearla en el RNDC primero.")
 
-    sede_destinatario = buscar_sede(usuario, password, nit_empresa, destino, log=log)
+    sede_destinatario = buscar_sede(usuario, password, numid_destinatario, destino, log=log)
     if not sede_destinatario:
         raise ErrorRNDC(f"No se encontró ninguna sede que contenga '{destino}' "
-                         f"para el NIT {nit_empresa}. Hay que crearla en el RNDC primero.")
+                         f"para el destinatario {numid_destinatario}. Hay que crearla en el RNDC primero.")
 
     sede_propietario = buscar_sede(usuario, password, nit_empresa,
                                     sede_propietario_contiene, log=log)
@@ -244,11 +251,10 @@ def crear_remesa_api(usuario, password, nit_empresa, consecutivo_remesa,
                          f"'{sede_propietario_contiene}' (propietario) para el NIT {nit_empresa}.")
 
     if log:
-        log(f"    Sede remitente ({origen}): {sede_remitente['codigo_sede']} | "
-            f"Sede destinatario ({destino}): {sede_destinatario['codigo_sede']} | "
+        log(f"    Sede remitente ({origen}, {numid_remitente}): {sede_remitente['codigo_sede']} | "
+            f"Sede destinatario ({destino}, {numid_destinatario}): {sede_destinatario['codigo_sede']} | "
             f"Sede propietario: {sede_propietario['codigo_sede']}")
 
-    ahora = time.strftime("%d/%m/%Y")
     variables = f"""
 <NUMNITEMPRESATRANSPORTE>{nit_empresa}</NUMNITEMPRESATRANSPORTE>
 <CONSECUTIVOREMESA>{consecutivo_remesa}</CONSECUTIVOREMESA>
@@ -259,11 +265,11 @@ def crear_remesa_api(usuario, password, nit_empresa, consecutivo_remesa,
 <CODTIPOEMPAQUE>0</CODTIPOEMPAQUE>
 <MERCANCIAREMESA>{producto_codigo}</MERCANCIAREMESA>
 <DESCRIPCIONCORTAPRODUCTO>{descripcion_producto}</DESCRIPCIONCORTAPRODUCTO>
-<CODTIPOIDREMITENTE>N</CODTIPOIDREMITENTE>
-<NUMIDREMITENTE>{nit_empresa}</NUMIDREMITENTE>
+<CODTIPOIDREMITENTE>{tipoid_remitente}</CODTIPOIDREMITENTE>
+<NUMIDREMITENTE>{numid_remitente}</NUMIDREMITENTE>
 <CODSEDEREMITENTE>{sede_remitente['codigo_sede']}</CODSEDEREMITENTE>
-<CODTIPOIDDESTINATARIO>N</CODTIPOIDDESTINATARIO>
-<NUMIDDESTINATARIO>{nit_empresa}</NUMIDDESTINATARIO>
+<CODTIPOIDDESTINATARIO>{tipoid_destinatario}</CODTIPOIDDESTINATARIO>
+<NUMIDDESTINATARIO>{numid_destinatario}</NUMIDDESTINATARIO>
 <CODSEDEDESTINATARIO>{sede_destinatario['codigo_sede']}</CODSEDEDESTINATARIO>
 <HORASPACTOCARGA>1</HORASPACTOCARGA>
 <MINUTOSPACTOCARGA>0</MINUTOSPACTOCARGA>
@@ -273,9 +279,9 @@ def crear_remesa_api(usuario, password, nit_empresa, consecutivo_remesa,
 <NUMIDPROPIETARIO>{nit_empresa}</NUMIDPROPIETARIO>
 <CODSEDEPROPIETARIO>{sede_propietario['codigo_sede']}</CODSEDEPROPIETARIO>
 <DUENOPOLIZA>N</DUENOPOLIZA>
-<FECHACITAPACTADACARGUE>{ahora}</FECHACITAPACTADACARGUE>
+<FECHACITAPACTADACARGUE>{fecha_cargue}</FECHACITAPACTADACARGUE>
 <HORACITAPACTADACARGUE>08:00</HORACITAPACTADACARGUE>
-<FECHACITAPACTADADESCARGUE>{ahora}</FECHACITAPACTADADESCARGUE>
+<FECHACITAPACTADADESCARGUE>{fecha_descargue}</FECHACITAPACTADADESCARGUE>
 <HORACITAPACTADADESCARGUEREMESA>10:00</HORACITAPACTADADESCARGUEREMESA>
 """.strip()
 
@@ -289,10 +295,11 @@ def crear_remesa_api(usuario, password, nit_empresa, consecutivo_remesa,
 
 def crear_manifiesto_api(usuario, password, nit_empresa, consecutivo_manifiesto,
                           consecutivos_remesa, origen, destino,
+                          numid_remitente, numid_destinatario,
                           cedula_titular, placa, placa_remolque,
                           cedula_conductor, cedula_conductor2,
                           flete, retencion_ica, retencion_fuente,
-                          fopat_aplica, log=None,
+                          fopat_aplica, fecha_expedicion, fecha_pago, log=None,
                           municipio_intermedio_contiene=None, tipo_operacion="G"):
     """Crea un Manifiesto vía Web Service, uniéndolo a una o varias
     remesas ya creadas (consecutivos_remesa puede ser un texto -- un solo
@@ -301,18 +308,22 @@ def crear_manifiesto_api(usuario, password, nit_empresa, consecutivo_manifiesto,
     'municipio_intermedio_contiene' es el texto de ciudad del punto de
     regreso (solo aplica a Ida y Regreso); 'tipo_operacion' es el código
     que espera el RNDC ("G" normal, "I" Ida y Regreso, "M" Multiparada).
+    El municipio de origen/destino se busca en las sedes del remitente y
+    del destinatario respectivamente (los mismos que se usaron para la
+    Remesa) -- no siempre en las de la empresa, porque el viaje puede
+    ser para un cliente distinto.
     Devuelve el radicado; lanza ErrorRNDC si no."""
     if isinstance(consecutivos_remesa, str):
         consecutivos_remesa = [consecutivos_remesa]
 
-    sede_origen = buscar_sede(usuario, password, nit_empresa, origen, log=log)
-    sede_destino = buscar_sede(usuario, password, nit_empresa, destino, log=log)
+    sede_origen = buscar_sede(usuario, password, numid_remitente, origen, log=log)
+    sede_destino = buscar_sede(usuario, password, numid_destinatario, destino, log=log)
     if not sede_origen:
         raise ErrorRNDC(f"No se encontró ninguna sede que contenga '{origen}' "
-                         f"para el NIT {nit_empresa}, no se puede saber el municipio de origen.")
+                         f"para el remitente {numid_remitente}, no se puede saber el municipio de origen.")
     if not sede_destino:
         raise ErrorRNDC(f"No se encontró ninguna sede que contenga '{destino}' "
-                         f"para el NIT {nit_empresa}, no se puede saber el municipio de destino.")
+                         f"para el destinatario {numid_destinatario}, no se puede saber el municipio de destino.")
     municipio_origen = sede_origen["municipio"]
     municipio_destino = sede_destino["municipio"]
 
@@ -326,7 +337,6 @@ def crear_manifiesto_api(usuario, password, nit_empresa, consecutivo_manifiesto,
                              f"(Ida y Regreso).")
         municipio_intermedio = sede_intermedia["municipio"]
 
-    ahora = time.strftime("%d/%m/%Y")
     valor_fopat = round(float(flete) * 0.001) if fopat_aplica else None
     remesas_xml = "".join(
         f"<REMESA><CONSECUTIVOREMESA>{c}</CONSECUTIVOREMESA></REMESA>"
@@ -337,7 +347,7 @@ def crear_manifiesto_api(usuario, password, nit_empresa, consecutivo_manifiesto,
 <NUMNITEMPRESATRANSPORTE>{nit_empresa}</NUMNITEMPRESATRANSPORTE>
 <NUMMANIFIESTOCARGA>{consecutivo_manifiesto}</NUMMANIFIESTOCARGA>
 <CODOPERACIONTRANSPORTE>{tipo_operacion}</CODOPERACIONTRANSPORTE>
-<FECHAEXPEDICIONMANIFIESTO>{ahora}</FECHAEXPEDICIONMANIFIESTO>
+<FECHAEXPEDICIONMANIFIESTO>{fecha_expedicion}</FECHAEXPEDICIONMANIFIESTO>
 <CODMUNICIPIOORIGENMANIFIESTO>{municipio_origen}</CODMUNICIPIOORIGENMANIFIESTO>
 <CODMUNICIPIODESTINOMANIFIESTO>{municipio_destino}</CODMUNICIPIODESTINOMANIFIESTO>
 {f'<CODMUNICIPIOINTERMEDIOMANIFIESTO>{municipio_intermedio}</CODMUNICIPIOINTERMEDIOMANIFIESTO>' if municipio_intermedio else ''}
@@ -353,7 +363,7 @@ def crear_manifiesto_api(usuario, password, nit_empresa, consecutivo_manifiesto,
 <RETENCIONICAMANIFIESTOCARGA>{retencion_ica}</RETENCIONICAMANIFIESTOCARGA>
 {f'<RETENCIONFOPAT>{valor_fopat}</RETENCIONFOPAT>' if fopat_aplica else ''}
 <CODMUNICIPIOPAGOSALDO>{municipio_destino}</CODMUNICIPIOPAGOSALDO>
-<FECHAPAGOSALDOMANIFIESTO>{ahora}</FECHAPAGOSALDOMANIFIESTO>
+<FECHAPAGOSALDOMANIFIESTO>{fecha_pago}</FECHAPAGOSALDOMANIFIESTO>
 <CODRESPONSABLEPAGOCARGUE>R</CODRESPONSABLEPAGOCARGUE>
 <CODRESPONSABLEPAGODESCARGUE>D</CODRESPONSABLEPAGODESCARGUE>
 <OBSERVACIONES>NO SE ASUME NINGUNA RESPONSABILIDAD SOBRE LA MERCANCIA TRANSPORTADA,POLIZA,PESO Y VALOR DE FLETE E IMPUESTOS LOS ASUME DIRECTAMENTE EL CONDUCTOR,EL VEHICULO LLEVA ELPESO PERMITIDO YLA MERCANCIA LICITA.</OBSERVACIONES>
@@ -394,6 +404,25 @@ def ejecutar_viaje_api(v, usuario, password, log):
     nit_empresa = FIJOS_REMESA["NUMIDPROPIETARIO"]
     resumen = []
     flete = _limpiar_numero(v["Flete"])
+
+    # El remitente/destinatario pueden ser un cliente distinto de la
+    # empresa (si el viaje es para otro cliente) -- si el formulario no
+    # trae esos datos, se usa la empresa misma como respaldo, igual que
+    # hace Selenium.
+    tipoid_remitente = normalizar_tipo_id(v.get("TipoID_Remitente_Cliente") or FIJOS_REMESA["TIPOIDREMITENTE"])
+    numid_remitente = v.get("NIT_Remitente_Cliente") or FIJOS_REMESA["NUMIDREMITENTE"]
+    tipoid_destinatario = normalizar_tipo_id(v.get("TipoID_Destinatario_Cliente") or FIJOS_REMESA["TIPOIDDESTINATARIO"])
+    numid_destinatario = v.get("NIT_Destinatario_Cliente") or FIJOS_REMESA["NUMIDDESTINATARIO"]
+
+    # Las fechas de cargue/descargue de la Remesa siempre son de hoy (así
+    # lo hace también Selenium); la Fecha de Expedición y la Fecha de
+    # Pago del Manifiesto sí se pueden escribir distintas a mano en el
+    # formulario -- si no se escriben, caen en los mismos valores por
+    # defecto que ya usa Selenium.
+    fecha_cargue = time.strftime("%d/%m/%Y")
+    fecha_descargue = (datetime.now() + timedelta(days=5)).strftime("%d/%m/%Y")
+    fecha_expedicion = v.get("FechaExpedicion") or fecha_cargue
+    fecha_pago = v.get("FechaPago") or calcular_fecha_pago_por_defecto(fecha_expedicion, fecha_descargue)
 
     if v.get("ModoPractica"):
         # No hay forma de "llenar pero no guardar" con el Web Service --
@@ -441,6 +470,9 @@ def ejecutar_viaje_api(v, usuario, password, log):
                 descripcion_producto=tramo["producto"],
                 peso_kg=tramo["peso"],
                 sede_propietario_contiene=FIJOS_REMESA["SEDE_PROPIETARIO_CONTIENE"],
+                tipoid_remitente=tipoid_remitente, numid_remitente=numid_remitente,
+                tipoid_destinatario=tipoid_destinatario, numid_destinatario=numid_destinatario,
+                fecha_cargue=fecha_cargue, fecha_descargue=fecha_descargue,
                 log=log,
             )
             log(f"✅ Radicado de la remesa {tramo['consecutivo']}: {radicado_tramo}")
@@ -470,6 +502,7 @@ def ejecutar_viaje_api(v, usuario, password, log):
                 radicado_manifiesto = crear_manifiesto_api(
                     usuario, password, nit_empresa, v["Consecutivo"], consecutivos_remesa,
                     origen=origen_manifiesto, destino=destino_manifiesto,
+                    numid_remitente=numid_remitente, numid_destinatario=numid_destinatario,
                     cedula_titular=v["Cedula_Titular"], placa=v["Placa"],
                     placa_remolque=v.get("Placa_Remolque"),
                     cedula_conductor=v["Cedula_Conductor"],
@@ -477,6 +510,7 @@ def ejecutar_viaje_api(v, usuario, password, log):
                     flete=flete, retencion_ica=retencion_ica,
                     retencion_fuente="1",
                     fopat_aplica=fopat_aplica,
+                    fecha_expedicion=fecha_expedicion, fecha_pago=fecha_pago,
                     log=log,
                     municipio_intermedio_contiene=municipio_intermedio_contiene,
                     tipo_operacion=tipo_operacion,
