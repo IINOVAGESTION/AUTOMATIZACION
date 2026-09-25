@@ -299,7 +299,8 @@ def crear_manifiesto_api(usuario, password, nit_empresa, consecutivo_manifiesto,
                           cedula_titular, placa, placa_remolque,
                           cedula_conductor, cedula_conductor2,
                           flete, retencion_ica, retencion_fuente,
-                          fopat_aplica, fecha_expedicion, fecha_pago, log=None,
+                          fopat_aplica, fecha_expedicion, fecha_pago,
+                          observaciones, anticipo=None, log=None,
                           municipio_intermedio_contiene=None, tipo_operacion="G"):
     """Crea un Manifiesto vía Web Service, uniéndolo a una o varias
     remesas ya creadas (consecutivos_remesa puede ser un texto -- un solo
@@ -366,7 +367,8 @@ def crear_manifiesto_api(usuario, password, nit_empresa, consecutivo_manifiesto,
 <FECHAPAGOSALDOMANIFIESTO>{fecha_pago}</FECHAPAGOSALDOMANIFIESTO>
 <CODRESPONSABLEPAGOCARGUE>R</CODRESPONSABLEPAGOCARGUE>
 <CODRESPONSABLEPAGODESCARGUE>D</CODRESPONSABLEPAGODESCARGUE>
-<OBSERVACIONES>NO SE ASUME NINGUNA RESPONSABILIDAD SOBRE LA MERCANCIA TRANSPORTADA,POLIZA,PESO Y VALOR DE FLETE E IMPUESTOS LOS ASUME DIRECTAMENTE EL CONDUCTOR,EL VEHICULO LLEVA ELPESO PERMITIDO YLA MERCANCIA LICITA.</OBSERVACIONES>
+{f'<VALORANTICIPOMANIFIESTO>{anticipo}</VALORANTICIPOMANIFIESTO>' if anticipo else ''}
+<OBSERVACIONES>{observaciones}</OBSERVACIONES>
 <REMESASMAN procesoid="43">
 {remesas_xml}
 </REMESASMAN>
@@ -423,6 +425,8 @@ def ejecutar_viaje_api(v, usuario, password, log):
     fecha_descargue = (datetime.now() + timedelta(days=5)).strftime("%d/%m/%Y")
     fecha_expedicion = v.get("FechaExpedicion") or fecha_cargue
     fecha_pago = v.get("FechaPago") or calcular_fecha_pago_por_defecto(fecha_expedicion, fecha_descargue)
+    observaciones = v.get("Observaciones") or FIJOS_MANIFIESTO["RECOMENDACIONES"]
+    anticipo = _limpiar_numero(v["Anticipo"]) if v.get("Anticipo") else None
 
     if v.get("ModoPractica"):
         # No hay forma de "llenar pero no guardar" con el Web Service --
@@ -511,6 +515,7 @@ def ejecutar_viaje_api(v, usuario, password, log):
                     retencion_fuente="1",
                     fopat_aplica=fopat_aplica,
                     fecha_expedicion=fecha_expedicion, fecha_pago=fecha_pago,
+                    observaciones=observaciones, anticipo=anticipo,
                     log=log,
                     municipio_intermedio_contiene=municipio_intermedio_contiene,
                     tipo_operacion=tipo_operacion,
