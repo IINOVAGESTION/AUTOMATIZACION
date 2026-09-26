@@ -230,9 +230,8 @@ def crear_tercero_api(usuario, password, nit_empresa, tipo_id, numero_id,
     campos por su cuenta con solo la cédula, usando su propio
     JavaScript antes de mandar el formulario), la API sí necesita estos
     datos explícitos: nombre, primer apellido y municipio son
-    obligatorios (segundo apellido es opcional); la dirección se manda
-    como el nombre del municipio, ya que no se pide por separado en la
-    app. Devuelve el radicado si funciona; lanza ErrorRNDC si no."""
+    obligatorios (segundo apellido es opcional).
+    Devuelve el radicado si funciona; lanza ErrorRNDC si no."""
     sede_municipio = buscar_sede(usuario, password, nit_empresa, municipio_contiene, log=log)
     if not sede_municipio:
         raise ErrorRNDC(f"No se encontró ninguna sede que contenga '{municipio_contiene}' "
@@ -247,7 +246,6 @@ def crear_tercero_api(usuario, password, nit_empresa, tipo_id, numero_id,
 {f'<SEGUNDOAPELLIDOIDTERCERO>{apellido2}</SEGUNDOAPELLIDOIDTERCERO>' if apellido2 else ''}
 <MUNICIPIORNDC>{sede_municipio['municipio']}</MUNICIPIORNDC>
 <NOMSEDETERCERO>{municipio_contiene}</NOMSEDETERCERO>
-<DIRECCIONTERCERO>{municipio_contiene}</DIRECCIONTERCERO>
 """.strip()
 
     respuesta = _llamar(usuario, password, tipo=1, procesoid=11,
