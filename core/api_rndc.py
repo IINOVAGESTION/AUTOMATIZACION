@@ -222,6 +222,22 @@ def buscar_sede(usuario, password, nit_empresa, texto_buscar, log=None):
     return None
 
 
+def buscar_sede_con_respaldo(usuario, password, numid_principal, nit_empresa, texto_buscar, log=None):
+    """Busca la sede primero en las del NIT/cédula principal (el
+    remitente o destinatario real del viaje); si no tiene ninguna
+    registrada -- lo normal cuando es una persona natural, ya que las
+    sedes son de la empresa transportadora, no de cualquier persona --
+    cae de vuelta a las sedes de la empresa para esa misma ciudad."""
+    sede = buscar_sede(usuario, password, numid_principal, texto_buscar, log=log)
+    if sede:
+        return sede
+    if numid_principal == nit_empresa:
+        return None
+    if log:
+        log(f"    (el {numid_principal} no tiene sedes propias -- probando con las de la empresa)")
+    return buscar_sede(usuario, password, nit_empresa, texto_buscar, log=log)
+
+
 def crear_tercero_api(usuario, password, nit_empresa, tipo_id, numero_id,
                        nombre, apellido1, apellido2, municipio_contiene, log=None):
     """Registra a una persona (conductor/titular) como Tercero en el
@@ -268,12 +284,12 @@ def crear_remesa_api(usuario, password, nit_empresa, consecutivo_remesa,
     propio NIT/cédula, no siempre con el de la empresa.
     Devuelve el radicado (texto) si funciona; lanza ErrorRNDC si no."""
 
-    sede_remitente = buscar_sede(usuario, password, numid_remitente, origen, log=log)
+    sede_remitente = buscar_sede_con_respaldo(usuario, password, numid_remitente, nit_empresa, origen, log=log)
     if not sede_remitente:
         raise ErrorRNDC(f"No se encontró ninguna sede que contenga '{origen}' "
                          f"para el remitente {numid_remitente}. Hay que crearla en el RNDC primero.")
 
-    sede_destinatario = buscar_sede(usuario, password, numid_destinatario, destino, log=log)
+    sede_destinatario = buscar_sede_con_respaldo(usuario, password, numid_destinatario, nit_empresa, destino, log=log)
     if not sede_destinatario:
         raise ErrorRNDC(f"No se encontró ninguna sede que contenga '{destino}' "
                          f"para el destinatario {numid_destinatario}. Hay que crearla en el RNDC primero.")
@@ -349,8 +365,8 @@ def crear_manifiesto_api(usuario, password, nit_empresa, consecutivo_manifiesto,
     if isinstance(consecutivos_remesa, str):
         consecutivos_remesa = [consecutivos_remesa]
 
-    sede_origen = buscar_sede(usuario, password, numid_remitente, origen, log=log)
-    sede_destino = buscar_sede(usuario, password, numid_destinatario, destino, log=log)
+    sede_origen = buscar_sede_con_respaldo(usuario, password, numid_remitente, nit_empresa, origen, log=log)
+    sede_destino = buscar_sede_con_respaldo(usuario, password, numid_destinatario, nit_empresa, destino, log=log)
     if not sede_origen:
         raise ErrorRNDC(f"No se encontró ninguna sede que contenga '{origen}' "
                          f"para el remitente {numid_remitente}, no se puede saber el municipio de origen.")
