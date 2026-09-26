@@ -222,6 +222,37 @@ def buscar_sede(usuario, password, nit_empresa, texto_buscar, log=None):
     return None
 
 
+def crear_tercero_api(usuario, password, nit_empresa, tipo_id, numero_id,
+                       nombre, apellido1, apellido2, municipio_contiene, log=None):
+    """Registra a una persona (conductor/titular) como Tercero en el
+    RNDC -- lo mismo que hace Selenium cuando un conductor no está
+    registrado todavía. Necesita nombre, primer apellido y municipio
+    (segundo apellido es opcional). Devuelve el radicado si funciona;
+    lanza ErrorRNDC si no."""
+    sede_municipio = buscar_sede(usuario, password, nit_empresa, municipio_contiene, log=log)
+    if not sede_municipio:
+        raise ErrorRNDC(f"No se encontró ninguna sede que contenga '{municipio_contiene}' "
+                         f"para registrar el municipio del conductor.")
+
+    variables = f"""
+<NUMNITEMPRESATRANSPORTE>{nit_empresa}</NUMNITEMPRESATRANSPORTE>
+<TIPOIDTERCERO>{tipo_id}</TIPOIDTERCERO>
+<NUMIDTERCERO>{numero_id}</NUMIDTERCERO>
+<NOMIDTERCERO>{nombre}</NOMIDTERCERO>
+<PRIMERAPELLIDOIDTERCERO>{apellido1}</PRIMERAPELLIDOIDTERCERO>
+{f'<SEGUNDOAPELLIDOIDTERCERO>{apellido2}</SEGUNDOAPELLIDOIDTERCERO>' if apellido2 else ''}
+<MUNICIPIORNDC>{sede_municipio['municipio']}</MUNICIPIORNDC>
+<NOMSEDETERCERO>{municipio_contiene}</NOMSEDETERCERO>
+""".strip()
+
+    respuesta = _llamar(usuario, password, tipo=1, procesoid=11,
+                         variables_xml=variables, servidor="real_terceros")
+    radicado, error = _extraer_radicado_o_error(respuesta)
+    if error:
+        raise ErrorRNDC(error, respuesta)
+    return radicado
+
+
 def crear_remesa_api(usuario, password, nit_empresa, consecutivo_remesa,
                       origen, destino, producto_codigo, descripcion_producto,
                       peso_kg, sede_propietario_contiene,
@@ -495,6 +526,7 @@ def ejecutar_viaje_api(v, usuario, password, log):
         log(f"Creando manifiesto {v['Consecutivo']} vía Web Service...")
         intentos_fopat = 0
         intentos_flete = 0
+        intentos_conductor = 0
         while True:
             try:
                 radicado_manifiesto = crear_manifiesto_api(
@@ -502,10 +534,10 @@ def ejecutar_viaje_api(v, usuario, password, log):
                     origen=origen_manifiesto, destino=destino_manifiesto,
                     numid_remitente=tramos[0]["numid_remitente"],
                     numid_destinatario=tramos[-1]["numid_destinatario"],
-                    cedula_titular=v["Cedula_Titular"], placa=v["Placa"],
+                    cedula_titular=_limpiar_numero(v["Cedula_Titular"]), placa=v["Placa"],
                     placa_remolque=v.get("Placa_Remolque"),
-                    cedula_conductor=v["Cedula_Conductor"],
-                    cedula_conductor2=v.get("Cedula_Conductor2"),
+                    cedula_conductor=_limpiar_numero(v["Cedula_Conductor"]),
+                    cedula_conductor2=_limpiar_numero(v["Cedula_Conductor2"]) if v.get("Cedula_Conductor2") else None,
                     flete=flete, retencion_ica=retencion_ica,
                     retencion_fuente="1",
                     fopat_aplica=fopat_aplica,
@@ -555,6 +587,30 @@ def ejecutar_viaje_api(v, usuario, password, log):
                         f"duplicado. Entra al RNDC y busca este manifiesto a mano (Consultas) "
                         f"para confirmarlo. Consecutivo: {v['Consecutivo']}.")
                     raise
+                elif (
+                    "CONDUCTOR" in mensaje_mayus
+                    and ("NO EXISTE" in mensaje_mayus or "LICENCIA" in mensaje_mayus)
+                    and intentos_conductor < 1
+                ):
+                    # El conductor no está registrado como Tercero (o le
+                    # falta la licencia) -- si el formulario trae su
+                    # nombre/apellido/municipio, se registra y se
+                    # reintenta una sola vez.
+                    intentos_conductor += 1
+                    if not v.get("Nombre_Conductor") or not v.get("Apellido1_Conductor") or not v.get("Municipio_Conductor"):
+                        log(f"❌ El conductor no está registrado en el RNDC ({e.mensaje}), pero "
+                            f"faltan Nombre / Apellido / Municipio del conductor en el formulario "
+                            f"para poder registrarlo.")
+                        raise
+                    log(f"    El conductor no está registrado ({e.mensaje}) -- "
+                        f"registrándolo como Tercero y reintentando...")
+                    crear_tercero_api(
+                        usuario, password, nit_empresa, "C",
+                        _limpiar_numero(v["Cedula_Conductor"]),
+                        v["Nombre_Conductor"], v["Apellido1_Conductor"],
+                        v.get("Apellido2_Conductor"), v["Municipio_Conductor"], log=log,
+                    )
+                    log(f"    ✅ Conductor {v['Cedula_Conductor']} registrado.")
                 else:
                     raise
         log(f"✅ Radicado del manifiesto: {radicado_manifiesto}")
