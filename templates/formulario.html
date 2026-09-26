@@ -436,6 +436,32 @@
         </div>
       </div>
     </details>
+
+    <details class="nit-desplegable" style="margin-top:0.6rem;">
+      <summary style="font-size:0.85rem;">¿El conductor es nuevo en el RNDC? (solo si "Verificar" dice que no existe)</summary>
+      <div class="contenido-nit" style="margin-top:0.5rem;">
+        <div class="fila">
+          <div>
+            <label>Nombre del conductor</label>
+            <input type="text" name="Nombre_Conductor" value="{{ v.get('Nombre_Conductor', '') }}">
+          </div>
+          <div>
+            <label>Primer apellido</label>
+            <input type="text" name="Apellido1_Conductor" value="{{ v.get('Apellido1_Conductor', '') }}">
+          </div>
+        </div>
+        <div class="fila">
+          <div>
+            <label>Segundo apellido (opcional)</label>
+            <input type="text" name="Apellido2_Conductor" value="{{ v.get('Apellido2_Conductor', '') }}">
+          </div>
+          <div>
+            <label>Municipio del conductor</label>
+            <input type="text" name="Municipio_Conductor" value="{{ v.get('Municipio_Conductor', '') }}">
+          </div>
+        </div>
+      </div>
+    </details>
     </div>
 
     <div class="seccion">
