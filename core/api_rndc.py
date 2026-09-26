@@ -132,43 +132,58 @@ def _obtener_sedes(usuario, password, nit_empresa, log=None):
     remitente/destinatario distinto), una sola vez por corrida (se
     guarda en caché) -- antes se repetía esta consulta (que puede traer
     cientos de sedes) una vez por cada campo, inundando el log sin
-    necesidad."""
+    necesidad.
+
+    Se consulta tanto con tipo 'N' (NIT) como 'C' (cédula) y se juntan
+    los resultados -- un mismo Tercero puede tener sedes registradas
+    bajo cualquiera de los dos tipos (se ha visto en la práctica), y no
+    hay forma de saber de antemano cuál es el correcto solo con el
+    número."""
     clave = (usuario, nit_empresa)
     if clave in _cache_sedes:
         return _cache_sedes[clave]
 
     variables = "CODSEDETERCERO,NOMSEDETERCERO,CODMUNICIPIORNDC"
-    documento = (
-        # NUMNITEMPRESATRANSPORTE siempre es la empresa transportadora
-        # (quién pregunta), NUNCA el Tercero que se está consultando --
-        # antes se mandaba el mismo NIT en los dos campos, y para
-        # cualquier cliente que no fuera la empresa misma, eso armaba una
-        # consulta sin sentido que el RNDC no podía responder (siempre
-        # volvía vacía, aunque el Tercero sí tuviera sedes).
-        f"<NUMNITEMPRESATRANSPORTE>{FIJOS_REMESA['NUMIDPROPIETARIO']}</NUMNITEMPRESATRANSPORTE>"
-        f"<CODTIPOIDTERCERO>'N'</CODTIPOIDTERCERO>"
-        f"<NUMIDTERCERO>{nit_empresa}</NUMIDTERCERO>"
-    )
-    respuesta = _llamar(usuario, password, tipo=3, procesoid=11,
-                         variables_xml=variables, documento_xml=documento,
-                         servidor="real_terceros")
-    try:
-        raiz = ET.fromstring(str(respuesta))
-    except ET.ParseError as e:
-        if log:
-            log(f"    ⚠️ No se pudo leer la lista de sedes de {nit_empresa} "
-                f"(se reintentará en la próxima búsqueda): {e}")
-        return []
-
     sedes = []
-    for doc in raiz.findall("documento"):
-        sedes.append({
-            "codigo_sede": doc.findtext("codsedetercero", default="").strip(),
-            "nombre": doc.findtext("nomsedetercero", default="").strip(),
-            "municipio": doc.findtext("codmunicipiorndc", default="").strip(),
-        })
+    hubo_fallo = False
+    for tipo_id in ("N", "C"):
+        documento = (
+            # NUMNITEMPRESATRANSPORTE siempre es la empresa transportadora
+            # (quién pregunta), NUNCA el Tercero que se está consultando --
+            # antes se mandaba el mismo NIT en los dos campos, y para
+            # cualquier cliente que no fuera la empresa misma, eso armaba
+            # una consulta sin sentido que el RNDC no podía responder
+            # (siempre volvía vacía, aunque el Tercero sí tuviera sedes).
+            f"<NUMNITEMPRESATRANSPORTE>{FIJOS_REMESA['NUMIDPROPIETARIO']}</NUMNITEMPRESATRANSPORTE>"
+            f"<CODTIPOIDTERCERO>'{tipo_id}'</CODTIPOIDTERCERO>"
+            f"<NUMIDTERCERO>{nit_empresa}</NUMIDTERCERO>"
+        )
+        respuesta = _llamar(usuario, password, tipo=3, procesoid=11,
+                             variables_xml=variables, documento_xml=documento,
+                             servidor="real_terceros")
+        try:
+            raiz = ET.fromstring(str(respuesta))
+        except ET.ParseError as e:
+            hubo_fallo = True
+            if log:
+                log(f"    ⚠️ No se pudo leer la lista de sedes de {nit_empresa} "
+                    f"(tipo {tipo_id}, se reintentará en la próxima búsqueda): {e}")
+            continue
+
+        for doc in raiz.findall("documento"):
+            sedes.append({
+                "codigo_sede": doc.findtext("codsedetercero", default="").strip(),
+                "nombre": doc.findtext("nomsedetercero", default="").strip(),
+                "municipio": doc.findtext("codmunicipiorndc", default="").strip(),
+            })
+
     if log:
         log(f"    ({len(sedes)} sedes encontradas para el NIT {nit_empresa})")
+    if hubo_fallo:
+        # Si UNA de las dos consultas falló de verdad (no solo vino
+        # vacía), no se cachea nada -- para que se reintenten ambas en
+        # la próxima búsqueda, en vez de quedarse con una lista a medias.
+        return sedes
     _cache_sedes[clave] = sedes
     return sedes
 
