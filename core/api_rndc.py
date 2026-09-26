@@ -661,15 +661,18 @@ def ejecutar_viaje_api(v, usuario, password, log):
                     cedula_conductor2_actual = None
                 elif (
                     "CONDUCTOR" in mensaje_mayus
-                    and ("NO EXISTE" in mensaje_mayus or "LICENCIA" in mensaje_mayus)
+                    and ("NO EXISTE" in mensaje_mayus or "LICENCIA" in mensaje_mayus or "VENCID" in mensaje_mayus)
                     and intentos_conductor < 1
                 ):
-                    # El conductor no está registrado como Tercero (o le
-                    # falta la licencia) -- a diferencia del sitio web (que
-                    # completa varios datos con solo la cédula, por su
-                    # propio JavaScript), la API sí necesita el nombre,
-                    # apellido y municipio explícitos. Si el formulario los
-                    # trae, se registra y se reintenta una sola vez.
+                    # El conductor no está registrado como Tercero, o su
+                    # licencia salió vencida (aunque el conductor sí haya
+                    # renovado de verdad -- el RNDC no se entera solo, hay
+                    # que volver a registrarlo para que jale el dato
+                    # actualizado). A diferencia del sitio web (que completa
+                    # varios datos con solo la cédula, por su propio
+                    # JavaScript), la API sí necesita el nombre, apellido y
+                    # municipio explícitos. Si el formulario los trae, se
+                    # registra y se reintenta una sola vez.
                     intentos_conductor += 1
                     if not v.get("Nombre_Conductor") or not v.get("Apellido1_Conductor") or not v.get("Municipio_Conductor"):
                         log(f"❌ El conductor no está registrado en el RNDC ({e.mensaje}). Para "
@@ -677,7 +680,7 @@ def ejecutar_viaje_api(v, usuario, password, log):
                             f"Municipio en el formulario (el sitio web los completa solo con "
                             f"la cédula, pero la API sí los necesita a mano).")
                         raise
-                    log(f"    El conductor no está registrado ({e.mensaje}) -- "
+                    log(f"    El conductor no está registrado o su licencia salió vencida ({e.mensaje}) -- "
                         f"registrándolo como Tercero y reintentando...")
                     crear_tercero_api(
                         usuario, password, nit_empresa, "C",
