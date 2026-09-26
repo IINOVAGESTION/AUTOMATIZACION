@@ -127,17 +127,25 @@ _cache_sedes = {}  # (usuario, nit) -> lista de sedes, para no repetir la consul
 
 
 def _obtener_sedes(usuario, password, nit_empresa, log=None):
-    """Trae TODAS las sedes registradas para nit_empresa, una sola vez por
-    corrida (se guarda en caché) -- antes se repetía esta consulta (que
-    puede traer cientos de sedes) una vez por cada campo, inundando el
-    log sin necesidad."""
+    """Trae TODAS las sedes registradas para nit_empresa (el Tercero del
+    que se quieren las sedes -- puede ser la empresa misma, o un cliente
+    remitente/destinatario distinto), una sola vez por corrida (se
+    guarda en caché) -- antes se repetía esta consulta (que puede traer
+    cientos de sedes) una vez por cada campo, inundando el log sin
+    necesidad."""
     clave = (usuario, nit_empresa)
     if clave in _cache_sedes:
         return _cache_sedes[clave]
 
     variables = "CODSEDETERCERO,NOMSEDETERCERO,CODMUNICIPIORNDC"
     documento = (
-        f"<NUMNITEMPRESATRANSPORTE>{nit_empresa}</NUMNITEMPRESATRANSPORTE>"
+        # NUMNITEMPRESATRANSPORTE siempre es la empresa transportadora
+        # (quién pregunta), NUNCA el Tercero que se está consultando --
+        # antes se mandaba el mismo NIT en los dos campos, y para
+        # cualquier cliente que no fuera la empresa misma, eso armaba una
+        # consulta sin sentido que el RNDC no podía responder (siempre
+        # volvía vacía, aunque el Tercero sí tuviera sedes).
+        f"<NUMNITEMPRESATRANSPORTE>{FIJOS_REMESA['NUMIDPROPIETARIO']}</NUMNITEMPRESATRANSPORTE>"
         f"<CODTIPOIDTERCERO>'N'</CODTIPOIDTERCERO>"
         f"<NUMIDTERCERO>{nit_empresa}</NUMIDTERCERO>"
     )
