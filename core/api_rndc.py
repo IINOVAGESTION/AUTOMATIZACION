@@ -223,32 +223,31 @@ def buscar_sede(usuario, password, nit_empresa, texto_buscar, log=None):
 
 
 def crear_tercero_api(usuario, password, nit_empresa, tipo_id, numero_id,
-                       nombre=None, apellido1=None, apellido2=None,
-                       municipio_contiene=None, log=None):
+                       nombre, apellido1, apellido2, municipio_contiene, log=None):
     """Registra a una persona (conductor/titular) como Tercero en el
     RNDC -- lo mismo que hace Selenium cuando un conductor no está
-    registrado todavía. El RNDC completa nombre/apellidos/municipio
-    solo con la cédula (consulta alguna base de datos oficial por su
-    cuenta), así que estos datos son opcionales -- si se tienen, se
-    mandan; si no, se manda solo el tipo y número de identificación.
-    Devuelve el radicado si funciona; lanza ErrorRNDC si no."""
-    municipio_xml = ""
-    if municipio_contiene:
-        sede_municipio = buscar_sede(usuario, password, nit_empresa, municipio_contiene, log=log)
-        if sede_municipio:
-            municipio_xml = (
-                f"<MUNICIPIORNDC>{sede_municipio['municipio']}</MUNICIPIORNDC>"
-                f"<NOMSEDETERCERO>{municipio_contiene}</NOMSEDETERCERO>"
-            )
+    registrado todavía. A diferencia del sitio web (que completa varios
+    campos por su cuenta con solo la cédula, usando su propio
+    JavaScript antes de mandar el formulario), la API sí necesita estos
+    datos explícitos: nombre, primer apellido y municipio son
+    obligatorios (segundo apellido es opcional); la dirección se manda
+    como el nombre del municipio, ya que no se pide por separado en la
+    app. Devuelve el radicado si funciona; lanza ErrorRNDC si no."""
+    sede_municipio = buscar_sede(usuario, password, nit_empresa, municipio_contiene, log=log)
+    if not sede_municipio:
+        raise ErrorRNDC(f"No se encontró ninguna sede que contenga '{municipio_contiene}' "
+                         f"para registrar el municipio del conductor.")
 
     variables = f"""
 <NUMNITEMPRESATRANSPORTE>{nit_empresa}</NUMNITEMPRESATRANSPORTE>
-<TIPOIDTERCERO>{tipo_id}</TIPOIDTERCERO>
+<CODTIPOIDTERCERO>{tipo_id}</CODTIPOIDTERCERO>
 <NUMIDTERCERO>{numero_id}</NUMIDTERCERO>
-{f'<NOMIDTERCERO>{nombre}</NOMIDTERCERO>' if nombre else ''}
-{f'<PRIMERAPELLIDOIDTERCERO>{apellido1}</PRIMERAPELLIDOIDTERCERO>' if apellido1 else ''}
+<NOMIDTERCERO>{nombre}</NOMIDTERCERO>
+<PRIMERAPELLIDOIDTERCERO>{apellido1}</PRIMERAPELLIDOIDTERCERO>
 {f'<SEGUNDOAPELLIDOIDTERCERO>{apellido2}</SEGUNDOAPELLIDOIDTERCERO>' if apellido2 else ''}
-{municipio_xml}
+<MUNICIPIORNDC>{sede_municipio['municipio']}</MUNICIPIORNDC>
+<NOMSEDETERCERO>{municipio_contiene}</NOMSEDETERCERO>
+<DIRECCIONTERCERO>{municipio_contiene}</DIRECCIONTERCERO>
 """.strip()
 
     respuesta = _llamar(usuario, password, tipo=1, procesoid=11,
@@ -599,20 +598,25 @@ def ejecutar_viaje_api(v, usuario, password, log):
                     and intentos_conductor < 1
                 ):
                     # El conductor no está registrado como Tercero (o le
-                    # falta la licencia) -- se registra con la cédula
-                    # (el RNDC completa nombre/apellidos/municipio por su
-                    # cuenta con solo eso) y se reintenta una sola vez.
-                    # Si el formulario sí trae esos datos, se mandan
-                    # también, pero no son obligatorios.
+                    # falta la licencia) -- a diferencia del sitio web (que
+                    # completa varios datos con solo la cédula, por su
+                    # propio JavaScript), la API sí necesita el nombre,
+                    # apellido y municipio explícitos. Si el formulario los
+                    # trae, se registra y se reintenta una sola vez.
                     intentos_conductor += 1
+                    if not v.get("Nombre_Conductor") or not v.get("Apellido1_Conductor") or not v.get("Municipio_Conductor"):
+                        log(f"❌ El conductor no está registrado en el RNDC ({e.mensaje}). Para "
+                            f"registrarlo automáticamente hacen falta su Nombre, Apellido y "
+                            f"Municipio en el formulario (el sitio web los completa solo con "
+                            f"la cédula, pero la API sí los necesita a mano).")
+                        raise
                     log(f"    El conductor no está registrado ({e.mensaje}) -- "
                         f"registrándolo como Tercero y reintentando...")
                     crear_tercero_api(
                         usuario, password, nit_empresa, "C",
                         _limpiar_numero(v["Cedula_Conductor"]),
-                        nombre=v.get("Nombre_Conductor"), apellido1=v.get("Apellido1_Conductor"),
-                        apellido2=v.get("Apellido2_Conductor"), municipio_contiene=v.get("Municipio_Conductor"),
-                        log=log,
+                        v["Nombre_Conductor"], v["Apellido1_Conductor"],
+                        v.get("Apellido2_Conductor"), v["Municipio_Conductor"], log=log,
                     )
                     log(f"    ✅ Conductor {v['Cedula_Conductor']} registrado.")
                 else:
