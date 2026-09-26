@@ -428,6 +428,18 @@ def _limpiar_numero(texto):
     return "".join(c for c in str(texto) if c.isdigit())
 
 
+def _limpiar_nit(texto):
+    """Limpia un NIT/cédula tal como la gente lo suele escribir (con
+    puntos de miles, o con el dígito de verificación después de un
+    guion, ej: '900.536.415-9'). El RNDC espera solo el número base, sin
+    el DV -- si se manda con el DV pegado, no coincide con el Tercero
+    real y sale un error de que "no existe" aunque sí esté registrado."""
+    if not texto:
+        return texto
+    base = str(texto).split("-")[0]
+    return "".join(c for c in base if c.isdigit())
+
+
 def ejecutar_viaje_api(v, usuario, password, log):
     """Crea la Remesa (o remesas, para Ida y Regreso/Multiparada) y el
     Manifiesto de un viaje usando el Web Service, en vez de manejar un
@@ -451,9 +463,9 @@ def ejecutar_viaje_api(v, usuario, password, log):
     # viaje; cada parada de Ida y Regreso puede pisarlos con los suyos
     # propios más abajo.
     tipoid_remitente_defecto = normalizar_tipo_id(v.get("TipoID_Remitente_Cliente") or FIJOS_REMESA["TIPOIDREMITENTE"])
-    numid_remitente_defecto = v.get("NIT_Remitente_Cliente") or FIJOS_REMESA["NUMIDREMITENTE"]
+    numid_remitente_defecto = _limpiar_nit(v.get("NIT_Remitente_Cliente") or FIJOS_REMESA["NUMIDREMITENTE"])
     tipoid_destinatario_defecto = normalizar_tipo_id(v.get("TipoID_Destinatario_Cliente") or FIJOS_REMESA["TIPOIDDESTINATARIO"])
-    numid_destinatario_defecto = v.get("NIT_Destinatario_Cliente") or FIJOS_REMESA["NUMIDDESTINATARIO"]
+    numid_destinatario_defecto = _limpiar_nit(v.get("NIT_Destinatario_Cliente") or FIJOS_REMESA["NUMIDDESTINATARIO"])
 
     # Las fechas de cargue/descargue de la Remesa siempre son de hoy (así
     # lo hace también Selenium); la Fecha de Expedición y la Fecha de
@@ -497,11 +509,11 @@ def ejecutar_viaje_api(v, usuario, password, log):
                     "tipoid_remitente": normalizar_tipo_id(
                         parada.get("TipoID_Remitente") or v.get("TipoID_Remitente_Cliente") or FIJOS_REMESA["TIPOIDREMITENTE"]
                     ),
-                    "numid_remitente": parada.get("NIT_Remitente") or numid_remitente_defecto,
+                    "numid_remitente": _limpiar_nit(parada.get("NIT_Remitente")) or numid_remitente_defecto,
                     "tipoid_destinatario": normalizar_tipo_id(
                         parada.get("TipoID_Destinatario") or v.get("TipoID_Destinatario_Cliente") or FIJOS_REMESA["TIPOIDDESTINATARIO"]
                     ),
-                    "numid_destinatario": parada.get("NIT_Destinatario") or numid_destinatario_defecto,
+                    "numid_destinatario": _limpiar_nit(parada.get("NIT_Destinatario")) or numid_destinatario_defecto,
                 }
                 for i, parada in enumerate(v["Paradas"])
             ]
