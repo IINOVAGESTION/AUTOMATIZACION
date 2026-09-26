@@ -220,7 +220,7 @@ def buscar_sede(usuario, password, nit_empresa, texto_buscar, log=None):
                       f"que empiezan con '+']") if len(coincidencias) > 1 else ""
             log(f"    '{texto_buscar}' -> sede {elegida['codigo_sede']} "
                 f"({elegida['nombre']}, municipio {elegida['municipio']}) [{motivo}]{extra}")
-        return {"codigo_sede": elegida["codigo_sede"], "municipio": elegida["municipio"]}
+        return {"codigo_sede": elegida["codigo_sede"], "municipio": elegida["municipio"], "nombre": elegida["nombre"]}
 
     palabras = texto_buscar.strip().split()
     # Primero se prueba con el texto completo, luego quitando palabras del
@@ -265,16 +265,52 @@ def crear_tercero_api(usuario, password, nit_empresa, tipo_id, numero_id,
                        nombre, apellido1, apellido2, municipio_contiene, log=None):
     """Registra a una persona (conductor/titular) como Tercero en el
     RNDC -- lo mismo que hace Selenium cuando un conductor no está
-    registrado todavía. A diferencia del sitio web (que completa varios
+    registrado todavía, o cuando su licencia salió vencida y hay que
+    "refrescarlo". A diferencia del sitio web (que completa varios
     campos por su cuenta con solo la cédula, usando su propio
     JavaScript antes de mandar el formulario), la API sí necesita estos
     datos explícitos: nombre, primer apellido y municipio son
     obligatorios (segundo apellido es opcional).
+
+    El campo MUNICIPIORNDC no es un código -- es el nombre del
+    municipio tal como el RNDC ya lo tiene escrito ("BOGOTA BOGOTA D.
+    C.", no "11001000"). Si esta persona YA existe como Tercero (el
+    caso más común: se está "refrescando" para poner al día una
+    licencia vencida), se consulta su registro actual primero y se
+    reusa ese mismo texto tal cual, para no arriesgarse a escribirlo
+    distinto. Si de verdad es alguien nuevo que nunca se ha registrado,
+    se usa el nombre de la sede que coincida con municipio_contiene
+    como mejor intento.
+
     Devuelve el radicado si funciona; lanza ErrorRNDC si no."""
-    sede_municipio = buscar_sede(usuario, password, nit_empresa, municipio_contiene, log=log)
-    if not sede_municipio:
-        raise ErrorRNDC(f"No se encontró ninguna sede que contenga '{municipio_contiene}' "
-                         f"para registrar el municipio del conductor.")
+    texto_municipio = None
+    variables_consulta = "CODTIPOIDTERCERO,NUMIDTERCERO,MUNICIPIORNDC"
+    documento_consulta = (
+        f"<NUMNITEMPRESATRANSPORTE>{nit_empresa}</NUMNITEMPRESATRANSPORTE>"
+        f"<CODTIPOIDTERCERO>'{tipo_id}'</CODTIPOIDTERCERO>"
+        f"<NUMIDTERCERO>{numero_id}</NUMIDTERCERO>"
+    )
+    respuesta_consulta = _llamar(usuario, password, tipo=3, procesoid=11,
+                                  variables_xml=variables_consulta,
+                                  documento_xml=documento_consulta,
+                                  servidor="real_terceros")
+    try:
+        raiz_consulta = ET.fromstring(str(respuesta_consulta))
+        doc_existente = raiz_consulta.find("documento")
+        if doc_existente is not None:
+            texto_municipio = doc_existente.findtext("municipiorndc", default="").strip() or None
+    except ET.ParseError:
+        pass
+
+    if texto_municipio:
+        if log:
+            log(f"    (ya existe como Tercero -- reusando su municipio tal cual: '{texto_municipio}')")
+    else:
+        sede_municipio = buscar_sede(usuario, password, nit_empresa, municipio_contiene, log=log)
+        if not sede_municipio:
+            raise ErrorRNDC(f"No se encontró ninguna sede que contenga '{municipio_contiene}' "
+                             f"para registrar el municipio del conductor.")
+        texto_municipio = sede_municipio["nombre"]
 
     variables = f"""
 <NUMNITEMPRESATRANSPORTE>{nit_empresa}</NUMNITEMPRESATRANSPORTE>
@@ -283,7 +319,7 @@ def crear_tercero_api(usuario, password, nit_empresa, tipo_id, numero_id,
 <NOMIDTERCERO>{nombre}</NOMIDTERCERO>
 <PRIMERAPELLIDOIDTERCERO>{apellido1}</PRIMERAPELLIDOIDTERCERO>
 {f'<SEGUNDOAPELLIDOIDTERCERO>{apellido2}</SEGUNDOAPELLIDOIDTERCERO>' if apellido2 else ''}
-<MUNICIPIORNDC>{sede_municipio['municipio']}</MUNICIPIORNDC>
+<MUNICIPIORNDC>{texto_municipio}</MUNICIPIORNDC>
 <NOMSEDETERCERO>{municipio_contiene}</NOMSEDETERCERO>
 """.strip()
 
