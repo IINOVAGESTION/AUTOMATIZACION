@@ -148,8 +148,8 @@ def _obtener_sedes(usuario, password, nit_empresa, log=None):
         raiz = ET.fromstring(str(respuesta))
     except ET.ParseError as e:
         if log:
-            log(f"    ⚠️ No se pudo leer la lista de sedes: {e}")
-        _cache_sedes[clave] = []
+            log(f"    ⚠️ No se pudo leer la lista de sedes de {nit_empresa} "
+                f"(se reintentará en la próxima búsqueda): {e}")
         return []
 
     sedes = []
