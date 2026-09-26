@@ -321,6 +321,7 @@ def crear_tercero_api(usuario, password, nit_empresa, tipo_id, numero_id,
 {f'<SEGUNDOAPELLIDOIDTERCERO>{apellido2}</SEGUNDOAPELLIDOIDTERCERO>' if apellido2 else ''}
 <MUNICIPIORNDC>{texto_municipio}</MUNICIPIORNDC>
 <NOMSEDETERCERO>{municipio_contiene}</NOMSEDETERCERO>
+<NOMENCLATURADIRECCION>{texto_municipio}</NOMENCLATURADIRECCION>
 """.strip()
 
     respuesta = _llamar(usuario, password, tipo=1, procesoid=11,
