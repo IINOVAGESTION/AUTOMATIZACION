@@ -211,11 +211,10 @@ def trabajador_de_fondo():
                 elif (
                     trabajo["v"].get("UsarAPI")
                     and trabajo["v"].get("TipoViaje") in ("Normal", "IdaYRegreso", "Multiparada")
-                    and not trabajo["v"].get("Cedula_Conductor2")
                 ):
                     # Camino nuevo (Web Service) -- cubre viajes Normales,
-                    # Ida y Regreso y Multiparada. Segundo conductor
-                    # todavía va por Selenium.
+                    # Ida y Regreso y Multiparada, con o sin segundo
+                    # conductor.
                     log_trabajo("    (usando el Web Service en vez del navegador)")
                     resultado = rndc_core.ejecutar_viaje_api(
                         trabajo["v"], trabajo["usuario"], trabajo["password"], log_trabajo

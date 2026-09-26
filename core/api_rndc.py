@@ -546,6 +546,8 @@ def ejecutar_viaje_api(v, usuario, password, log):
         intentos_fopat = 0
         intentos_flete = 0
         intentos_conductor = 0
+        intentos_conductor2 = 0
+        cedula_conductor2_actual = _limpiar_numero(v["Cedula_Conductor2"]) if v.get("Cedula_Conductor2") else None
         while True:
             try:
                 radicado_manifiesto = crear_manifiesto_api(
@@ -556,7 +558,7 @@ def ejecutar_viaje_api(v, usuario, password, log):
                     cedula_titular=_limpiar_numero(v["Cedula_Titular"]), placa=v["Placa"],
                     placa_remolque=v.get("Placa_Remolque"),
                     cedula_conductor=_limpiar_numero(v["Cedula_Conductor"]),
-                    cedula_conductor2=_limpiar_numero(v["Cedula_Conductor2"]) if v.get("Cedula_Conductor2") else None,
+                    cedula_conductor2=cedula_conductor2_actual,
                     flete=flete, retencion_ica=retencion_ica,
                     retencion_fuente="1",
                     fopat_aplica=fopat_aplica,
@@ -606,6 +608,22 @@ def ejecutar_viaje_api(v, usuario, password, log):
                         f"duplicado. Entra al RNDC y busca este manifiesto a mano (Consultas) "
                         f"para confirmarlo. Consecutivo: {v['Consecutivo']}.")
                     raise
+                elif (
+                    cedula_conductor2_actual
+                    and ("CONDUCTOR2" in mensaje_mayus.replace(" ", "") or "SEGUNDOCONDUCTOR" in mensaje_mayus.replace(" ", ""))
+                    and intentos_conductor2 < 1
+                ):
+                    # El segundo conductor no existe como Tercero -- a
+                    # diferencia del principal, Selenium tampoco lo
+                    # registra automáticamente en este caso (no hay campos
+                    # de nombre/apellido/municipio para un segundo
+                    # conductor en el formulario); simplemente se sigue
+                    # sin él y se avisa, en vez de bloquear todo el viaje.
+                    intentos_conductor2 += 1
+                    log(f"⚠️  El segundo conductor no está registrado en el RNDC ({e.mensaje}) -- "
+                        f"el manifiesto sigue sin él, regístralo primero si de verdad hace falta "
+                        f"en este viaje.")
+                    cedula_conductor2_actual = None
                 elif (
                     "CONDUCTOR" in mensaje_mayus
                     and ("NO EXISTE" in mensaje_mayus or "LICENCIA" in mensaje_mayus)
