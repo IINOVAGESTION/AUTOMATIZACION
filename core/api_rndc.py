@@ -223,26 +223,32 @@ def buscar_sede(usuario, password, nit_empresa, texto_buscar, log=None):
 
 
 def crear_tercero_api(usuario, password, nit_empresa, tipo_id, numero_id,
-                       nombre, apellido1, apellido2, municipio_contiene, log=None):
+                       nombre=None, apellido1=None, apellido2=None,
+                       municipio_contiene=None, log=None):
     """Registra a una persona (conductor/titular) como Tercero en el
     RNDC -- lo mismo que hace Selenium cuando un conductor no está
-    registrado todavía. Necesita nombre, primer apellido y municipio
-    (segundo apellido es opcional). Devuelve el radicado si funciona;
-    lanza ErrorRNDC si no."""
-    sede_municipio = buscar_sede(usuario, password, nit_empresa, municipio_contiene, log=log)
-    if not sede_municipio:
-        raise ErrorRNDC(f"No se encontró ninguna sede que contenga '{municipio_contiene}' "
-                         f"para registrar el municipio del conductor.")
+    registrado todavía. El RNDC completa nombre/apellidos/municipio
+    solo con la cédula (consulta alguna base de datos oficial por su
+    cuenta), así que estos datos son opcionales -- si se tienen, se
+    mandan; si no, se manda solo el tipo y número de identificación.
+    Devuelve el radicado si funciona; lanza ErrorRNDC si no."""
+    municipio_xml = ""
+    if municipio_contiene:
+        sede_municipio = buscar_sede(usuario, password, nit_empresa, municipio_contiene, log=log)
+        if sede_municipio:
+            municipio_xml = (
+                f"<MUNICIPIORNDC>{sede_municipio['municipio']}</MUNICIPIORNDC>"
+                f"<NOMSEDETERCERO>{municipio_contiene}</NOMSEDETERCERO>"
+            )
 
     variables = f"""
 <NUMNITEMPRESATRANSPORTE>{nit_empresa}</NUMNITEMPRESATRANSPORTE>
 <TIPOIDTERCERO>{tipo_id}</TIPOIDTERCERO>
 <NUMIDTERCERO>{numero_id}</NUMIDTERCERO>
-<NOMIDTERCERO>{nombre}</NOMIDTERCERO>
-<PRIMERAPELLIDOIDTERCERO>{apellido1}</PRIMERAPELLIDOIDTERCERO>
+{f'<NOMIDTERCERO>{nombre}</NOMIDTERCERO>' if nombre else ''}
+{f'<PRIMERAPELLIDOIDTERCERO>{apellido1}</PRIMERAPELLIDOIDTERCERO>' if apellido1 else ''}
 {f'<SEGUNDOAPELLIDOIDTERCERO>{apellido2}</SEGUNDOAPELLIDOIDTERCERO>' if apellido2 else ''}
-<MUNICIPIORNDC>{sede_municipio['municipio']}</MUNICIPIORNDC>
-<NOMSEDETERCERO>{municipio_contiene}</NOMSEDETERCERO>
+{municipio_xml}
 """.strip()
 
     respuesta = _llamar(usuario, password, tipo=1, procesoid=11,
@@ -593,22 +599,20 @@ def ejecutar_viaje_api(v, usuario, password, log):
                     and intentos_conductor < 1
                 ):
                     # El conductor no está registrado como Tercero (o le
-                    # falta la licencia) -- si el formulario trae su
-                    # nombre/apellido/municipio, se registra y se
-                    # reintenta una sola vez.
+                    # falta la licencia) -- se registra con la cédula
+                    # (el RNDC completa nombre/apellidos/municipio por su
+                    # cuenta con solo eso) y se reintenta una sola vez.
+                    # Si el formulario sí trae esos datos, se mandan
+                    # también, pero no son obligatorios.
                     intentos_conductor += 1
-                    if not v.get("Nombre_Conductor") or not v.get("Apellido1_Conductor") or not v.get("Municipio_Conductor"):
-                        log(f"❌ El conductor no está registrado en el RNDC ({e.mensaje}), pero "
-                            f"faltan Nombre / Apellido / Municipio del conductor en el formulario "
-                            f"para poder registrarlo.")
-                        raise
                     log(f"    El conductor no está registrado ({e.mensaje}) -- "
                         f"registrándolo como Tercero y reintentando...")
                     crear_tercero_api(
                         usuario, password, nit_empresa, "C",
                         _limpiar_numero(v["Cedula_Conductor"]),
-                        v["Nombre_Conductor"], v["Apellido1_Conductor"],
-                        v.get("Apellido2_Conductor"), v["Municipio_Conductor"], log=log,
+                        nombre=v.get("Nombre_Conductor"), apellido1=v.get("Apellido1_Conductor"),
+                        apellido2=v.get("Apellido2_Conductor"), municipio_contiene=v.get("Municipio_Conductor"),
+                        log=log,
                     )
                     log(f"    ✅ Conductor {v['Cedula_Conductor']} registrado.")
                 else:
