@@ -26,7 +26,7 @@ try:
 except ImportError:
     _ZEEP_DISPONIBLE = False
 
-from .config import FIJOS_REMESA, FIJOS_MANIFIESTO, CARPETA_DESCARGAS, URL_REIMPRIMIR_REMESA, URL_REIMPRIMIR_MANIFIESTO
+from .config import FIJOS_REMESA, FIJOS_MANIFIESTO, CARPETA_DESCARGAS, URL_REIMPRIMIR_REMESA, URL_REIMPRIMIR_MANIFIESTO, URL_LOGIN
 from .utilidades import calcular_retencion_ica, quitar_tildes, normalizar_tipo_id, calcular_fecha_pago_por_defecto
 from .navegador import crear_opciones_chrome, crear_driver_con_limite, obtener_chromedriver_path
 from .documentos import descargar_pdf_documento
@@ -259,6 +259,53 @@ def buscar_sede_con_respaldo(usuario, password, numid_principal, nit_empresa, te
     if log:
         log(f"    (el {numid_principal} no tiene sedes propias -- probando con las de la empresa)")
     return buscar_sede(usuario, password, nit_empresa, texto_buscar, log=log)
+
+
+def crear_tercero_via_navegador(usuario, password, tipo_id, numero_id,
+                                 nombre, apellido1, apellido2, municipio_contiene, log=None):
+    """Registra/"refresca" un Tercero abriendo un navegador liviano y
+    usando la misma página que ya usa Selenium -- necesario porque el
+    sitio dispara, al escribir la cédula, una consulta propia (contra el
+    RUNT, probablemente) que trae los datos de la licencia de conducción
+    y los deja fijos en el formulario; eso no se puede replicar por la
+    API. El resto del viaje (remesa, manifiesto, sedes, FOPAT, flete,
+    vehículos) sigue por el Web Service -- este es el único paso que
+    todavía necesita el navegador. Devuelve True si quedó guardado."""
+    from .terceros import crear_tercero as crear_tercero_selenium
+    driver = None
+    try:
+        if log:
+            log("    Abriendo el navegador solo para registrar/refrescar al Tercero...")
+        chrome_options = crear_opciones_chrome()
+        driver = crear_driver_con_limite(chrome_options, obtener_chromedriver_path())
+        driver.set_page_load_timeout(25)
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.webdriver.common.by import By
+        import time as _time
+
+        wait = WebDriverWait(driver, 20)
+        driver.get(URL_LOGIN)
+        _time.sleep(1)
+        wait.until(lambda d: d.find_element(By.ID, "dnn_ctr390_FormLogIn_edUsername")).send_keys(usuario)
+        driver.find_element(By.ID, "dnn_ctr390_FormLogIn_edPassword").send_keys(password)
+        driver.find_element(By.ID, "dnn_ctr390_FormLogIn_btIngresar").click()
+        _time.sleep(2)
+
+        guardado = crear_tercero_selenium(
+            driver, wait, tipo_id, numero_id, nombre, apellido1, apellido2,
+            municipio_contiene, log or (lambda m: None),
+        )
+        return guardado
+    except Exception as e:
+        if log:
+            log(f"    ⚠️  No se pudo registrar el Tercero por el navegador: {e}")
+        return False
+    finally:
+        if driver:
+            try:
+                driver.quit()
+            except Exception:
+                pass
 
 
 def crear_tercero_api(usuario, password, nit_empresa, tipo_id, numero_id,
@@ -823,26 +870,32 @@ def ejecutar_viaje_api(v, usuario, password, log):
                     # licencia salió vencida (aunque el conductor sí haya
                     # renovado de verdad -- el RNDC no se entera solo, hay
                     # que volver a registrarlo para que jale el dato
-                    # actualizado). A diferencia del sitio web (que completa
-                    # varios datos con solo la cédula, por su propio
-                    # JavaScript), la API sí necesita el nombre, apellido y
-                    # municipio explícitos. Si el formulario los trae, se
-                    # registra y se reintenta una sola vez.
+                    # actualizado). Esto se hace SIEMPRE por el navegador,
+                    # no por la API: el sitio dispara, al escribir la
+                    # cédula, una consulta propia (al RUNT, probablemente)
+                    # que trae la licencia de conducción vigente y la deja
+                    # fija en el formulario -- eso no se puede replicar por
+                    # la API, y sin la licencia el RNDC vuelve a rechazar el
+                    # manifiesto (MAN246). Si el formulario trae el nombre,
+                    # apellido y municipio, se registra y se reintenta.
                     intentos_conductor += 1
                     if not v.get("Nombre_Conductor") or not v.get("Apellido1_Conductor") or not v.get("Municipio_Conductor"):
                         log(f"❌ El conductor no está registrado en el RNDC ({e.mensaje}). Para "
                             f"registrarlo automáticamente hacen falta su Nombre, Apellido y "
-                            f"Municipio en el formulario (el sitio web los completa solo con "
-                            f"la cédula, pero la API sí los necesita a mano).")
+                            f"Municipio en el formulario.")
                         raise
                     log(f"    El conductor no está registrado o su licencia salió vencida ({e.mensaje}) -- "
-                        f"registrándolo como Tercero y reintentando...")
-                    crear_tercero_api(
-                        usuario, password, nit_empresa, "C",
+                        f"registrándolo con el navegador (para traer la licencia vigente) y reintentando...")
+                    guardado = crear_tercero_via_navegador(
+                        usuario, password, "C",
                         _limpiar_numero(v["Cedula_Conductor"]),
                         v["Nombre_Conductor"], v["Apellido1_Conductor"],
                         v.get("Apellido2_Conductor"), v["Municipio_Conductor"], log=log,
                     )
+                    if not guardado:
+                        log(f"❌ No se pudo registrar al conductor {v['Cedula_Conductor']} "
+                            f"por el navegador. Revísalo a mano en el RNDC.")
+                        raise
                     log(f"    ✅ Conductor {v['Cedula_Conductor']} registrado.")
                 else:
                     raise
