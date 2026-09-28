@@ -272,19 +272,21 @@ def crear_tercero_api(usuario, password, nit_empresa, tipo_id, numero_id,
     datos explícitos: nombre, primer apellido y municipio son
     obligatorios (segundo apellido es opcional).
 
-    El campo MUNICIPIORNDC no es un código -- es el nombre del
-    municipio tal como el RNDC ya lo tiene escrito ("BOGOTA BOGOTA D.
-    C.", no "11001000"). Si esta persona YA existe como Tercero (el
-    caso más común: se está "refrescando" para poner al día una
-    licencia vencida), se consulta su registro actual primero y se
-    reusa ese mismo texto tal cual, para no arriesgarse a escribirlo
-    distinto. Si de verdad es alguien nuevo que nunca se ha registrado,
-    se usa el nombre de la sede que coincida con municipio_contiene
-    como mejor intento.
+    El municipio se manda como CÓDIGO en CODMUNICIPIORNDC (ej. 11001000,
+    según el ejemplo de la guía oficial). Si esta persona YA existe como
+    Tercero (el caso más común: se está "refrescando" para poner al día
+    una licencia vencida), se consulta su registro actual primero y se
+    reusan su código de municipio y su sede tal cual, para apuntar al
+    mismo registro. Si de verdad es alguien nuevo, el código sale de la
+    sede que coincida con municipio_contiene.
 
     Devuelve el radicado si funciona; lanza ErrorRNDC si no."""
     texto_municipio = None
-    variables_consulta = "CODTIPOIDTERCERO,NUMIDTERCERO,MUNICIPIORNDC"
+    codigo_municipio = None
+    codigo_sede = None
+    nombre_sede = None
+    variables_consulta = ("CODTIPOIDTERCERO,NUMIDTERCERO,MUNICIPIORNDC,CODMUNICIPIORNDC,"
+                          "CODSEDETERCERO,NOMSEDETERCERO")
     documento_consulta = (
         f"<NUMNITEMPRESATRANSPORTE>{nit_empresa}</NUMNITEMPRESATRANSPORTE>"
         f"<CODTIPOIDTERCERO>'{tipo_id}'</CODTIPOIDTERCERO>"
@@ -299,19 +301,31 @@ def crear_tercero_api(usuario, password, nit_empresa, tipo_id, numero_id,
         doc_existente = raiz_consulta.find("documento")
         if doc_existente is not None:
             texto_municipio = doc_existente.findtext("municipiorndc", default="").strip() or None
+            codigo_municipio = doc_existente.findtext("codmunicipiorndc", default="").strip() or None
+            codigo_sede = doc_existente.findtext("codsedetercero", default="").strip() or None
+            nombre_sede = doc_existente.findtext("nomsedetercero", default="").strip() or None
     except ET.ParseError:
         pass
 
-    if texto_municipio:
+    if texto_municipio and codigo_municipio:
         if log:
-            log(f"    (ya existe como Tercero -- reusando su municipio tal cual: '{texto_municipio}')")
+            log(f"    (ya existe como Tercero -- reusando su municipio, código y sede tal cual: "
+                f"'{texto_municipio}' / {codigo_municipio})")
+        nombre_sede = nombre_sede or municipio_contiene
     else:
+        # Persona nueva (o la consulta no dio el código): se toma el
+        # código del municipio de la sede que coincida con lo escrito.
         sede_municipio = buscar_sede(usuario, password, nit_empresa, municipio_contiene, log=log)
         if not sede_municipio:
             raise ErrorRNDC(f"No se encontró ninguna sede que contenga '{municipio_contiene}' "
                              f"para registrar el municipio del conductor.")
         texto_municipio = sede_municipio["nombre"]
+        codigo_municipio = sede_municipio["municipio"]
+        codigo_sede = None
+        nombre_sede = municipio_contiene
 
+    # Según la guía oficial y el propio sitio, el municipio va como CÓDIGO
+    # en CODMUNICIPIORNDC (no como texto en MUNICIPIORNDC).
     variables = f"""
 <NUMNITEMPRESATRANSPORTE>{nit_empresa}</NUMNITEMPRESATRANSPORTE>
 <CODTIPOIDTERCERO>{tipo_id}</CODTIPOIDTERCERO>
@@ -319,8 +333,9 @@ def crear_tercero_api(usuario, password, nit_empresa, tipo_id, numero_id,
 <NOMIDTERCERO>{nombre}</NOMIDTERCERO>
 <PRIMERAPELLIDOIDTERCERO>{apellido1}</PRIMERAPELLIDOIDTERCERO>
 {f'<SEGUNDOAPELLIDOIDTERCERO>{apellido2}</SEGUNDOAPELLIDOIDTERCERO>' if apellido2 else ''}
-<MUNICIPIORNDC>{texto_municipio}</MUNICIPIORNDC>
-<NOMSEDETERCERO>{municipio_contiene}</NOMSEDETERCERO>
+<CODMUNICIPIORNDC>{codigo_municipio}</CODMUNICIPIORNDC>
+{f'<CODSEDETERCERO>{codigo_sede}</CODSEDETERCERO>' if codigo_sede else ''}
+<NOMSEDETERCERO>{nombre_sede}</NOMSEDETERCERO>
 <NOMENCLATURADIRECCION>{texto_municipio}</NOMENCLATURADIRECCION>
 """.strip()
 
