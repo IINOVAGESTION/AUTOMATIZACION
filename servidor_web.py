@@ -456,6 +456,7 @@ def ejecutar():
         "Apellido1_Conductor": f.get("Apellido1_Conductor", "").strip(),
         "Apellido2_Conductor": f.get("Apellido2_Conductor", "").strip(),
         "Municipio_Conductor": f.get("Municipio_Conductor", "").strip(),
+        "Tipo_Vehiculo_Nuevo": f.get("Tipo_Vehiculo_Nuevo", "").strip(),
         "Flete": f.get("Flete", "").strip(),
         "Anticipo": f.get("Anticipo", "").strip(),
         "Cliente": f.get("Cliente", "").strip(),

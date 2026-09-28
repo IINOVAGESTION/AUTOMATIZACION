@@ -438,6 +438,24 @@
     </details>
 
     <details class="nit-desplegable" style="margin-top:0.6rem;">
+      <summary style="font-size:0.85rem;">¿La placa es nueva en el RNDC? (solo si el RNDC dice que el vehículo no existe)</summary>
+      <div class="contenido-nit" style="margin-top:0.5rem;">
+        <div class="fila">
+          <div>
+            <label>Tipo de vehículo (define el peso vacío)</label>
+            <select name="Tipo_Vehiculo_Nuevo">
+              <option value="">— Elegir —</option>
+              <option value="camioneta" {{ 'selected' if v.get('Tipo_Vehiculo_Nuevo') == 'camioneta' else '' }}>Camioneta (1.500 kg)</option>
+              <option value="camion" {{ 'selected' if v.get('Tipo_Vehiculo_Nuevo') == 'camion' else '' }}>Camión rígido de 2 ejes (2.000 kg)</option>
+              <option value="tractocamion" {{ 'selected' if v.get('Tipo_Vehiculo_Nuevo') == 'tractocamion' else '' }}>Tractocamión de 3 ejes (5.000 kg)</option>
+            </select>
+          </div>
+        </div>
+        <small style="opacity:0.75;">Si además el remolque es nuevo, se registra como semirremolque de 3 ejes (5.000 kg).</small>
+      </div>
+    </details>
+
+    <details class="nit-desplegable" style="margin-top:0.6rem;">
       <summary style="font-size:0.85rem;">¿El conductor es nuevo en el RNDC? (solo si "Verificar" dice que no existe)</summary>
       <div class="contenido-nit" style="margin-top:0.5rem;">
         <div class="fila">

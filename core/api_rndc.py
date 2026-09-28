@@ -332,6 +332,60 @@ def crear_tercero_api(usuario, password, nit_empresa, tipo_id, numero_id,
     return radicado
 
 
+# Peso vacío (kg) con el que se registra una placa nueva, según el tipo de
+# vehículo -- son los mismos valores que se escriben a mano en la página de
+# Vehículo. El RNDC completa el resto de los datos por su cuenta a partir de
+# la placa (confirmado registrando una placa real con solo estos dos datos).
+PESO_VACIO_POR_TIPO = {
+    "camioneta": "1500",
+    "camion": "2000",        # camión rígido de 2 ejes
+    "tractocamion": "5000",  # tractocamión de 3 ejes
+}
+PESO_VACIO_REMOLQUE = "5000"  # semirremolque de 3 ejes
+
+
+def vehiculo_existe(usuario, password, nit_empresa, placa):
+    """Consulta (solo lectura) si la placa ya está en el maestro de
+    vehículos. Devuelve True, False, o None si no se pudo saber (respuesta
+    rara) -- en ese caso no se debe registrar nada a ciegas."""
+    documento = (
+        f"<NUMNITEMPRESATRANSPORTE>{nit_empresa}</NUMNITEMPRESATRANSPORTE>"
+        f"<NUMPLACA>'{placa}'</NUMPLACA>"
+    )
+    respuesta = _llamar(usuario, password, tipo=3, procesoid=12,
+                         variables_xml="NUMPLACA", documento_xml=documento,
+                         servidor="real_terceros")
+    try:
+        raiz = ET.fromstring(str(respuesta))
+    except ET.ParseError:
+        return None
+    if raiz.find("documento") is not None:
+        return True
+    error = raiz.find("ErrorMSG")
+    texto_error = "".join(error.itertext()).upper() if error is not None else ""
+    if "RNDC11" in texto_error or "NO ENCONTRADO" in texto_error:
+        return False
+    return None
+
+
+def crear_vehiculo_api(usuario, password, nit_empresa, placa, peso_vacio, log=None):
+    """Registra una placa nueva (vehículo o remolque) en el RNDC mandando
+    solo la placa y el peso vacío -- igual que a mano: placa + TAB + peso
+    vacío. Devuelve el número de ingreso; lanza ErrorRNDC si el RNDC la
+    rechaza."""
+    variables = (
+        f"<NUMNITEMPRESATRANSPORTE>{nit_empresa}</NUMNITEMPRESATRANSPORTE>"
+        f"<NUMPLACA>{placa}</NUMPLACA>"
+        f"<PESOVEHICULOVACIO>{peso_vacio}</PESOVEHICULOVACIO>"
+    )
+    respuesta = _llamar(usuario, password, tipo=1, procesoid=12,
+                         variables_xml=variables, servidor="real_terceros")
+    radicado, error = _extraer_radicado_o_error(respuesta)
+    if error:
+        raise ErrorRNDC(error, respuesta)
+    return radicado
+
+
 def crear_remesa_api(usuario, password, nit_empresa, consecutivo_remesa,
                       origen, destino, producto_codigo, descripcion_producto,
                       peso_kg, sede_propietario_contiene,
@@ -619,6 +673,8 @@ def ejecutar_viaje_api(v, usuario, password, log):
         intentos_flete = 0
         intentos_conductor = 0
         intentos_conductor2 = 0
+        intentos_vehiculo = 0
+        esperas_vehiculo = 0
         cedula_conductor2_actual = _limpiar_numero(v["Cedula_Conductor2"]) if v.get("Cedula_Conductor2") else None
         while True:
             try:
@@ -642,6 +698,9 @@ def ejecutar_viaje_api(v, usuario, password, log):
                 break
             except ErrorRNDC as e:
                 mensaje_mayus = e.mensaje.upper()
+                es_por_vehiculo = "MAN140" in mensaje_mayus or (
+                    "NO EXISTE" in mensaje_mayus and ("VEH" in mensaje_mayus or "REMOLQUE" in mensaje_mayus)
+                )
                 es_por_fopat = "FOPAT" in mensaje_mayus or "PEAJE" in mensaje_mayus
                 es_por_flete_bajo = any(
                     palabra in mensaje_mayus
@@ -680,6 +739,50 @@ def ejecutar_viaje_api(v, usuario, password, log):
                         f"duplicado. Entra al RNDC y busca este manifiesto a mano (Consultas) "
                         f"para confirmarlo. Consecutivo: {v['Consecutivo']}.")
                     raise
+                elif es_por_vehiculo and intentos_vehiculo < 1:
+                    # La placa (del vehículo o del remolque) no está en el
+                    # maestro de vehículos. El mensaje no dice cuál, así que
+                    # se consulta cada una; solo se registran las que de
+                    # verdad no existen (nunca a ciegas). Se registran con el
+                    # peso vacío según el tipo de vehículo, y el RNDC
+                    # completa el resto por su cuenta a partir de la placa.
+                    intentos_vehiculo += 1
+                    placas = [(v["Placa"], "principal")]
+                    if v.get("Placa_Remolque"):
+                        placas.append((v["Placa_Remolque"], "remolque"))
+                    faltan = [
+                        (p, rol) for p, rol in placas
+                        if vehiculo_existe(usuario, password, nit_empresa, p) is False
+                    ]
+                    if not faltan:
+                        log(f"❌ El RNDC dice que una placa no existe ({e.mensaje}), pero no pude "
+                            f"confirmar cuál falta consultándolas. Revísalas a mano en el RNDC.")
+                        raise
+                    for placa_nueva, rol in faltan:
+                        if rol == "principal":
+                            tipo_veh = (v.get("Tipo_Vehiculo_Nuevo") or "").strip()
+                            peso_vacio = PESO_VACIO_POR_TIPO.get(tipo_veh)
+                            if not peso_vacio:
+                                log(f"❌ La placa {placa_nueva} no está registrada en el RNDC. Para "
+                                    f"registrarla automáticamente elige el \"Tipo de vehículo\" en el "
+                                    f"bloque \"¿La placa es nueva en el RNDC?\" del formulario (define "
+                                    f"el peso vacío).")
+                                raise
+                        else:
+                            peso_vacio = PESO_VACIO_REMOLQUE
+                        log(f"    La placa {placa_nueva} ({rol}) no está registrada -- "
+                            f"registrándola con peso vacío {peso_vacio} kg y reintentando...")
+                        crear_vehiculo_api(usuario, password, nit_empresa, placa_nueva, peso_vacio, log=log)
+                        log(f"    ✅ Placa {placa_nueva} registrada.")
+                    time.sleep(3)
+                elif es_por_vehiculo and esperas_vehiculo < 3:
+                    # Ya se registró la placa pero el RNDC todavía no la
+                    # refleja (a veces tarda unos segundos en propagarse) --
+                    # se espera un poco y se reintenta, sin volver a crearla.
+                    esperas_vehiculo += 1
+                    log(f"    El RNDC aún no refleja la placa recién registrada -- esperando "
+                        f"unos segundos (intento {esperas_vehiculo} de 3)...")
+                    time.sleep(8)
                 elif (
                     cedula_conductor2_actual
                     and ("CONDUCTOR2" in mensaje_mayus.replace(" ", "") or "SEGUNDOCONDUCTOR" in mensaje_mayus.replace(" ", ""))
