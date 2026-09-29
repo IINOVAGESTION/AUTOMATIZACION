@@ -235,7 +235,11 @@ def set_autocomplete_municipio(driver, wait, field_id, texto_completo, log, indi
     ordenes_de_busqueda = []
     if len(palabras) >= 2:
         ordenes_de_busqueda.append(len(palabras) - 1)
-    ordenes_de_busqueda += [n for n in range(1, len(palabras)) if n not in ordenes_de_busqueda]
+    # Antes este rango terminaba en len(palabras) sin incluirlo, así que un
+    # texto de 1 sola palabra (ej. "BOGOTA" sin nada más) nunca llegaba a
+    # buscarse -- la lista quedaba vacía y el ciclo de abajo no corría
+    # ninguna vez. +1 para incluir también la palabra completa como intento.
+    ordenes_de_busqueda += [n for n in range(1, len(palabras) + 1) if n not in ordenes_de_busqueda]
 
     for n_palabras in ordenes_de_busqueda:
         termino_usado = " ".join(palabras[:n_palabras])
