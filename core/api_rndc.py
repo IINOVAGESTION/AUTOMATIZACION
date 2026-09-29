@@ -811,8 +811,9 @@ def ejecutar_viaje_api(v, usuario, password, log):
             except ErrorRNDC as e:
                 mensaje_mayus = e.mensaje.upper()
                 es_por_titular = "TITULAR" in mensaje_mayus and "NO EXISTE" in mensaje_mayus
-                es_por_vehiculo = "MAN140" in mensaje_mayus or (
-                    "NO EXISTE" in mensaje_mayus and ("VEH" in mensaje_mayus or "REMOLQUE" in mensaje_mayus)
+                es_por_vehiculo = "MAN140" in mensaje_mayus or "MAN041" in mensaje_mayus or (
+                    ("PLACA" in mensaje_mayus or "VEH" in mensaje_mayus or "REMOLQUE" in mensaje_mayus)
+                    and ("NO EXISTE" in mensaje_mayus or "NO EST" in mensaje_mayus or "NO CREADA" in mensaje_mayus)
                 )
                 es_por_fopat = "FOPAT" in mensaje_mayus or "PEAJE" in mensaje_mayus
                 es_por_flete_bajo = any(
