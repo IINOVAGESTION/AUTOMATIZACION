@@ -527,7 +527,7 @@ def crear_manifiesto_api(usuario, password, nit_empresa, consecutivo_manifiesto,
                           flete, retencion_ica, retencion_fuente,
                           fopat_aplica, fecha_expedicion, fecha_pago,
                           observaciones, anticipo=None, log=None,
-                          tipo_operacion="G"):
+                          tipo_operacion="G", municipio_intermedio_contiene=None):
     """Crea un Manifiesto vía Web Service, uniéndolo a una o varias
     remesas ya creadas (consecutivos_remesa puede ser un texto -- un solo
     consecutivo -- o una lista, para Multiparada/Ida y Regreso). Calcula
@@ -537,6 +537,11 @@ def crear_manifiesto_api(usuario, password, nit_empresa, consecutivo_manifiesto,
     busca en las sedes del remitente y del destinatario respectivamente
     (los mismos que se usaron para la Remesa) -- no siempre en las de la
     empresa, porque el viaje puede ser para un cliente distinto.
+    'municipio_intermedio_contiene' es el texto de ciudad del punto de
+    retorno; el RNDC lo exige (Error MAN094) cuando tipo_operacion es
+    "I" (Ida y Regreso) -- el campo real se llama CODMUNICIPIOINTERMEDIO
+    (confirmado inspeccionando el formulario del sitio; un intento
+    anterior con "CODMUNICIPIOINTERMEDIOMANIFIESTO" no existía).
     Devuelve el radicado; lanza ErrorRNDC si no."""
     if isinstance(consecutivos_remesa, str):
         consecutivos_remesa = [consecutivos_remesa]
@@ -552,6 +557,15 @@ def crear_manifiesto_api(usuario, password, nit_empresa, consecutivo_manifiesto,
     municipio_origen = sede_origen["municipio"]
     municipio_destino = sede_destino["municipio"]
 
+    municipio_intermedio = None
+    if municipio_intermedio_contiene:
+        sede_intermedia = buscar_sede_con_respaldo(usuario, password, numid_remitente, nit_empresa,
+                                                     municipio_intermedio_contiene, log=log)
+        if not sede_intermedia:
+            raise ErrorRNDC(f"No se encontró ninguna sede que contenga "
+                             f"'{municipio_intermedio_contiene}' para el punto intermedio (Ida y Regreso).")
+        municipio_intermedio = sede_intermedia["municipio"]
+
     valor_fopat = round(float(flete) * 0.001) if fopat_aplica else None
     remesas_xml = "".join(
         f"<REMESA><CONSECUTIVOREMESA>{c}</CONSECUTIVOREMESA></REMESA>"
@@ -565,6 +579,7 @@ def crear_manifiesto_api(usuario, password, nit_empresa, consecutivo_manifiesto,
 <FECHAEXPEDICIONMANIFIESTO>{fecha_expedicion}</FECHAEXPEDICIONMANIFIESTO>
 <CODMUNICIPIOORIGENMANIFIESTO>{municipio_origen}</CODMUNICIPIOORIGENMANIFIESTO>
 <CODMUNICIPIODESTINOMANIFIESTO>{municipio_destino}</CODMUNICIPIODESTINOMANIFIESTO>
+{f'<CODMUNICIPIOINTERMEDIO>{municipio_intermedio}</CODMUNICIPIOINTERMEDIO>' if municipio_intermedio else ''}
 <CODIDTITULARMANIFIESTO>C</CODIDTITULARMANIFIESTO>
 <NUMIDTITULARMANIFIESTO>{cedula_titular}</NUMIDTITULARMANIFIESTO>
 <NUMPLACA>{placa}</NUMPLACA>
@@ -724,6 +739,11 @@ def ejecutar_viaje_api(v, usuario, password, log):
         origen_manifiesto = tramos[0]["origen"]
         destino_manifiesto = tramos[-1]["destino"]
         tipo_operacion = "M" if v.get("Multiparada") else ("I" if v.get("IdaYRegreso") else "G")
+        # En Ida y Regreso, el punto intermedio (de retorno) es el destino
+        # del primer tramo -- igual que hace Selenium.
+        municipio_intermedio_contiene = (
+            tramos[0]["destino"] if (v.get("IdaYRegreso") and len(tramos) >= 2) else None
+        )
         consecutivos_remesa = [t["consecutivo"] for t in tramos]
 
         retencion_ica = calcular_retencion_ica(
@@ -756,6 +776,7 @@ def ejecutar_viaje_api(v, usuario, password, log):
                     observaciones=observaciones, anticipo=anticipo,
                     log=log,
                     tipo_operacion=tipo_operacion,
+                    municipio_intermedio_contiene=municipio_intermedio_contiene,
                 )
                 break
             except ErrorRNDC as e:
