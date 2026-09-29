@@ -761,6 +761,7 @@ def ejecutar_viaje_api(v, usuario, password, log):
     """
     nit_empresa = FIJOS_REMESA["NUMIDPROPIETARIO"]
     resumen = []
+    ajustes = []  # cosas que la app hizo sola por detrás, para el resumen final
     flete = _limpiar_numero(v["Flete"])
 
     # El remitente/destinatario pueden ser un cliente distinto de la
@@ -924,6 +925,7 @@ def ejecutar_viaje_api(v, usuario, password, log):
                     # para no ciclar sin fin si el rechazo fuera por otra razón.
                     intentos_fopat += 1
                     fopat_aplica = not fopat_aplica
+                    ajustes.append(f"FOPAT {'agregado' if fopat_aplica else 'quitado'}")
                     log(f"    El RNDC rechazó por el FOPAT ({e.mensaje}) -- "
                         f"{'agregándolo' if fopat_aplica else 'quitándolo'} y reintentando...")
                 elif es_por_flete_bajo and intentos_flete < 10:
@@ -931,7 +933,9 @@ def ejecutar_viaje_api(v, usuario, password, log):
                     # parecida) -- se sube de $300.000 en $300.000 y se
                     # reintenta, hasta 10 veces (hasta $3.000.000 de más).
                     intentos_flete += 1
+                    flete_anterior = flete
                     flete = str(int(flete) + 300000)
+                    ajustes.append(f"Flete subido de {int(flete_anterior):,} a {int(flete):,}")
                     log(f"    El RNDC rechazó por el valor del flete ({e.mensaje}) -- "
                         f"subiéndolo a {int(flete):,} y reintentando "
                         f"(intento {intentos_flete} de 10)...")
@@ -989,6 +993,7 @@ def ejecutar_viaje_api(v, usuario, password, log):
                         crear_vehiculo_api(usuario, password, nit_empresa, placa_nueva, peso_vacio,
                                             configuracion=configuracion, log=log)
                         log(f"    ✅ Placa {placa_nueva} registrada.")
+                        ajustes.append(f"Placa {placa_nueva} ({rol}) registrada en el RNDC")
                     time.sleep(3)
                 elif es_por_vehiculo and esperas_vehiculo < 3:
                     # Ya se registró la placa pero el RNDC todavía no la
@@ -1020,6 +1025,7 @@ def ejecutar_viaje_api(v, usuario, password, log):
                         direccion=v.get("Direccion_Titular"), log=log,
                     )
                     log(f"    ✅ Titular {v['Cedula_Titular']} registrado.")
+                    ajustes.append(f"Titular {v['Cedula_Titular']} registrado como Tercero")
                 elif (
                     cedula_conductor2_actual
                     and ("CONDUCTOR2" in mensaje_mayus.replace(" ", "") or "SEGUNDOCONDUCTOR" in mensaje_mayus.replace(" ", ""))
@@ -1036,6 +1042,7 @@ def ejecutar_viaje_api(v, usuario, password, log):
                         f"el manifiesto sigue sin él, regístralo primero si de verdad hace falta "
                         f"en este viaje.")
                     cedula_conductor2_actual = None
+                    ajustes.append("Segundo conductor quitado del manifiesto (no estaba registrado)")
                 elif (
                     "CONDUCTOR" in mensaje_mayus
                     and ("NO EXISTE" in mensaje_mayus or "LICENCIA" in mensaje_mayus or "VENCID" in mensaje_mayus)
@@ -1073,6 +1080,7 @@ def ejecutar_viaje_api(v, usuario, password, log):
                             f"por el navegador. Revísalo a mano en el RNDC.")
                         raise
                     log(f"    ✅ Conductor {v['Cedula_Conductor']} registrado.")
+                    ajustes.append(f"Conductor {v['Cedula_Conductor']} registrado/refrescado como Tercero")
                 else:
                     raise
         log(f"✅ Radicado del manifiesto: {radicado_manifiesto}")
@@ -1083,10 +1091,27 @@ def ejecutar_viaje_api(v, usuario, password, log):
         return {"ok": False, "error": e.mensaje, "resumen": resumen, "archivos": []}
 
     archivos = descargar_pdfs_del_viaje(usuario, password, v, tramos, radicado_manifiesto, log)
+
+    log("┌─────────── ✅ RESUMEN DEL VIAJE ───────────")
+    for linea in resumen:
+        log(f"│ {linea}")
+    if ajustes:
+        log("│ Se ajustó solo, por detrás:")
+        for ajuste in ajustes:
+            log(f"│   • {ajuste}")
+    else:
+        log("│ No hizo falta ajustar nada por detrás.")
+    if archivos:
+        log(f"│ PDF descargados: {', '.join(archivos)}")
+    else:
+        log("│ ⚠️  No se pudo descargar ningún PDF (revisa el log de arriba).")
+    log("└─────────────────────────────────────────────")
+
     return {
         "ok": True, "error": None, "resumen": resumen, "archivos": archivos,
         "radicado_remesa": tramos[0]["radicado"],
         "radicado_manifiesto": radicado_manifiesto,
+        "ajustes": ajustes,
     }
 
 
