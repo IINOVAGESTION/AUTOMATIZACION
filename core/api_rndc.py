@@ -278,7 +278,8 @@ def buscar_sede_con_respaldo(usuario, password, numid_principal, nit_empresa, te
 
 
 def crear_tercero_via_navegador(usuario, password, tipo_id, numero_id,
-                                 nombre, apellido1, apellido2, municipio_contiene, log=None):
+                                 nombre, apellido1, apellido2, municipio_contiene,
+                                 direccion=None, log=None):
     """Registra/"refresca" un Tercero abriendo un navegador liviano y
     usando la misma página que ya usa Selenium -- necesario porque el
     sitio dispara, al escribir la cédula, una consulta propia (contra el
@@ -309,7 +310,7 @@ def crear_tercero_via_navegador(usuario, password, tipo_id, numero_id,
 
         guardado = crear_tercero_selenium(
             driver, wait, tipo_id, numero_id, nombre, apellido1, apellido2,
-            municipio_contiene, log or (lambda m: None),
+            municipio_contiene, log or (lambda m: None), direccion=direccion,
         )
         return guardado
     except Exception as e:
@@ -325,7 +326,7 @@ def crear_tercero_via_navegador(usuario, password, tipo_id, numero_id,
 
 
 def crear_tercero_api(usuario, password, nit_empresa, tipo_id, numero_id,
-                       nombre, apellido1, apellido2, municipio_contiene, log=None):
+                       nombre, apellido1, apellido2, municipio_contiene, direccion=None, log=None):
     """Registra a una persona (conductor/titular) como Tercero en el
     RNDC -- lo mismo que hace Selenium cuando un conductor no está
     registrado todavía, o cuando su licencia salió vencida y hay que
@@ -399,7 +400,7 @@ def crear_tercero_api(usuario, password, nit_empresa, tipo_id, numero_id,
 <CODMUNICIPIORNDC>{codigo_municipio}</CODMUNICIPIORNDC>
 {f'<CODSEDETERCERO>{codigo_sede}</CODSEDETERCERO>' if codigo_sede else ''}
 <NOMSEDETERCERO>{nombre_sede}</NOMSEDETERCERO>
-<NOMENCLATURADIRECCION>{texto_municipio}</NOMENCLATURADIRECCION>
+<NOMENCLATURADIRECCION>{direccion or texto_municipio}</NOMENCLATURADIRECCION>
 """.strip()
 
     respuesta = _llamar(usuario, password, tipo=1, procesoid=11,
@@ -919,7 +920,8 @@ def ejecutar_viaje_api(v, usuario, password, log):
                         usuario, password, nit_empresa, "C",
                         _limpiar_numero(v["Cedula_Titular"]),
                         v["Nombre_Titular"], v["Apellido1_Titular"],
-                        v.get("Apellido2_Titular"), v["Municipio_Titular"], log=log,
+                        v.get("Apellido2_Titular"), v["Municipio_Titular"],
+                        direccion=v.get("Direccion_Titular"), log=log,
                     )
                     log(f"    ✅ Titular {v['Cedula_Titular']} registrado.")
                 elif (
@@ -967,7 +969,8 @@ def ejecutar_viaje_api(v, usuario, password, log):
                         usuario, password, "C",
                         _limpiar_numero(v["Cedula_Conductor"]),
                         v["Nombre_Conductor"], v["Apellido1_Conductor"],
-                        v.get("Apellido2_Conductor"), v["Municipio_Conductor"], log=log,
+                        v.get("Apellido2_Conductor"), v["Municipio_Conductor"],
+                        direccion=v.get("Direccion_Conductor"), log=log,
                     )
                     if not guardado:
                         log(f"❌ No se pudo registrar al conductor {v['Cedula_Conductor']} "

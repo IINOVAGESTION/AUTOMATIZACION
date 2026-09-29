@@ -478,6 +478,12 @@
             <input type="text" name="Municipio_Titular" value="{{ v.get('Municipio_Titular', '') }}">
           </div>
         </div>
+        <div class="fila">
+          <div style="flex:1;">
+            <label>Dirección (opcional -- si la deja en blanco, se usa el municipio)</label>
+            <input type="text" name="Direccion_Titular" value="{{ v.get('Direccion_Titular', '') }}">
+          </div>
+        </div>
       </div>
     </details>
 
@@ -502,6 +508,12 @@
           <div>
             <label>Municipio del conductor</label>
             <input type="text" name="Municipio_Conductor" value="{{ v.get('Municipio_Conductor', '') }}">
+          </div>
+        </div>
+        <div class="fila">
+          <div style="flex:1;">
+            <label>Dirección (opcional -- si la deja en blanco, se usa el municipio)</label>
+            <input type="text" name="Direccion_Conductor" value="{{ v.get('Direccion_Conductor', '') }}">
           </div>
         </div>
       </div>

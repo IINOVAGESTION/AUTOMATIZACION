@@ -24,7 +24,8 @@ from .config import (
 from .navegador import crear_opciones_chrome, obtener_chromedriver_path, crear_driver_con_limite
 from .utilidades import set_text, set_select, set_autocomplete_municipio, traducir_error, limpiar_numero
 
-def crear_tercero(driver, wait, tipo_id, numero_id, nombre, apellido1, apellido2, municipio, log):
+def crear_tercero(driver, wait, tipo_id, numero_id, nombre, apellido1, apellido2, municipio, log,
+                   direccion=None):
     log(f"    Registrando Tercero nuevo: {tipo_id} {numero_id} - {nombre} {apellido1}...")
     driver.get(URL_TERCERO)
     try:
@@ -51,7 +52,7 @@ def crear_tercero(driver, wait, tipo_id, numero_id, nombre, apellido1, apellido2
     # El RNDC exige una dirección (Error TER130 si queda en blanco) -- la
     # app no pide una dirección aparte, así que se manda el mismo
     # municipio, igual que ya hace la vía de la API.
-    set_text(driver, "dnn_ctr394_Tercero_NOMENCLATURADIRECCION", municipio)
+    set_text(driver, "dnn_ctr394_Tercero_NOMENCLATURADIRECCION", direccion or municipio)
     time.sleep(0.4)
 
     driver.save_screenshot(ruta_captura(f"debug_tercero_{numero_id}_llenado.png"))
