@@ -782,6 +782,7 @@ def ejecutar_viaje_api(v, usuario, password, log):
         intentos_fopat = 0
         intentos_flete = 0
         intentos_conductor = 0
+        intentos_titular = 0
         intentos_conductor2 = 0
         intentos_vehiculo = 0
         esperas_vehiculo = 0
@@ -809,6 +810,7 @@ def ejecutar_viaje_api(v, usuario, password, log):
                 break
             except ErrorRNDC as e:
                 mensaje_mayus = e.mensaje.upper()
+                es_por_titular = "TITULAR" in mensaje_mayus and "NO EXISTE" in mensaje_mayus
                 es_por_vehiculo = "MAN140" in mensaje_mayus or (
                     "NO EXISTE" in mensaje_mayus and ("VEH" in mensaje_mayus or "REMOLQUE" in mensaje_mayus)
                 )
@@ -898,6 +900,27 @@ def ejecutar_viaje_api(v, usuario, password, log):
                     log(f"    El RNDC aún no refleja la placa recién registrada -- esperando "
                         f"unos segundos (intento {esperas_vehiculo} de 3)...")
                     time.sleep(8)
+                elif es_por_titular and intentos_titular < 1:
+                    # El titular no está registrado como Tercero. A
+                    # diferencia del conductor, el campo del titular en el
+                    # Manifiesto no pide ningún dato de licencia -- solo
+                    # nombre, dirección y ciudad -- así que esto sí se puede
+                    # registrar por la API, sin necesitar el navegador.
+                    intentos_titular += 1
+                    if not v.get("Nombre_Titular") or not v.get("Apellido1_Titular") or not v.get("Municipio_Titular"):
+                        log(f"❌ El titular no está registrado en el RNDC ({e.mensaje}). Para "
+                            f"registrarlo automáticamente hacen falta su Nombre, Apellido y "
+                            f"Municipio en el formulario.")
+                        raise
+                    log(f"    El titular no está registrado ({e.mensaje}) -- "
+                        f"registrándolo como Tercero y reintentando...")
+                    crear_tercero_api(
+                        usuario, password, nit_empresa, "C",
+                        _limpiar_numero(v["Cedula_Titular"]),
+                        v["Nombre_Titular"], v["Apellido1_Titular"],
+                        v.get("Apellido2_Titular"), v["Municipio_Titular"], log=log,
+                    )
+                    log(f"    ✅ Titular {v['Cedula_Titular']} registrado.")
                 elif (
                     cedula_conductor2_actual
                     and ("CONDUCTOR2" in mensaje_mayus.replace(" ", "") or "SEGUNDOCONDUCTOR" in mensaje_mayus.replace(" ", ""))
