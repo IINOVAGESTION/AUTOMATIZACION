@@ -84,7 +84,23 @@ def _llamar(usuario, password, tipo, procesoid, variables_xml, documento_xml="",
         + "</root>"
     )
     cliente = _cliente_para(servidor)
-    return cliente.service.AtenderMensajeRNDC(Request=xml_pedido)
+    try:
+        return cliente.service.AtenderMensajeRNDC(Request=xml_pedido)
+    except Exception as e:
+        # Un "Fault" de zeep es un error del protocolo SOAP en sí (no un
+        # ErrorMSG normal del RNDC) -- antes se perdía el detalle y solo
+        # quedaba un mensaje genérico tipo "Unknown fault occured". Se
+        # saca todo lo que zeep sepa del fallo, para poder diagnosticarlo
+        # si se repite.
+        detalle = str(e)
+        for atributo in ("message", "code", "detail", "subcodes"):
+            valor = getattr(e, atributo, None)
+            if valor:
+                detalle += f" | {atributo}: {valor}"
+        raise ErrorRNDC(
+            f"El RNDC devolvió un error de protocolo (no un rechazo normal): {detalle}",
+            xml_pedido,
+        )
 
 
 def _extraer_radicado_o_error(xml_respuesta):
@@ -396,14 +412,24 @@ def crear_tercero_api(usuario, password, nit_empresa, tipo_id, numero_id,
 
 # Peso vacío (kg) con el que se registra una placa nueva, según el tipo de
 # vehículo -- son los mismos valores que se escriben a mano en la página de
-# Vehículo. El RNDC completa el resto de los datos por su cuenta a partir de
-# la placa (confirmado registrando una placa real con solo estos dos datos).
+# Vehículo.
 PESO_VACIO_POR_TIPO = {
     "camioneta": "1500",
     "camion": "2000",        # camión rígido de 2 ejes
     "tractocamion": "5000",  # tractocamión de 3 ejes
 }
 PESO_VACIO_REMOLQUE = "5000"  # semirremolque de 3 ejes
+
+# Código de configuración de unidad de carga -- confirmado consultando dos
+# vehículos reales ya registrados de la flota (JVM353 y R82591). Sin este
+# campo, el RNDC rechaza tractocamiones y remolques con "Error VEH040: La
+# configuración del vehículo no corresponde a los códigos" (para camión y
+# camioneta, hasta ahora, el registro sin este campo sí funcionó -- si
+# alguno también lo llegara a pedir, avisar para agregar su código real).
+CONFIGURACION_POR_TIPO = {
+    "tractocamion": "54",  # tractocamión de 3 ejes
+}
+CONFIGURACION_REMOLQUE = "63"  # semirremolque de 3 ejes
 
 
 def vehiculo_existe(usuario, password, nit_empresa, placa):
@@ -430,15 +456,17 @@ def vehiculo_existe(usuario, password, nit_empresa, placa):
     return None
 
 
-def crear_vehiculo_api(usuario, password, nit_empresa, placa, peso_vacio, log=None):
+def crear_vehiculo_api(usuario, password, nit_empresa, placa, peso_vacio, configuracion=None, log=None):
     """Registra una placa nueva (vehículo o remolque) en el RNDC mandando
-    solo la placa y el peso vacío -- igual que a mano: placa + TAB + peso
-    vacío. Devuelve el número de ingreso; lanza ErrorRNDC si el RNDC la
-    rechaza."""
+    la placa, el peso vacío, y el código de configuración de unidad de
+    carga cuando se conoce (obligatorio para tractocamiones y remolques;
+    para camión/camioneta, hasta ahora, no ha hecho falta). Devuelve el
+    número de ingreso; lanza ErrorRNDC si el RNDC la rechaza."""
     variables = (
         f"<NUMNITEMPRESATRANSPORTE>{nit_empresa}</NUMNITEMPRESATRANSPORTE>"
         f"<NUMPLACA>{placa}</NUMPLACA>"
         f"<PESOVEHICULOVACIO>{peso_vacio}</PESOVEHICULOVACIO>"
+        f"{f'<CODCONFIGURACIONUNIDADCARGA>{configuracion}</CODCONFIGURACIONUNIDADCARGA>' if configuracion else ''}"
     )
     respuesta = _llamar(usuario, password, tipo=1, procesoid=12,
                          variables_xml=variables, servidor="real_terceros")
@@ -851,11 +879,15 @@ def ejecutar_viaje_api(v, usuario, password, log):
                                     f"bloque \"¿La placa es nueva en el RNDC?\" del formulario (define "
                                     f"el peso vacío).")
                                 raise
+                            configuracion = CONFIGURACION_POR_TIPO.get(tipo_veh)
                         else:
                             peso_vacio = PESO_VACIO_REMOLQUE
+                            configuracion = CONFIGURACION_REMOLQUE
                         log(f"    La placa {placa_nueva} ({rol}) no está registrada -- "
-                            f"registrándola con peso vacío {peso_vacio} kg y reintentando...")
-                        crear_vehiculo_api(usuario, password, nit_empresa, placa_nueva, peso_vacio, log=log)
+                            f"registrándola con peso vacío {peso_vacio} kg"
+                            f"{f' y configuración {configuracion}' if configuracion else ''} y reintentando...")
+                        crear_vehiculo_api(usuario, password, nit_empresa, placa_nueva, peso_vacio,
+                                            configuracion=configuracion, log=log)
                         log(f"    ✅ Placa {placa_nueva} registrada.")
                     time.sleep(3)
                 elif es_por_vehiculo and esperas_vehiculo < 3:
