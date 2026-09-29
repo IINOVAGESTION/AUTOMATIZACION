@@ -48,6 +48,10 @@ def crear_tercero(driver, wait, tipo_id, numero_id, nombre, apellido1, apellido2
 
     set_autocomplete_municipio(driver, wait, "dnn_ctr394_Tercero_MUNICIPIORNDC", municipio, log, modo_flexible=True)
     set_text(driver, "dnn_ctr394_Tercero_NOMSEDETERCERO", municipio)
+    # El RNDC exige una dirección (Error TER130 si queda en blanco) -- la
+    # app no pide una dirección aparte, así que se manda el mismo
+    # municipio, igual que ya hace la vía de la API.
+    set_text(driver, "dnn_ctr394_Tercero_NOMENCLATURADIRECCION", municipio)
     time.sleep(0.4)
 
     driver.save_screenshot(ruta_captura(f"debug_tercero_{numero_id}_llenado.png"))
