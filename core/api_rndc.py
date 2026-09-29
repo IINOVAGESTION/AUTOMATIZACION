@@ -660,6 +660,93 @@ def _limpiar_nit(texto):
     return "".join(c for c in base if c.isdigit())
 
 
+def tercero_existe(usuario, password, nit_empresa, tipo_id, numero_id):
+    """Consulta (solo lectura) si una cédula/NIT ya está registrada como
+    Tercero -- sin importar si tiene sedes o no, solo si existe. Devuelve
+    True, False, o None si no se pudo saber (para no registrar nada a
+    ciegas en ese caso)."""
+    documento = (
+        f"<NUMNITEMPRESATRANSPORTE>{nit_empresa}</NUMNITEMPRESATRANSPORTE>"
+        f"<CODTIPOIDTERCERO>'{tipo_id}'</CODTIPOIDTERCERO>"
+        f"<NUMIDTERCERO>{numero_id}</NUMIDTERCERO>"
+    )
+    respuesta = _llamar(usuario, password, tipo=3, procesoid=11,
+                         variables_xml="NUMIDTERCERO", documento_xml=documento,
+                         servidor="real_terceros")
+    try:
+        raiz = ET.fromstring(str(respuesta))
+    except ET.ParseError:
+        return None
+    if raiz.find("documento") is not None:
+        return True
+    error = raiz.find("ErrorMSG")
+    texto_error = "".join(error.itertext()).upper() if error is not None else ""
+    if "RNDC11" in texto_error or "NO ENCONTRADO" in texto_error:
+        return False
+    return None
+
+
+def verificar_antes_de_crear(v, tramos, usuario, password, nit_empresa, log):
+    """Consulta (solo lectura, no crea nada) si el remitente, destinatario,
+    conductor, titular y placa(s) del viaje ya existen -- para avisar de
+    una vez, ANTES de crear la Remesa, en vez de descubrirlo a medio
+    camino y dejar una Remesa creada sin Manifiesto. Ojo: esto NO puede
+    confirmar si la licencia del conductor está vigente (el RNDC no
+    tiene una consulta directa para eso) -- solo si existe como Tercero;
+    lo de la licencia se sigue descubriendo, como hasta ahora, al crear
+    el Manifiesto. Devuelve una lista de avisos (vacía si todo está
+    listo o se puede arreglar solo con los datos que ya trae el
+    formulario)."""
+    avisos = []
+    log("    Verificando remitente, destinatario, conductor, titular y placa(s) antes de crear...")
+
+    vistos = set()
+    for tramo in tramos:
+        for rol, tipoid, numid in (
+            ("remitente", tramo["tipoid_remitente"], tramo["numid_remitente"]),
+            ("destinatario", tramo["tipoid_destinatario"], tramo["numid_destinatario"]),
+        ):
+            clave = (tipoid, numid)
+            if numid == nit_empresa or clave in vistos:
+                continue  # la empresa misma siempre existe; no repetir la misma persona dos veces
+            vistos.add(clave)
+            existe = tercero_existe(usuario, password, nit_empresa, tipoid, numid)
+            if existe is False:
+                avisos.append(f"El {rol} {numid} no está registrado como Tercero en el RNDC.")
+
+    cedula_conductor = _limpiar_numero(v["Cedula_Conductor"])
+    if tercero_existe(usuario, password, nit_empresa, "C", cedula_conductor) is False:
+        if v.get("Nombre_Conductor") and v.get("Apellido1_Conductor") and v.get("Municipio_Conductor"):
+            log(f"    (el conductor {cedula_conductor} no existe todavía, pero el formulario trae "
+                f"sus datos -- se registrará solo cuando haga falta)")
+        else:
+            avisos.append(f"El conductor {cedula_conductor} no está registrado como Tercero, y "
+                           f"faltan su Nombre/Apellido/Municipio en el formulario para registrarlo solo.")
+
+    cedula_titular = _limpiar_numero(v["Cedula_Titular"])
+    if tercero_existe(usuario, password, nit_empresa, "C", cedula_titular) is False:
+        if v.get("Nombre_Titular") and v.get("Apellido1_Titular") and v.get("Municipio_Titular"):
+            log(f"    (el titular {cedula_titular} no existe todavía, pero el formulario trae "
+                f"sus datos -- se registrará solo cuando haga falta)")
+        else:
+            avisos.append(f"El titular {cedula_titular} no está registrado como Tercero, y "
+                           f"faltan su Nombre/Apellido/Municipio en el formulario para registrarlo solo.")
+
+    placas = [(v["Placa"], "principal")]
+    if v.get("Placa_Remolque"):
+        placas.append((v["Placa_Remolque"], "remolque"))
+    for placa, rol in placas:
+        if vehiculo_existe(usuario, password, nit_empresa, placa) is False:
+            if rol == "principal" and not (v.get("Tipo_Vehiculo_Nuevo") or "").strip():
+                avisos.append(f"La placa {placa} ({rol}) no está registrada, y falta elegir su "
+                               f"\"Tipo de vehículo\" en el formulario para registrarla sola.")
+            else:
+                log(f"    (la placa {placa} [{rol}] no existe todavía, pero se puede registrar "
+                    f"sola cuando haga falta)")
+
+    return avisos
+
+
 def ejecutar_viaje_api(v, usuario, password, log):
     """Crea la Remesa (o remesas, para Ida y Regreso/Multiparada) y el
     Manifiesto de un viaje usando el Web Service, en vez de manejar un
@@ -745,6 +832,15 @@ def ejecutar_viaje_api(v, usuario, password, log):
                 "tipoid_remitente": tipoid_remitente_defecto, "numid_remitente": numid_remitente_defecto,
                 "tipoid_destinatario": tipoid_destinatario_defecto, "numid_destinatario": numid_destinatario_defecto,
             }]
+
+        avisos_previos = verificar_antes_de_crear(v, tramos, usuario, password, nit_empresa, log)
+        if avisos_previos:
+            for aviso in avisos_previos:
+                log(f"❌ {aviso}")
+            log("❌ No se creó nada -- corrige lo anterior en el formulario y vuelve a intentar. "
+                "(No se puede confirmar de antemano si la licencia del conductor está vigente; "
+                "eso se sigue viendo solo al crear el Manifiesto.)")
+            return {"ok": False, "error": " / ".join(avisos_previos), "resumen": [], "archivos": []}
 
         for tramo in tramos:
             log(f"Creando remesa {tramo['consecutivo']} vía Web Service...")
