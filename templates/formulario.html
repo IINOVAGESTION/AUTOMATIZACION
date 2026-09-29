@@ -551,8 +551,8 @@
       🎓 Modo de práctica (hace todo igual, pero NO guarda nada real ni descarga PDF — para entrenar sin riesgo)
     </label>
     <label class="check-multiparada" style="background:#0a2a1a; border-color:#2ecc71;">
-      <input type="checkbox" name="UsarAPI" {{ 'checked' if v.get('UsarAPI') else '' }} tabindex="32">
-      🧪 Usar Web Service en vez del navegador (experimental — para viajes Normales, Ida y Regreso y Multiparada; segundo conductor todavía no)
+      <input type="checkbox" name="UsarAPI" {{ 'checked' if v.get('UsarAPI', True) else '' }} tabindex="32">
+      ⚡ Usar Web Service en vez del navegador (más rápido; desmárcala solo si necesitas usar el navegador para este viaje en particular — "Récord/Cola" siempre va por el navegador)
     </label>
     </div>
 
