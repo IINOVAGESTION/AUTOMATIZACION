@@ -409,7 +409,7 @@
         <label>Titular del manifiesto (Cédula/NIT)</label>
         <div class="fila-verificar">
           <input type="text" name="Cedula_Titular" id="input_cedula_titular" value="{{ v.get('Cedula_Titular', '') }}" required class="campo-clave" tabindex="12">
-          <button type="button" class="secundario" onclick="verificarPersona('input_cedula_titular', 'resultado_cedula_titular')">🔍 Verificar</button>
+          <button type="button" class="secundario" onclick="verificarPersona('input_cedula_titular', 'resultado_cedula_titular', 'C', 'bloque_titular_nuevo')">🔍 Verificar</button>
         </div>
         <span id="resultado_cedula_titular" class="resultado-verificar"></span>
       </div>
@@ -417,7 +417,7 @@
         <label>Conductor (Cédula)</label>
         <div class="fila-verificar">
           <input type="text" name="Cedula_Conductor" id="input_cedula_conductor" value="{{ v.get('Cedula_Conductor', '') }}" class="campo-clave" list="lista_conductores" tabindex="11">
-          <button type="button" class="secundario" onclick="verificarPersona('input_cedula_conductor', 'resultado_cedula_conductor')">🔍 Verificar</button>
+          <button type="button" class="secundario" onclick="verificarPersona('input_cedula_conductor', 'resultado_cedula_conductor', 'C', 'bloque_conductor_nuevo')">🔍 Verificar</button>
         </div>
         <span id="resultado_cedula_conductor" class="resultado-verificar"></span>
       </div>
@@ -437,7 +437,10 @@
       </div>
     </details>
 
-    <details class="nit-desplegable" style="margin-top:0.6rem;">
+    <div style="margin-top:0.9rem; padding-top:0.6rem; border-top:1px dashed #444;">
+      <div style="font-size:0.8rem; opacity:0.75; margin-bottom:0.3rem;">📋 Si "Verificar" dice que algo no está creado en el RNDC, complétalo aquí:</div>
+
+    <details class="nit-desplegable" id="bloque_placa_nueva" style="margin-top:0.6rem;">
       <summary style="font-size:0.85rem;">¿La placa es nueva en el RNDC? (solo si el RNDC dice que el vehículo no existe)</summary>
       <div class="contenido-nit" style="margin-top:0.5rem;">
         <div class="fila">
@@ -455,7 +458,7 @@
       </div>
     </details>
 
-    <details class="nit-desplegable" style="margin-top:0.6rem;">
+    <details class="nit-desplegable" id="bloque_titular_nuevo" style="margin-top:0.6rem;">
       <summary style="font-size:0.85rem;">¿El titular es nuevo en el RNDC? (solo si "Verificar" dice que no existe)</summary>
       <div class="contenido-nit" style="margin-top:0.5rem;">
         <div class="fila">
@@ -487,7 +490,7 @@
       </div>
     </details>
 
-    <details class="nit-desplegable" style="margin-top:0.6rem;">
+    <details class="nit-desplegable" id="bloque_conductor_nuevo" style="margin-top:0.6rem;">
       <summary style="font-size:0.85rem;">¿El conductor es nuevo en el RNDC? (solo si "Verificar" dice que no existe)</summary>
       <div class="contenido-nit" style="margin-top:0.5rem;">
         <div class="fila">
@@ -518,6 +521,7 @@
         </div>
       </div>
     </details>
+    </div>
     </div>
 
     <div class="seccion">
@@ -945,7 +949,7 @@ function conectarBusquedaCiudad(input) {
     // navegador (list="lista_ciudades"), no requiere JavaScript extra.
 }
 
-async function verificarPersona(idInput, idResultado, tipoId) {
+async function verificarPersona(idInput, idResultado, tipoId, idBloqueNuevo) {
     tipoId = tipoId || 'C';
     var numeroId = document.getElementById(idInput).value.trim();
     var usuario = document.querySelector('input[name="usuario_rndc"]').value.trim();
@@ -980,6 +984,10 @@ async function verificarPersona(idInput, idResultado, tipoId) {
         } else {
             resultado.className = 'resultado-verificar no';
             resultado.textContent = '❌ No está creado en el RNDC (se creará automáticamente si completas Nombre/Apellido/Municipio)';
+            if (idBloqueNuevo) {
+                var bloque = document.getElementById(idBloqueNuevo);
+                if (bloque) { bloque.open = true; bloque.scrollIntoView({behavior: 'smooth', block: 'center'}); }
+            }
         }
     } catch (e) {
         resultado.className = 'resultado-verificar no';
