@@ -105,11 +105,15 @@ var idTrabajo = {{ id_trabajo }};
 function actualizarPasos(lineasLog) {
     var texto = lineasLog.join("\n");
     var pasos = ['login', 'remesa', 'manifiesto', 'pdf'];
+    // Cada paso reconoce frases del camino por navegador (Selenium) y del
+    // Web Service (API) -- son distintos, pero llegan al mismo paso.
     var marcadores = {
-        login: ["Login realizado"],
-        remesa: ["Llenando REMESA", "Radicado de remesa", "Radicado del manifiesto"],
-        manifiesto: ["Llenando MANIFIESTO", "Radicado del manifiesto"],
-        pdf: ["Descargando el PDF", "guardado correctamente", "RESUMEN"]
+        login: ["Login realizado", "Creando remesa", "Verificando remitente"],
+        remesa: ["Llenando REMESA", "Radicado de remesa", "Radicado del manifiesto",
+                 "Creando remesa", "Radicado de la remesa", "Creando manifiesto"],
+        manifiesto: ["Llenando MANIFIESTO", "Radicado del manifiesto", "Creando manifiesto"],
+        pdf: ["Descargando el PDF", "guardado correctamente", "RESUMEN",
+              "Abriendo el navegador solo para descargar"]
     };
     var alcanzado = {login: false, remesa: false, manifiesto: false, pdf: false};
     for (var i = 0; i < pasos.length; i++) {
