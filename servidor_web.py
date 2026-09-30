@@ -674,6 +674,43 @@ def abrir_carpeta():
         return jsonify({"ok": False, "error": str(e)})
 
 
+@app.route("/reimprimir", methods=["GET"])
+def reimprimir_pagina():
+    if "usuario_app" not in session:
+        return redirect(url_for("login"))
+    return render_template(
+        "reimprimir.html",
+        rndc_vinculado=session.get("usuario_rndc_vinculado"),
+        actualizacion=revisar_actualizacion(),
+        VERSION_APP=VERSION_APP,
+    )
+
+
+@app.route("/reimprimir", methods=["POST"])
+def reimprimir_route():
+    if "usuario_app" not in session:
+        return jsonify({"ok": False, "error": "No autenticado"}), 401
+    usuario_rndc = session.get("usuario_rndc_vinculado") or request.form.get("usuario_rndc", "").strip()
+    password_rndc = session.get("password_rndc_vinculado") or request.form.get("password_rndc", "").strip()
+    if not usuario_rndc or not password_rndc:
+        return jsonify({"ok": False, "error": "Faltan tu usuario y contraseña del RNDC."})
+    tipo_documento = request.form.get("tipo_documento", "manifiesto").strip()
+    radicado = request.form.get("radicado", "").strip()
+    if not radicado:
+        return jsonify({"ok": False, "error": "Escribe el radicado a reimprimir."})
+    mensajes = []
+    nombre_archivo = f"reimpreso_{tipo_documento}_{radicado}"
+    try:
+        archivo = rndc_core.reimprimir_documento_api(
+            usuario_rndc, password_rndc, tipo_documento, radicado, nombre_archivo, mensajes.append
+        )
+        if archivo:
+            return jsonify({"ok": True, "archivo": archivo, "log": mensajes})
+        return jsonify({"ok": False, "error": "No se encontró un PDF para ese radicado.", "log": mensajes})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e), "log": mensajes})
+
+
 @app.route("/ver_pdf")
 def ver_pdf():
     """Sirve un PDF ya descargado, SOLO desde la carpeta de descargas real

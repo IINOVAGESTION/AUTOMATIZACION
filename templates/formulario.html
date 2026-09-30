@@ -198,7 +198,8 @@
     <h1>INNOVA <span style="font-size:0.65rem; color:#666; font-weight:400;">v{{ VERSION_APP }}</span></h1>
     <div class="subtitulo">Logística Empresarial S.A.S &middot; Automatización RNDC</div>
   </div>
-  <a href="{{ url_for('ver_cola') }}" style="margin-left:auto; color:#ff6a00; text-decoration:none; font-size:0.85rem; font-weight:700; border:1px solid #ff6a00; padding:0.5rem 1rem; border-radius:7px;">📋 Ver fila de viajes</a>
+  <a href="{{ url_for('reimprimir_pagina') }}" style="margin-left:auto; color:#c9d1d9; text-decoration:none; font-size:0.85rem; font-weight:700; border:1px solid #3a3733; padding:0.5rem 1rem; border-radius:7px;">🖨️ Reimprimir</a>
+  <a href="{{ url_for('ver_cola') }}" style="color:#ff6a00; text-decoration:none; font-size:0.85rem; font-weight:700; border:1px solid #ff6a00; padding:0.5rem 1rem; border-radius:7px;">📋 Ver fila de viajes</a>
   <a href="{{ url_for('logout') }}" onclick="return confirm('¿Cerrar sesión?');" style="color:#918c80; text-decoration:none; font-size:0.85rem; font-weight:700; border:1px solid #3a3733; padding:0.5rem 1rem; border-radius:7px;">🚪 Cerrar sesión</a>
 </div>
 

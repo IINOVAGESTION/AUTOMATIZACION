@@ -1134,6 +1134,59 @@ def ejecutar_viaje_api(v, usuario, password, log):
     }
 
 
+def reimprimir_documento_api(usuario, password, tipo_documento, radicado, nombre_archivo, log=None):
+    """Descarga de nuevo el PDF de una Remesa o un Manifiesto YA
+    creado, dado su radicado -- para cuando se perdió el PDF original o
+    hace falta una copia extra. Abre un navegador solo para este paso
+    (el Web Service no entrega el PDF directamente -- ver
+    descargar_pdfs_del_viaje). tipo_documento es 'remesa' o
+    'manifiesto'. Devuelve el nombre del archivo descargado, o None si
+    no se pudo."""
+    log = log or (lambda m: None)
+    driver = None
+    try:
+        log("    Abriendo el navegador solo para reimprimir el PDF...")
+        chrome_options = crear_opciones_chrome()
+        driver = crear_driver_con_limite(chrome_options, obtener_chromedriver_path())
+        driver.set_page_load_timeout(25)
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.webdriver.common.by import By
+        import time as _time
+        import os as _os
+
+        wait = WebDriverWait(driver, 20)
+        driver.get(URL_LOGIN)
+        _time.sleep(1)
+        wait.until(lambda d: d.find_element(By.ID, "dnn_ctr390_FormLogIn_edUsername")).send_keys(usuario)
+        driver.find_element(By.ID, "dnn_ctr390_FormLogIn_edPassword").send_keys(password)
+        driver.find_element(By.ID, "dnn_ctr390_FormLogIn_btIngresar").click()
+        _time.sleep(2)
+
+        if tipo_documento == "remesa":
+            archivo = descargar_pdf_documento(
+                driver, wait, URL_REIMPRIMIR_REMESA, radicado, nombre_archivo,
+                CARPETA_DESCARGAS, "dnn_ctr394_ReimprimirRemesa_RADICADO",
+                "dnn_ctr394_ReimprimirRemesa_btImprimir", log,
+            )
+        else:
+            archivo = descargar_pdf_documento(
+                driver, wait, URL_REIMPRIMIR_MANIFIESTO, radicado, nombre_archivo,
+                CARPETA_DESCARGAS, "dnn_ctr394_ReimprimirManifiesto_RADICADO",
+                "dnn_ctr394_ReimprimirManifiesto_btImprimir", log,
+                id_boton_consultar="dnn_ctr394_ReimprimirManifiesto_btConsultar",
+            )
+        return _os.path.basename(archivo) if archivo else None
+    except Exception as e:
+        log(f"⚠️  No se pudo reimprimir: {e}")
+        return None
+    finally:
+        if driver:
+            try:
+                driver.quit()
+            except Exception:
+                pass
+
+
 def descargar_pdfs_del_viaje(usuario, password, v, tramos, radicado_manifiesto, log):
     """Después de crear la(s) Remesa(s) y el Manifiesto por el Web
     Service, se abre un navegador SOLO para bajar los PDF (el Web
