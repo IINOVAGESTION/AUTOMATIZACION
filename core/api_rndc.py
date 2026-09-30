@@ -14,6 +14,7 @@ app sigue funcionando normal, y solo la función de este módulo avisa
 claro que hace falta reconstruir el .exe, en vez de tumbar la app entera.
 """
 import os
+import json
 import time
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
@@ -26,7 +27,7 @@ try:
 except ImportError:
     _ZEEP_DISPONIBLE = False
 
-from .config import FIJOS_REMESA, FIJOS_MANIFIESTO, CARPETA_DESCARGAS, URL_REIMPRIMIR_REMESA, URL_REIMPRIMIR_MANIFIESTO, URL_LOGIN
+from .config import FIJOS_REMESA, FIJOS_MANIFIESTO, CARPETA_DESCARGAS, URL_REIMPRIMIR_REMESA, URL_REIMPRIMIR_MANIFIESTO, URL_LOGIN, ARCHIVO_SEDES
 from .utilidades import calcular_retencion_ica, quitar_tildes, normalizar_tipo_id, calcular_fecha_pago_por_defecto
 from .navegador import crear_opciones_chrome, crear_driver_con_limite, obtener_chromedriver_path
 from .documentos import descargar_pdf_documento
@@ -275,6 +276,24 @@ def buscar_sede_con_respaldo(usuario, password, numid_principal, nit_empresa, te
     if log:
         log(f"    (el {numid_principal} no tiene sedes propias -- probando con las de la empresa)")
     return buscar_sede(usuario, password, nit_empresa, texto_buscar, log=log)
+
+
+def obtener_lista_sedes_empresa_api(usuario, password, nit_empresa, log=None):
+    """Trae la lista de sedes de la empresa por el Web Service (lo mismo
+    que ya usa buscar_sede para todo lo demás), en vez de abrir un
+    navegador a leer el desplegable de la página de Remesa -- más rápido,
+    y no depende de tener Chrome/chromedriver listos en la máquina. La
+    guarda en el mismo archivo que ya usaba la versión por navegador
+    (ARCHIVO_SEDES), así que las sugerencias del formulario siguen
+    funcionando igual. Devuelve la lista de nombres."""
+    os.makedirs(os.path.dirname(ARCHIVO_SEDES) or ".", exist_ok=True)
+    sedes = _obtener_sedes(usuario, password, nit_empresa, log=log)
+    opciones = sorted(set(s["nombre"] for s in sedes if s["nombre"]))
+    with open(ARCHIVO_SEDES, "w", encoding="utf-8") as f:
+        json.dump(opciones, f, ensure_ascii=False, indent=2)
+    if log:
+        log(f"✅ Se guardaron {len(opciones)} sedes reales en {ARCHIVO_SEDES} (por el Web Service).")
+    return opciones
 
 
 def crear_tercero_via_navegador(usuario, password, tipo_id, numero_id,
