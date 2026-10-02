@@ -345,14 +345,17 @@ def actualizar_sedes():
         return jsonify({"ok": False, "error": "Faltan tu usuario y contraseña del RNDC."})
     mensajes = []
     try:
-        # Primero por el Web Service (más rápido, no necesita Chrome); si
-        # algo falla, cae al navegador como respaldo.
+        # Primero por el navegador (lee el desplegable real del sitio, con
+        # el nombre completo "Ciudad Departamento" tal como aparece en el
+        # RNDC); si eso falla (ej. Chrome no está listo en una PC nueva),
+        # cae al Web Service como respaldo -- más rápido, pero sus nombres
+        # vienen más cortos/inconsistentes (a veces sin el departamento).
         try:
+            opciones = rndc_core.obtener_lista_sedes_empresa(usuario_rndc, password_rndc, mensajes.append)
+        except Exception as e_navegador:
+            mensajes.append(f"(El navegador falló, probando por el Web Service: {e_navegador})")
             nit_empresa = rndc_core.FIJOS_REMESA["NUMIDPROPIETARIO"]
             opciones = rndc_core.obtener_lista_sedes_empresa_api(usuario_rndc, password_rndc, nit_empresa, mensajes.append)
-        except Exception as e_api:
-            mensajes.append(f"(El Web Service falló, probando por el navegador: {e_api})")
-            opciones = rndc_core.obtener_lista_sedes_empresa(usuario_rndc, password_rndc, mensajes.append)
         return jsonify({"ok": True, "cantidad": len(opciones)})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e), "log": mensajes})
