@@ -795,10 +795,25 @@ def ejecutar_viaje_api(v, usuario, password, log):
     # hace Selenium. Estos son los valores por DEFECTO para todo el
     # viaje; cada parada de Ida y Regreso puede pisarlos con los suyos
     # propios más abajo.
-    tipoid_remitente_defecto = normalizar_tipo_id(v.get("TipoID_Remitente_Cliente") or FIJOS_REMESA["TIPOIDREMITENTE"])
-    numid_remitente_defecto = _limpiar_nit(v.get("NIT_Remitente_Cliente") or FIJOS_REMESA["NUMIDREMITENTE"])
-    tipoid_destinatario_defecto = normalizar_tipo_id(v.get("TipoID_Destinatario_Cliente") or FIJOS_REMESA["TIPOIDDESTINATARIO"])
-    numid_destinatario_defecto = _limpiar_nit(v.get("NIT_Destinatario_Cliente") or FIJOS_REMESA["NUMIDDESTINATARIO"])
+    # El tipo y el número van SIEMPRE juntos del mismo origen -- los dos
+    # del cliente, o los dos de la empresa -- nunca mezclados. Antes cada
+    # uno caía a su valor por defecto por separado: si el NIT del cliente
+    # quedaba vacío pero el Tipo tenía un valor viejo (de un intento
+    # anterior guardado en el formulario), se terminaba mandando el tipo
+    # del cliente con el número de la empresa -- una combinación que el
+    # RNDC rechaza (REM150/REM180: "tipo y/o identificación no coinciden").
+    if v.get("NIT_Remitente_Cliente"):
+        tipoid_remitente_defecto = normalizar_tipo_id(v.get("TipoID_Remitente_Cliente") or FIJOS_REMESA["TIPOIDREMITENTE"])
+        numid_remitente_defecto = _limpiar_nit(v["NIT_Remitente_Cliente"])
+    else:
+        tipoid_remitente_defecto = normalizar_tipo_id(FIJOS_REMESA["TIPOIDREMITENTE"])
+        numid_remitente_defecto = _limpiar_nit(FIJOS_REMESA["NUMIDREMITENTE"])
+    if v.get("NIT_Destinatario_Cliente"):
+        tipoid_destinatario_defecto = normalizar_tipo_id(v.get("TipoID_Destinatario_Cliente") or FIJOS_REMESA["TIPOIDDESTINATARIO"])
+        numid_destinatario_defecto = _limpiar_nit(v["NIT_Destinatario_Cliente"])
+    else:
+        tipoid_destinatario_defecto = normalizar_tipo_id(FIJOS_REMESA["TIPOIDDESTINATARIO"])
+        numid_destinatario_defecto = _limpiar_nit(FIJOS_REMESA["NUMIDDESTINATARIO"])
 
     # Las fechas de cargue/descargue de la Remesa siempre son de hoy (así
     # lo hace también Selenium); la Fecha de Expedición y la Fecha de
@@ -834,22 +849,31 @@ def ejecutar_viaje_api(v, usuario, password, log):
         # Regreso -- igual que hace Selenium.
         letras = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         if v.get("IdaYRegreso") or v.get("Multiparada"):
-            tramos = [
-                {
+            tramos = []
+            for i, parada in enumerate(v["Paradas"]):
+                # Igual que arriba: tipo y número van siempre juntos del
+                # mismo origen -- los de la parada, o si la parada no
+                # trae NIT propio, los defecto ya calculados (que a su
+                # vez ya son atómicos entre el cliente y la empresa).
+                if parada.get("NIT_Remitente"):
+                    tipoid_remitente = normalizar_tipo_id(parada.get("TipoID_Remitente") or FIJOS_REMESA["TIPOIDREMITENTE"])
+                    numid_remitente = _limpiar_nit(parada["NIT_Remitente"])
+                else:
+                    tipoid_remitente = tipoid_remitente_defecto
+                    numid_remitente = numid_remitente_defecto
+                if parada.get("NIT_Destinatario"):
+                    tipoid_destinatario = normalizar_tipo_id(parada.get("TipoID_Destinatario") or FIJOS_REMESA["TIPOIDDESTINATARIO"])
+                    numid_destinatario = _limpiar_nit(parada["NIT_Destinatario"])
+                else:
+                    tipoid_destinatario = tipoid_destinatario_defecto
+                    numid_destinatario = numid_destinatario_defecto
+                tramos.append({
                     "consecutivo": f"{v['Consecutivo']}{letras[i]}",
                     "origen": parada["Origen"], "destino": parada["Destino"],
                     "producto": parada["Producto"], "peso": _limpiar_numero(parada["Peso"]),
-                    "tipoid_remitente": normalizar_tipo_id(
-                        parada.get("TipoID_Remitente") or v.get("TipoID_Remitente_Cliente") or FIJOS_REMESA["TIPOIDREMITENTE"]
-                    ),
-                    "numid_remitente": _limpiar_nit(parada.get("NIT_Remitente")) or numid_remitente_defecto,
-                    "tipoid_destinatario": normalizar_tipo_id(
-                        parada.get("TipoID_Destinatario") or v.get("TipoID_Destinatario_Cliente") or FIJOS_REMESA["TIPOIDDESTINATARIO"]
-                    ),
-                    "numid_destinatario": _limpiar_nit(parada.get("NIT_Destinatario")) or numid_destinatario_defecto,
-                }
-                for i, parada in enumerate(v["Paradas"])
-            ]
+                    "tipoid_remitente": tipoid_remitente, "numid_remitente": numid_remitente,
+                    "tipoid_destinatario": tipoid_destinatario, "numid_destinatario": numid_destinatario,
+                })
         else:
             tramos = [{
                 "consecutivo": v["Consecutivo"],
