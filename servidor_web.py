@@ -466,6 +466,8 @@ def ejecutar():
         "Municipio_Conductor": f.get("Municipio_Conductor", "").strip(),
         "Direccion_Conductor": f.get("Direccion_Conductor", "").strip(),
         "Tipo_Vehiculo_Nuevo": f.get("Tipo_Vehiculo_Nuevo", "").strip(),
+        "Modelo_Vehiculo_Nuevo": f.get("Modelo_Vehiculo_Nuevo", "").strip(),
+        "Combustible_Vehiculo_Nuevo": f.get("Combustible_Vehiculo_Nuevo", "").strip(),
         "Flete": f.get("Flete", "").strip(),
         "Anticipo": f.get("Anticipo", "").strip(),
         "Cliente": f.get("Cliente", "").strip(),

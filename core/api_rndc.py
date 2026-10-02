@@ -476,17 +476,23 @@ def vehiculo_existe(usuario, password, nit_empresa, placa):
     return None
 
 
-def crear_vehiculo_api(usuario, password, nit_empresa, placa, peso_vacio, configuracion=None, log=None):
+def crear_vehiculo_api(usuario, password, nit_empresa, placa, peso_vacio, configuracion=None,
+                        modelo=None, combustible=None, log=None):
     """Registra una placa nueva (vehículo o remolque) en el RNDC mandando
-    la placa, el peso vacío, y el código de configuración de unidad de
-    carga cuando se conoce (obligatorio para tractocamiones y remolques;
-    para camión/camioneta, hasta ahora, no ha hecho falta). Devuelve el
-    número de ingreso; lanza ErrorRNDC si el RNDC la rechaza."""
+    la placa, el peso vacío, y opcionalmente el código de configuración
+    de unidad de carga, el modelo (año, 4 dígitos) y el tipo de
+    combustible -- ninguno de estos tres es obligatorio siempre (se ha
+    visto que algunos vehículos los piden -- VEH040/VEH060/VEH200 -- y
+    otros no, sin un patrón claro todavía por tipo de vehículo), así que
+    se mandan solo si se dan. Devuelve el número de ingreso; lanza
+    ErrorRNDC si el RNDC la rechaza."""
     variables = (
         f"<NUMNITEMPRESATRANSPORTE>{nit_empresa}</NUMNITEMPRESATRANSPORTE>"
         f"<NUMPLACA>{placa}</NUMPLACA>"
         f"<PESOVEHICULOVACIO>{peso_vacio}</PESOVEHICULOVACIO>"
         f"{f'<CODCONFIGURACIONUNIDADCARGA>{configuracion}</CODCONFIGURACIONUNIDADCARGA>' if configuracion else ''}"
+        f"{f'<ANOFABRICACIONVEHICULOCARGA>{modelo}</ANOFABRICACIONVEHICULOCARGA>' if modelo else ''}"
+        f"{f'<CODTIPOCOMBUSTIBLE>{combustible}</CODTIPOCOMBUSTIBLE>' if combustible else ''}"
     )
     respuesta = _llamar(usuario, password, tipo=1, procesoid=12,
                          variables_xml=variables, servidor="real_terceros")
@@ -993,6 +999,8 @@ def ejecutar_viaje_api(v, usuario, password, log):
                             f"confirmar cuál falta consultándolas. Revísalas a mano en el RNDC.")
                         raise
                     for placa_nueva, rol in faltan:
+                        modelo = None
+                        combustible = None
                         if rol == "principal":
                             tipo_veh = (v.get("Tipo_Vehiculo_Nuevo") or "").strip()
                             peso_vacio = PESO_VACIO_POR_TIPO.get(tipo_veh)
@@ -1003,14 +1011,20 @@ def ejecutar_viaje_api(v, usuario, password, log):
                                     f"el peso vacío).")
                                 raise
                             configuracion = CONFIGURACION_POR_TIPO.get(tipo_veh)
+                            modelo = (v.get("Modelo_Vehiculo_Nuevo") or "").strip() or None
+                            combustible = (v.get("Combustible_Vehiculo_Nuevo") or "").strip() or None
                         else:
                             peso_vacio = PESO_VACIO_REMOLQUE
                             configuracion = CONFIGURACION_REMOLQUE
                         log(f"    La placa {placa_nueva} ({rol}) no está registrada -- "
                             f"registrándola con peso vacío {peso_vacio} kg"
-                            f"{f' y configuración {configuracion}' if configuracion else ''} y reintentando...")
+                            f"{f' y configuración {configuracion}' if configuracion else ''}"
+                            f"{f', modelo {modelo}' if modelo else ''}"
+                            f"{f', combustible {combustible}' if combustible else ''}"
+                            f" y reintentando...")
                         crear_vehiculo_api(usuario, password, nit_empresa, placa_nueva, peso_vacio,
-                                            configuracion=configuracion, log=log)
+                                            configuracion=configuracion, modelo=modelo,
+                                            combustible=combustible, log=log)
                         log(f"    ✅ Placa {placa_nueva} registrada.")
                         ajustes.append(f"Placa {placa_nueva} ({rol}) registrada en el RNDC")
                     time.sleep(3)
