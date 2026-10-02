@@ -711,6 +711,39 @@ def tercero_existe(usuario, password, nit_empresa, tipo_id, numero_id):
     return None
 
 
+def consultar_nombre_tercero_api(usuario, password, nit_empresa, tipo_id, numero_id, log=None):
+    """Consulta (solo lectura) el nombre completo de un Tercero ya
+    registrado, para dejarlo en el resumen/en Sheets (columna "Nombre
+    Conductor"/"Nombre Titular") -- el equivalente, por el Web Service,
+    de lo que Selenium ya hacía leyendo la página. Devuelve el nombre
+    completo (nombre + apellidos) o None si no se encontró o no se pudo
+    leer."""
+    documento = (
+        f"<NUMNITEMPRESATRANSPORTE>{nit_empresa}</NUMNITEMPRESATRANSPORTE>"
+        f"<CODTIPOIDTERCERO>'{tipo_id}'</CODTIPOIDTERCERO>"
+        f"<NUMIDTERCERO>{numero_id}</NUMIDTERCERO>"
+    )
+    try:
+        respuesta = _llamar(usuario, password, tipo=3, procesoid=11,
+                             variables_xml="NOMIDTERCERO,PRIMERAPELLIDOIDTERCERO,SEGUNDOAPELLIDOIDTERCERO",
+                             documento_xml=documento, servidor="real_terceros")
+        raiz = ET.fromstring(str(respuesta))
+        doc = raiz.find("documento")
+        if doc is None:
+            return None
+        partes = [
+            doc.findtext("nomidtercero", default="").strip(),
+            doc.findtext("primerapellidoidtercero", default="").strip(),
+            doc.findtext("segundoapellidoidtercero", default="").strip(),
+        ]
+        nombre = " ".join(p for p in partes if p)
+        return nombre or None
+    except Exception as e:
+        if log:
+            log(f"    (no se pudo consultar el nombre de {numero_id}: {e})")
+        return None
+
+
 def verificar_antes_de_crear(v, tramos, usuario, password, nit_empresa, log):
     """Consulta (solo lectura, no crea nada) si el remitente, destinatario,
     conductor, titular y placa(s) del viaje ya existen -- para avisar de
@@ -1149,6 +1182,21 @@ def ejecutar_viaje_api(v, usuario, password, log):
 
     archivos = descargar_pdfs_del_viaje(usuario, password, v, tramos, radicado_manifiesto, log)
 
+    # Para la columna "Nombre Conductor"/"Nombre Titular" de Sheets --
+    # igual que ya hacía Selenium: se usa el nombre que trajo el
+    # formulario si ya se tenía (ej. al registrar a alguien nuevo en este
+    # mismo viaje), y si no, se consulta al RNDC por su cédula.
+    nombre_conductor_real = v.get("Nombre_Conductor") or None
+    if not nombre_conductor_real and v.get("Cedula_Conductor"):
+        nombre_conductor_real = consultar_nombre_tercero_api(
+            usuario, password, nit_empresa, "C", _limpiar_numero(v["Cedula_Conductor"]), log=log
+        )
+    nombre_titular_real = v.get("Nombre_Titular") or None
+    if not nombre_titular_real and v.get("Cedula_Titular"):
+        nombre_titular_real = consultar_nombre_tercero_api(
+            usuario, password, nit_empresa, "C", _limpiar_numero(v["Cedula_Titular"]), log=log
+        )
+
     log("┌─────────── ✅ RESUMEN DEL VIAJE ───────────")
     for linea in resumen:
         log(f"│ {linea}")
@@ -1169,6 +1217,8 @@ def ejecutar_viaje_api(v, usuario, password, log):
         "radicado_remesa": tramos[0]["radicado"],
         "radicado_manifiesto": radicado_manifiesto,
         "ajustes": ajustes,
+        "nombre_conductor_real": nombre_conductor_real,
+        "nombre_titular_real": nombre_titular_real,
     }
 
 
