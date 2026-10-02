@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<title>RNDC Automático - Crear Tercero</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Inter', 'Segoe UI', Roboto, Arial, sans-serif;
+    background: #1c1b19; color: #c9d1d9; margin: 0; padding: 0;
+  }
+  .topbar {
+    background: #1a1918; padding: 1rem 2rem; display: flex; align-items: center;
+    justify-content: space-between; border-bottom: 1px solid #30363d;
+  }
+  .topbar-izq { display: flex; align-items: center; gap: 0.75rem; }
+  .logo-mark { width: 30px; height: 30px; border-radius: 7px; display: flex; align-items: center; justify-content: center; }
+  h1 { font-size: 0.95rem; margin: 0; color: #ff6a00; font-weight: 700; letter-spacing: 0.01em; }
+  .volver, .verfila {
+    color: #b0b0b0; text-decoration: none; font-size: 0.85rem; font-weight: 600;
+    padding: 0.5rem 1rem; border: 1px solid #333; border-radius: 7px;
+  }
+  .volver { background: #ff6a00; color: #1c1b19; border-color: #ff6a00; }
+  .verfila:hover { background: #242220; color: #ff6a00; }
+  .contenedor { max-width: 640px; margin: 2rem auto; padding: 0 1.5rem; }
+  .tarjeta {
+    background: #232220; border: 1px solid #333; border-radius: 12px; padding: 1.5rem;
+  }
+  .tarjeta h2 { margin-top: 0; font-size: 1.05rem; color: #e6e6e6; }
+  .nota { font-size: 0.82rem; opacity: 0.75; margin-top: -0.6rem; margin-bottom: 1.2rem; line-height: 1.5; }
+  label { display: block; font-size: 0.85rem; color: #aaa; margin-bottom: 0.3rem; }
+  input[type=text], select {
+    width: 100%; padding: 0.6rem 0.7rem; border-radius: 7px; border: 1px solid #3a3a3a;
+    background: #171614; color: #e6e6e6; font-size: 0.95rem; margin-bottom: 1rem;
+  }
+  .fila { display: flex; gap: 0.8rem; }
+  .fila > div { flex: 1; }
+  .opcion-licencia {
+    background: #171614; border: 1px solid #3a3a3a; border-radius: 8px; padding: 0.8rem 1rem;
+    margin-bottom: 1.2rem; display: flex; align-items: flex-start; gap: 0.6rem;
+  }
+  .opcion-licencia input { width: auto; margin: 0.2rem 0 0 0; }
+  .opcion-licencia .texto { font-size: 0.85rem; line-height: 1.5; }
+  button {
+    background: #ff6a00; color: #1c1b19; border: none; border-radius: 7px;
+    padding: 0.65rem 1.2rem; font-weight: 700; font-size: 0.9rem; cursor: pointer;
+  }
+  button:hover { background: #ff8534; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  #resultado { margin-top: 1rem; font-size: 0.88rem; white-space: pre-wrap; }
+  #resultado.ok { color: #3fb950; }
+  #resultado.error { color: #f85149; }
+  #resultado.cargando { color: #ff6a00; }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="topbar-izq">
+      <div class="logo-mark"><img src="{{ url_for('static', filename='logo.png') }}" alt="Innova" style="height:100%; width:auto;"></div>
+      <h1>INNOVA &mdash; Crear Tercero</h1>
+    </div>
+    <div style="display:flex; align-items:center; gap:0.75rem;">
+      <a class="verfila" href="{{ url_for('reimprimir_pagina') }}">🖨️ Reimprimir</a>
+      <a class="verfila" href="{{ url_for('anular_pagina') }}">🗑️ Anular</a>
+      <a class="verfila" href="{{ url_for('ver_cola') }}">📋 Ver toda la fila</a>
+      <a class="volver" href="{{ url_for('formulario') }}">+ Nuevo viaje →</a>
+    </div>
+  </div>
+
+  <div class="contenedor">
+    <div class="tarjeta">
+      <h2>👤 Crear o refrescar un Tercero</h2>
+      <p class="nota">
+        Sirve para registrar a alguien que todavía no está en el RNDC, o para "refrescar" a alguien
+        que ya existe (por ejemplo, cuando su licencia de conducción se venció y hay que ponerla al día).
+        Si ya existe, se reusan automáticamente su municipio y su sede tal como los tiene el RNDC.
+      </p>
+
+      {% if not rndc_vinculado %}
+      <label>Usuario del RNDC</label>
+      <input type="text" id="usuario_rndc">
+      <label>Contraseña del RNDC</label>
+      <input type="text" id="password_rndc">
+      {% endif %}
+
+      <div class="fila">
+        <div style="flex:0 0 140px;">
+          <label>Tipo</label>
+          <select id="tipo_id">
+            <option value="C">Cédula</option>
+            <option value="N">NIT</option>
+          </select>
+        </div>
+        <div>
+          <label>Número de identificación</label>
+          <input type="text" id="numero_id" placeholder="ej. 1073519660">
+        </div>
+      </div>
+
+      <div class="fila">
+        <div>
+          <label>Nombre</label>
+          <input type="text" id="nombre">
+        </div>
+        <div>
+          <label>Primer apellido</label>
+          <input type="text" id="apellido1">
+        </div>
+      </div>
+
+      <div class="fila">
+        <div>
+          <label>Segundo apellido (opcional)</label>
+          <input type="text" id="apellido2">
+        </div>
+        <div>
+          <label>Municipio</label>
+          <input type="text" id="municipio" placeholder="ej. BOGOTA">
+        </div>
+      </div>
+
+      <label>Dirección (opcional -- si la dejas en blanco, se usa el municipio)</label>
+      <input type="text" id="direccion">
+
+      <div class="opcion-licencia">
+        <input type="checkbox" id="necesita_licencia">
+        <div class="texto">
+          <strong>Es un conductor y necesito que traiga su licencia de conducción vigente.</strong><br>
+          Esto abre el navegador un momento (tarda más), porque esa información solo se puede traer
+          así. Si es un titular, remitente, destinatario u otra persona que no conduce, déjalo
+          desmarcado -- queda listo mucho más rápido.
+        </div>
+      </div>
+
+      <button id="btn_crear" onclick="crearTercero()">👤 Crear / refrescar</button>
+
+      <div id="resultado"></div>
+    </div>
+  </div>
+
+<script>
+async function crearTercero() {
+    var boton = document.getElementById('btn_crear');
+    var resultado = document.getElementById('resultado');
+    var numeroId = document.getElementById('numero_id').value.trim();
+    var nombre = document.getElementById('nombre').value.trim();
+    var apellido1 = document.getElementById('apellido1').value.trim();
+    var municipio = document.getElementById('municipio').value.trim();
+
+    if (!numeroId || !nombre || !apellido1 || !municipio) {
+        alert('Faltan datos: identificación, nombre, primer apellido y municipio son obligatorios.');
+        return;
+    }
+
+    var datos = new FormData();
+    datos.append('tipo_id', document.getElementById('tipo_id').value);
+    datos.append('numero_id', numeroId);
+    datos.append('nombre', nombre);
+    datos.append('apellido1', apellido1);
+    datos.append('apellido2', document.getElementById('apellido2').value.trim());
+    datos.append('municipio', municipio);
+    datos.append('direccion', document.getElementById('direccion').value.trim());
+    datos.append('necesita_licencia', document.getElementById('necesita_licencia').checked ? 'on' : '');
+    var campoUsuario = document.getElementById('usuario_rndc');
+    var campoPassword = document.getElementById('password_rndc');
+    if (campoUsuario) datos.append('usuario_rndc', campoUsuario.value.trim());
+    if (campoPassword) datos.append('password_rndc', campoPassword.value.trim());
+
+    boton.disabled = true;
+    resultado.className = 'cargando';
+    resultado.textContent = document.getElementById('necesita_licencia').checked
+        ? '⏳ Abriendo el navegador y registrando... (puede tardar hasta un minuto)'
+        : '⏳ Registrando...';
+
+    try {
+        var resp = await fetch('{{ url_for("crear_tercero_route") }}', { method: 'POST', body: datos });
+        var r = await resp.json();
+        if (r.ok) {
+            resultado.className = 'ok';
+            resultado.textContent = '✅ ' + numeroId + ' quedó registrado/refrescado correctamente.';
+        } else {
+            resultado.className = 'error';
+            resultado.textContent = '❌ ' + (r.error || 'No se pudo registrar.');
+        }
+    } catch (e) {
+        resultado.className = 'error';
+        resultado.textContent = '⚠️ Error de conexión.';
+    } finally {
+        boton.disabled = false;
+    }
+}
+</script>
+</body>
+</html>

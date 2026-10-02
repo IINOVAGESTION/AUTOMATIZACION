@@ -674,6 +674,57 @@ def abrir_carpeta():
         return jsonify({"ok": False, "error": str(e)})
 
 
+@app.route("/crear_tercero", methods=["GET"])
+def crear_tercero_pagina():
+    if "usuario_app" not in session:
+        return redirect(url_for("login"))
+    return render_template(
+        "crear_tercero.html",
+        rndc_vinculado=session.get("usuario_rndc_vinculado"),
+        actualizacion=revisar_actualizacion(),
+        VERSION_APP=VERSION_APP,
+    )
+
+
+@app.route("/crear_tercero", methods=["POST"])
+def crear_tercero_route():
+    if "usuario_app" not in session:
+        return jsonify({"ok": False, "error": "No autenticado"}), 401
+    usuario_rndc = session.get("usuario_rndc_vinculado") or request.form.get("usuario_rndc", "").strip()
+    password_rndc = session.get("password_rndc_vinculado") or request.form.get("password_rndc", "").strip()
+    if not usuario_rndc or not password_rndc:
+        return jsonify({"ok": False, "error": "Faltan tu usuario y contraseña del RNDC."})
+    tipo_id = request.form.get("tipo_id", "C").strip()
+    numero_id = request.form.get("numero_id", "").strip()
+    nombre = request.form.get("nombre", "").strip()
+    apellido1 = request.form.get("apellido1", "").strip()
+    apellido2 = request.form.get("apellido2", "").strip()
+    municipio = request.form.get("municipio", "").strip()
+    direccion = request.form.get("direccion", "").strip()
+    necesita_licencia = request.form.get("necesita_licencia") == "on"
+    if not numero_id or not nombre or not apellido1 or not municipio:
+        return jsonify({"ok": False, "error": "Faltan datos obligatorios (identificación, nombre, "
+                                                "primer apellido y municipio)."})
+    mensajes = []
+    try:
+        if necesita_licencia:
+            guardado = rndc_core.crear_tercero_via_navegador(
+                usuario_rndc, password_rndc, tipo_id, numero_id, nombre, apellido1,
+                apellido2 or None, municipio, direccion=direccion or None, log=mensajes.append,
+            )
+            if not guardado:
+                return jsonify({"ok": False, "error": "No se pudo registrar por el navegador.", "log": mensajes})
+        else:
+            nit_empresa = rndc_core.FIJOS_REMESA["NUMIDPROPIETARIO"]
+            rndc_core.crear_tercero_api(
+                usuario_rndc, password_rndc, nit_empresa, tipo_id, numero_id, nombre, apellido1,
+                apellido2 or None, municipio, direccion=direccion or None, log=mensajes.append,
+            )
+        return jsonify({"ok": True, "log": mensajes})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e), "log": mensajes})
+
+
 @app.route("/anular", methods=["GET"])
 def anular_pagina():
     if "usuario_app" not in session:
