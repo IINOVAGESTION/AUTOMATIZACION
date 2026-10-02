@@ -596,7 +596,8 @@ def crear_manifiesto_api(usuario, password, nit_empresa, consecutivo_manifiesto,
                           flete, retencion_ica, retencion_fuente,
                           fopat_aplica, fecha_expedicion, fecha_pago,
                           observaciones, anticipo=None, log=None,
-                          tipo_operacion="G", municipio_intermedio_contiene=None):
+                          tipo_operacion="G", municipio_intermedio_contiene=None,
+                          tipo_id_conductor="C", tipo_id_conductor2="C"):
     """Crea un Manifiesto vía Web Service, uniéndolo a una o varias
     remesas ya creadas (consecutivos_remesa puede ser un texto -- un solo
     consecutivo -- o una lista, para Multiparada/Ida y Regreso). Calcula
@@ -653,9 +654,9 @@ def crear_manifiesto_api(usuario, password, nit_empresa, consecutivo_manifiesto,
 <NUMIDTITULARMANIFIESTO>{cedula_titular}</NUMIDTITULARMANIFIESTO>
 <NUMPLACA>{placa}</NUMPLACA>
 {f'<NUMPLACAREMOLQUE>{placa_remolque}</NUMPLACAREMOLQUE>' if placa_remolque else ''}
-<CODIDCONDUCTOR>C</CODIDCONDUCTOR>
+<CODIDCONDUCTOR>{tipo_id_conductor}</CODIDCONDUCTOR>
 <NUMIDCONDUCTOR>{cedula_conductor}</NUMIDCONDUCTOR>
-{f'<CODIDCONDUCTOR2>C</CODIDCONDUCTOR2><NUMIDCONDUCTOR2>{cedula_conductor2}</NUMIDCONDUCTOR2>' if cedula_conductor2 else ''}
+{f'<CODIDCONDUCTOR2>{tipo_id_conductor2}</CODIDCONDUCTOR2><NUMIDCONDUCTOR2>{cedula_conductor2}</NUMIDCONDUCTOR2>' if cedula_conductor2 else ''}
 <VALORFLETEPACTADOVIAJE>{flete}</VALORFLETEPACTADOVIAJE>
 <RETENCIONFUENTEMANIFIESTO>{retencion_fuente}</RETENCIONFUENTEMANIFIESTO>
 <RETENCIONICAMANIFIESTOCARGA>{retencion_ica}</RETENCIONICAMANIFIESTOCARGA>
@@ -788,7 +789,8 @@ def verificar_antes_de_crear(v, tramos, usuario, password, nit_empresa, log):
                 avisos.append(f"El {rol} {numid} no está registrado como Tercero en el RNDC.")
 
     cedula_conductor = _limpiar_numero(v["Cedula_Conductor"])
-    if tercero_existe(usuario, password, nit_empresa, "C", cedula_conductor) is False:
+    tipo_id_conductor = (v.get("Tipo_Documento_Conductor") or "C").strip()
+    if tercero_existe(usuario, password, nit_empresa, tipo_id_conductor, cedula_conductor) is False:
         if v.get("Nombre_Conductor") and v.get("Apellido1_Conductor") and v.get("Municipio_Conductor"):
             log(f"    (el conductor {cedula_conductor} no existe todavía, pero el formulario trae "
                 f"sus datos -- se registrará solo cuando haga falta)")
@@ -1001,6 +1003,8 @@ def ejecutar_viaje_api(v, usuario, password, log):
                     log=log,
                     tipo_operacion=tipo_operacion,
                     municipio_intermedio_contiene=municipio_intermedio_contiene,
+                    tipo_id_conductor=(v.get("Tipo_Documento_Conductor") or "C").strip(),
+                    tipo_id_conductor2=(v.get("Tipo_Documento_Conductor2") or "C").strip(),
                 )
                 break
             except ErrorRNDC as e:
@@ -1174,7 +1178,7 @@ def ejecutar_viaje_api(v, usuario, password, log):
                     log(f"    El conductor no está registrado o su licencia salió vencida ({e.mensaje}) -- "
                         f"registrándolo con el navegador (para traer la licencia vigente) y reintentando...")
                     guardado = crear_tercero_via_navegador(
-                        usuario, password, "C",
+                        usuario, password, (v.get("Tipo_Documento_Conductor") or "C").strip(),
                         _limpiar_numero(v["Cedula_Conductor"]),
                         v["Nombre_Conductor"], v["Apellido1_Conductor"],
                         v.get("Apellido2_Conductor"), v["Municipio_Conductor"],
@@ -1204,7 +1208,8 @@ def ejecutar_viaje_api(v, usuario, password, log):
     nombre_conductor_real = v.get("Nombre_Conductor") or None
     if not nombre_conductor_real and v.get("Cedula_Conductor"):
         nombre_conductor_real = consultar_nombre_tercero_api(
-            usuario, password, nit_empresa, "C", _limpiar_numero(v["Cedula_Conductor"]), log=log
+            usuario, password, nit_empresa, (v.get("Tipo_Documento_Conductor") or "C").strip(),
+            _limpiar_numero(v["Cedula_Conductor"]), log=log
         )
     nombre_titular_real = v.get("Nombre_Titular") or None
     if not nombre_titular_real and v.get("Cedula_Titular"):
