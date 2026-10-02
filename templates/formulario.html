@@ -417,10 +417,21 @@
         <span id="resultado_cedula_titular" class="resultado-verificar"></span>
       </div>
       <div id="campo_cedula_conductor">
-        <label>Conductor (Cédula)</label>
+        <label>Conductor (documento)</label>
         <div class="fila-verificar">
+          <select name="Tipo_Documento_Conductor" id="tipo_documento_conductor" style="flex:0 0 auto; max-width:9.5rem;">
+            <option value="C" {{ 'selected' if v.get('Tipo_Documento_Conductor', 'C') == 'C' else '' }}>Cédula Ciudadanía</option>
+            <option value="N" {{ 'selected' if v.get('Tipo_Documento_Conductor') == 'N' else '' }}>Nit</option>
+            <option value="P" {{ 'selected' if v.get('Tipo_Documento_Conductor') == 'P' else '' }}>Pasaporte</option>
+            <option value="E" {{ 'selected' if v.get('Tipo_Documento_Conductor') == 'E' else '' }}>Cédula Extranjería</option>
+            <option value="T" {{ 'selected' if v.get('Tipo_Documento_Conductor') == 'T' else '' }}>Tarjeta Identidad</option>
+            <option value="U" {{ 'selected' if v.get('Tipo_Documento_Conductor') == 'U' else '' }}>NUIP</option>
+            <option value="D" {{ 'selected' if v.get('Tipo_Documento_Conductor') == 'D' else '' }}>Carné Diplomático</option>
+            <option value="X" {{ 'selected' if v.get('Tipo_Documento_Conductor') == 'X' else '' }}>Identificación Extranjera</option>
+            <option value="Y" {{ 'selected' if v.get('Tipo_Documento_Conductor') == 'Y' else '' }}>Permiso Protección Temporal Venezuela</option>
+          </select>
           <input type="text" name="Cedula_Conductor" id="input_cedula_conductor" value="{{ v.get('Cedula_Conductor', '') }}" class="campo-clave" list="lista_conductores" tabindex="11">
-          <button type="button" class="secundario" onclick="verificarPersona('input_cedula_conductor', 'resultado_cedula_conductor', 'C', 'bloque_conductor_nuevo')">🔍 Verificar</button>
+          <button type="button" class="secundario" onclick="verificarPersona('input_cedula_conductor', 'resultado_cedula_conductor', document.getElementById('tipo_documento_conductor').value, 'bloque_conductor_nuevo')">🔍 Verificar</button>
         </div>
         <span id="resultado_cedula_conductor" class="resultado-verificar"></span>
       </div>
@@ -430,10 +441,21 @@
       <summary style="font-size:0.85rem;">¿Este viaje lleva segundo conductor? (solo si el cliente lo pide)</summary>
       <div class="contenido-nit" style="margin-top:0.5rem;">
         <div id="campo_cedula_conductor2">
-          <label>Segundo conductor (Cédula)</label>
+          <label>Segundo conductor (documento)</label>
           <div class="fila-verificar">
+            <select name="Tipo_Documento_Conductor2" id="tipo_documento_conductor2" style="flex:0 0 auto; max-width:9.5rem;">
+              <option value="C" {{ 'selected' if v.get('Tipo_Documento_Conductor2', 'C') == 'C' else '' }}>Cédula Ciudadanía</option>
+              <option value="N" {{ 'selected' if v.get('Tipo_Documento_Conductor2') == 'N' else '' }}>Nit</option>
+              <option value="P" {{ 'selected' if v.get('Tipo_Documento_Conductor2') == 'P' else '' }}>Pasaporte</option>
+              <option value="E" {{ 'selected' if v.get('Tipo_Documento_Conductor2') == 'E' else '' }}>Cédula Extranjería</option>
+              <option value="T" {{ 'selected' if v.get('Tipo_Documento_Conductor2') == 'T' else '' }}>Tarjeta Identidad</option>
+              <option value="U" {{ 'selected' if v.get('Tipo_Documento_Conductor2') == 'U' else '' }}>NUIP</option>
+              <option value="D" {{ 'selected' if v.get('Tipo_Documento_Conductor2') == 'D' else '' }}>Carné Diplomático</option>
+              <option value="X" {{ 'selected' if v.get('Tipo_Documento_Conductor2') == 'X' else '' }}>Identificación Extranjera</option>
+              <option value="Y" {{ 'selected' if v.get('Tipo_Documento_Conductor2') == 'Y' else '' }}>Permiso Protección Temporal Venezuela</option>
+            </select>
             <input type="text" name="Cedula_Conductor2" id="input_cedula_conductor2" value="{{ v.get('Cedula_Conductor2', '') }}" class="campo-clave" list="lista_conductores">
-            <button type="button" class="secundario" onclick="verificarPersona('input_cedula_conductor2', 'resultado_cedula_conductor2')">🔍 Verificar</button>
+            <button type="button" class="secundario" onclick="verificarPersona('input_cedula_conductor2', 'resultado_cedula_conductor2', document.getElementById('tipo_documento_conductor2').value)">🔍 Verificar</button>
           </div>
           <span id="resultado_cedula_conductor2" class="resultado-verificar"></span>
         </div>
