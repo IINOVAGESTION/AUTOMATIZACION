@@ -84,24 +84,39 @@ def _llamar(usuario, password, tipo, procesoid, variables_xml, documento_xml="",
         + (f"<documento>{documento_xml}</documento>" if documento_xml else "")
         + "</root>"
     )
-    cliente = _cliente_para(servidor)
-    try:
-        return cliente.service.AtenderMensajeRNDC(Request=xml_pedido)
-    except Exception as e:
-        # Un "Fault" de zeep es un error del protocolo SOAP en sí (no un
-        # ErrorMSG normal del RNDC) -- antes se perdía el detalle y solo
-        # quedaba un mensaje genérico tipo "Unknown fault occured". Se
-        # saca todo lo que zeep sepa del fallo, para poder diagnosticarlo
-        # si se repite.
-        detalle = str(e)
-        for atributo in ("message", "code", "detail", "subcodes"):
-            valor = getattr(e, atributo, None)
-            if valor:
-                detalle += f" | {atributo}: {valor}"
-        raise ErrorRNDC(
-            f"El RNDC devolvió un error de protocolo (no un rechazo normal): {detalle}",
-            xml_pedido,
-        )
+    # Las consultas (tipo=3) se pueden reintentar sin riesgo -- no crean
+    # ni modifican nada, así que un reintento ante un hipo de red es
+    # seguro. Las que SÍ crean/modifican (tipo=1, Grabar) NUNCA se
+    # reintentan aquí: si el RNDC alcanzó a procesarla pero la respuesta
+    # se perdió por el mismo hipo, reintentar podría duplicarla -- eso lo
+    # maneja (con cuidado) la lógica de reintentos de ejecutar_viaje_api,
+    # no esta función genérica.
+    intentos_maximos = 3 if tipo == 3 else 1
+    ultimo_error = None
+    for intento in range(1, intentos_maximos + 1):
+        cliente = _cliente_para(servidor)
+        try:
+            return cliente.service.AtenderMensajeRNDC(Request=xml_pedido)
+        except Exception as e:
+            ultimo_error = e
+            if tipo == 3 and intento < intentos_maximos:
+                time.sleep(1.5)
+                continue
+            break
+    # Un "Fault" de zeep es un error del protocolo SOAP en sí (no un
+    # ErrorMSG normal del RNDC) -- antes se perdía el detalle y solo
+    # quedaba un mensaje genérico tipo "Unknown fault occured". Se saca
+    # todo lo que zeep sepa del fallo, para poder diagnosticarlo si se
+    # repite.
+    detalle = str(ultimo_error)
+    for atributo in ("message", "code", "detail", "subcodes"):
+        valor = getattr(ultimo_error, atributo, None)
+        if valor:
+            detalle += f" | {atributo}: {valor}"
+    raise ErrorRNDC(
+        f"El RNDC devolvió un error de protocolo (no un rechazo normal): {detalle}",
+        xml_pedido,
+    )
 
 
 def _extraer_radicado_o_error(xml_respuesta):
