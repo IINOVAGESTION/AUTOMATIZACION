@@ -1134,6 +1134,48 @@ def ejecutar_viaje_api(v, usuario, password, log):
     }
 
 
+MOTIVOS_ANULACION_MANIFIESTO = {
+    "D": "Error Digitación",
+    "S": "Cancelación Servicio",
+    "R": "Cambio en las Remesas",
+    "T": "Cambio de Tarifa",
+    "G": "Cambio de Destino por el Generador",
+    "C": "Cambio de Conductor",
+    "V": "Cambio de Vehículo",
+}
+
+
+def anular_manifiesto_api(usuario, password, nit_empresa, numero_manifiesto, motivo,
+                           manifiesto_nuevo=None, observaciones=None, log=None):
+    """Anula un Manifiesto YA CREADO (procesoid=32) -- ESTO NO SE PUEDE
+    DESHACER. numero_manifiesto es el radicado del manifiesto (el mismo
+    que devuelve crear_manifiesto_api/aparece en el resumen del viaje).
+    motivo debe ser uno de los códigos de MOTIVOS_ANULACION_MANIFIESTO
+    ('D', 'S', 'R', 'T', 'G', 'C' o 'V') -- campo obligatorio en el
+    sitio real (tiene asterisco). manifiesto_nuevo (el consecutivo del
+    manifiesto que lo reemplaza, si lo hay) y observaciones son
+    opcionales. Devuelve la respuesta cruda del RNDC; lanza ErrorRNDC si
+    la rechaza."""
+    if motivo not in MOTIVOS_ANULACION_MANIFIESTO:
+        raise ErrorRNDC(f"Motivo de anulación inválido: '{motivo}'. Debe ser uno de: "
+                         f"{', '.join(f'{k} ({v})' for k, v in MOTIVOS_ANULACION_MANIFIESTO.items())}.")
+    variables = (
+        f"<NUMNITEMPRESATRANSPORTE>{nit_empresa}</NUMNITEMPRESATRANSPORTE>"
+        f"<NUMMANIFIESTOCARGA>{numero_manifiesto}</NUMMANIFIESTOCARGA>"
+        f"<MOTIVOANULACIONMANIFIESTO>{motivo}</MOTIVOANULACIONMANIFIESTO>"
+        f"{f'<NUMMANIFIESTOCARGANUEVO>{manifiesto_nuevo}</NUMMANIFIESTOCARGANUEVO>' if manifiesto_nuevo else ''}"
+        f"{f'<OBSERVACIONES>{observaciones}</OBSERVACIONES>' if observaciones else ''}"
+    )
+    respuesta = _llamar(usuario, password, tipo=1, procesoid=32,
+                         variables_xml=variables, servidor="real_remesas")
+    _, error = _extraer_radicado_o_error(respuesta)
+    if error:
+        raise ErrorRNDC(error, respuesta)
+    if log:
+        log(f"✅ Manifiesto {numero_manifiesto} anulado (motivo: {MOTIVOS_ANULACION_MANIFIESTO[motivo]}).")
+    return respuesta
+
+
 def reimprimir_documento_api(usuario, password, tipo_documento, radicado, nombre_archivo, log=None):
     """Descarga de nuevo el PDF de una Remesa o un Manifiesto YA
     creado, dado su radicado -- para cuando se perdió el PDF original o

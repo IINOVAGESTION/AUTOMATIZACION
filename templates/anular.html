@@ -6,7 +6,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<title>RNDC Automático - Reimprimir</title>
+<title>RNDC Automático - Anular Manifiesto</title>
 <style>
   * { box-sizing: border-box; }
   body {
@@ -23,44 +23,44 @@
   .volver, .verfila {
     color: #b0b0b0; text-decoration: none; font-size: 0.85rem; font-weight: 600;
     padding: 0.5rem 1rem; border: 1px solid #333; border-radius: 7px;
-    transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
   }
-  .volver { background: #ff6a00; color: #1c1b19; border-color: #ff6a00; box-shadow: 0 6px 20px -6px rgba(255,106,0,0.4); }
-  .volver:hover { background: #ff8534; transform: translateY(-1px); }
+  .volver { background: #ff6a00; color: #1c1b19; border-color: #ff6a00; }
   .verfila:hover { background: #242220; color: #ff6a00; }
   .contenedor { max-width: 640px; margin: 2rem auto; padding: 0 1.5rem; }
   .tarjeta {
     background: #232220; border: 1px solid #333; border-radius: 12px; padding: 1.5rem;
   }
   .tarjeta h2 { margin-top: 0; font-size: 1.05rem; color: #e6e6e6; }
+  .aviso {
+    background: #2a1510; border: 1px solid #a33; border-radius: 8px; padding: 0.8rem 1rem;
+    font-size: 0.85rem; color: #ffb199; margin-bottom: 1.2rem; line-height: 1.5;
+  }
   label { display: block; font-size: 0.85rem; color: #aaa; margin-bottom: 0.3rem; }
   input[type=text], select {
     width: 100%; padding: 0.6rem 0.7rem; border-radius: 7px; border: 1px solid #3a3a3a;
     background: #171614; color: #e6e6e6; font-size: 0.95rem; margin-bottom: 1rem;
   }
+  #confirmacion { border-color: #a33; }
   button {
-    background: #ff6a00; color: #1c1b19; border: none; border-radius: 7px;
+    background: #c0392b; color: #fff; border: none; border-radius: 7px;
     padding: 0.65rem 1.2rem; font-weight: 700; font-size: 0.9rem; cursor: pointer;
-    transition: background 0.15s;
   }
-  button:hover { background: #ff8534; }
+  button:hover { background: #e74c3c; }
   button:disabled { opacity: 0.5; cursor: not-allowed; }
   #resultado { margin-top: 1rem; font-size: 0.88rem; }
   #resultado.ok { color: #3fb950; }
   #resultado.error { color: #f85149; }
   #resultado.cargando { color: #ff6a00; }
-  #visor_pdf { display: none; margin-top: 1.5rem; }
-  #visor_pdf iframe { width: 100%; height: 75vh; border: 1px solid #333; border-radius: 10px; background: #fff; }
 </style>
 </head>
 <body>
   <div class="topbar">
     <div class="topbar-izq">
       <div class="logo-mark"><img src="{{ url_for('static', filename='logo.png') }}" alt="Innova" style="height:100%; width:auto;"></div>
-      <h1>INNOVA &mdash; Reimprimir</h1>
+      <h1>INNOVA &mdash; Anular Manifiesto</h1>
     </div>
     <div style="display:flex; align-items:center; gap:0.75rem;">
-      <a class="verfila" href="{{ url_for('anular_pagina') }}">🗑️ Anular</a>
+      <a class="verfila" href="{{ url_for('reimprimir_pagina') }}">🖨️ Reimprimir</a>
       <a class="verfila" href="{{ url_for('ver_cola') }}">📋 Ver toda la fila</a>
       <a class="volver" href="{{ url_for('formulario') }}">+ Nuevo viaje →</a>
     </div>
@@ -68,10 +68,11 @@
 
   <div class="contenedor">
     <div class="tarjeta">
-      <h2>🖨️ Reimprimir una Remesa o Manifiesto</h2>
-      <p style="font-size:0.85rem; opacity:0.75; margin-top:-0.5rem;">
-        Para cuando se perdió el PDF original o hace falta una copia extra. Solo necesitas el radicado.
-      </p>
+      <h2>🗑️ Anular un Manifiesto</h2>
+
+      <div class="aviso">
+        ⚠️ <strong>Esto NO se puede deshacer.</strong> Una vez anulado, el manifiesto queda inválido en el RNDC de forma permanente. Si fue el primer intento con esta función, revisa bien el resultado antes de confiar en que todo salió como se esperaba.
+      </div>
 
       {% if not rndc_vinculado %}
       <label>Usuario del RNDC</label>
@@ -80,40 +81,58 @@
       <input type="text" id="password_rndc">
       {% endif %}
 
-      <label>¿Qué es?</label>
-      <select id="tipo_documento">
-        <option value="manifiesto">Manifiesto</option>
-        <option value="remesa">Remesa</option>
+      <label>Número (radicado) del manifiesto a anular</label>
+      <input type="text" id="numero_manifiesto" placeholder="ej. 168729340">
+
+      <label>Motivo *</label>
+      <select id="motivo">
+        <option value="">— Elegir —</option>
+        {% for codigo, texto in motivos.items() %}
+        <option value="{{ codigo }}">{{ texto }}</option>
+        {% endfor %}
       </select>
 
-      <label>Radicado</label>
-      <input type="text" id="radicado" placeholder="ej. 168729340">
+      <label>Manifiesto nuevo que lo reemplaza (opcional)</label>
+      <input type="text" id="manifiesto_nuevo" placeholder="déjalo en blanco si no hay reemplazo">
 
-      <button id="btn_reimprimir" onclick="reimprimir()">🖨️ Reimprimir</button>
+      <label>Observaciones (opcional)</label>
+      <input type="text" id="observaciones" placeholder="ej. el cliente pidió cancelar el servicio">
+
+      <label>Escribe <strong>ANULAR</strong> para confirmar</label>
+      <input type="text" id="confirmacion" placeholder="ANULAR" autocomplete="off">
+
+      <button id="btn_anular" onclick="anular()">🗑️ Anular manifiesto</button>
 
       <div id="resultado"></div>
-    </div>
-
-    <div id="visor_pdf">
-      <iframe id="iframe_pdf"></iframe>
     </div>
   </div>
 
 <script>
-async function reimprimir() {
-    var boton = document.getElementById('btn_reimprimir');
+async function anular() {
+    var boton = document.getElementById('btn_anular');
     var resultado = document.getElementById('resultado');
-    var radicado = document.getElementById('radicado').value.trim();
-    var tipoDocumento = document.getElementById('tipo_documento').value;
+    var numeroManifiesto = document.getElementById('numero_manifiesto').value.trim();
+    var motivo = document.getElementById('motivo').value;
+    var confirmacion = document.getElementById('confirmacion').value.trim();
 
-    if (!radicado) {
-        alert('Escribe el radicado a reimprimir.');
+    if (!numeroManifiesto || !motivo) {
+        alert('Escribe el número de manifiesto y elige un motivo.');
+        return;
+    }
+    if (confirmacion !== 'ANULAR') {
+        alert('Escribe ANULAR (en mayúsculas) en el último campo para confirmar.');
+        return;
+    }
+    if (!confirm('¿Seguro que quieres anular el manifiesto ' + numeroManifiesto + '? Esto no se puede deshacer.')) {
         return;
     }
 
     var datos = new FormData();
-    datos.append('radicado', radicado);
-    datos.append('tipo_documento', tipoDocumento);
+    datos.append('numero_manifiesto', numeroManifiesto);
+    datos.append('motivo', motivo);
+    datos.append('manifiesto_nuevo', document.getElementById('manifiesto_nuevo').value.trim());
+    datos.append('observaciones', document.getElementById('observaciones').value.trim());
+    datos.append('confirmacion', confirmacion);
     var campoUsuario = document.getElementById('usuario_rndc');
     var campoPassword = document.getElementById('password_rndc');
     if (campoUsuario) datos.append('usuario_rndc', campoUsuario.value.trim());
@@ -121,21 +140,17 @@ async function reimprimir() {
 
     boton.disabled = true;
     resultado.className = 'cargando';
-    resultado.textContent = '⏳ Abriendo el navegador y buscando el PDF... (puede tardar hasta un minuto)';
-    document.getElementById('visor_pdf').style.display = 'none';
+    resultado.textContent = '⏳ Anulando...';
 
     try {
-        var resp = await fetch('{{ url_for("reimprimir_route") }}', { method: 'POST', body: datos });
+        var resp = await fetch('{{ url_for("anular_route") }}', { method: 'POST', body: datos });
         var r = await resp.json();
         if (r.ok) {
             resultado.className = 'ok';
-            resultado.textContent = '✅ PDF encontrado: ' + r.archivo;
-            document.getElementById('iframe_pdf').src = "{{ url_for('ver_pdf') }}?archivo=" + encodeURIComponent(r.archivo);
-            document.getElementById('visor_pdf').style.display = 'block';
-            document.getElementById('visor_pdf').scrollIntoView({behavior: 'smooth'});
+            resultado.textContent = '✅ Manifiesto ' + numeroManifiesto + ' anulado correctamente.';
         } else {
             resultado.className = 'error';
-            resultado.textContent = '❌ ' + (r.error || 'No se pudo reimprimir.');
+            resultado.textContent = '❌ ' + (r.error || 'No se pudo anular.');
         }
     } catch (e) {
         resultado.className = 'error';

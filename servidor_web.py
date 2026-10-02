@@ -674,6 +674,49 @@ def abrir_carpeta():
         return jsonify({"ok": False, "error": str(e)})
 
 
+@app.route("/anular", methods=["GET"])
+def anular_pagina():
+    if "usuario_app" not in session:
+        return redirect(url_for("login"))
+    return render_template(
+        "anular.html",
+        rndc_vinculado=session.get("usuario_rndc_vinculado"),
+        actualizacion=revisar_actualizacion(),
+        VERSION_APP=VERSION_APP,
+        motivos=rndc_core.MOTIVOS_ANULACION_MANIFIESTO,
+    )
+
+
+@app.route("/anular", methods=["POST"])
+def anular_route():
+    if "usuario_app" not in session:
+        return jsonify({"ok": False, "error": "No autenticado"}), 401
+    usuario_rndc = session.get("usuario_rndc_vinculado") or request.form.get("usuario_rndc", "").strip()
+    password_rndc = session.get("password_rndc_vinculado") or request.form.get("password_rndc", "").strip()
+    if not usuario_rndc or not password_rndc:
+        return jsonify({"ok": False, "error": "Faltan tu usuario y contraseña del RNDC."})
+    numero_manifiesto = request.form.get("numero_manifiesto", "").strip()
+    motivo = request.form.get("motivo", "").strip()
+    manifiesto_nuevo = request.form.get("manifiesto_nuevo", "").strip()
+    observaciones = request.form.get("observaciones", "").strip()
+    confirmacion = request.form.get("confirmacion", "").strip()
+    if not numero_manifiesto or not motivo:
+        return jsonify({"ok": False, "error": "Faltan el número de manifiesto y/o el motivo."})
+    if confirmacion != "ANULAR":
+        return jsonify({"ok": False, "error": "Hay que escribir ANULAR para confirmar -- no se mandó nada."})
+    mensajes = []
+    try:
+        nit_empresa = rndc_core.FIJOS_REMESA["NUMIDPROPIETARIO"]
+        rndc_core.anular_manifiesto_api(
+            usuario_rndc, password_rndc, nit_empresa, numero_manifiesto, motivo,
+            manifiesto_nuevo=manifiesto_nuevo or None,
+            observaciones=observaciones or None, log=mensajes.append,
+        )
+        return jsonify({"ok": True, "log": mensajes})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e), "log": mensajes})
+
+
 @app.route("/reimprimir", methods=["GET"])
 def reimprimir_pagina():
     if "usuario_app" not in session:
