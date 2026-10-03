@@ -110,8 +110,12 @@ def revisar_actualizacion():
 def validar_usuario_app(usuario, password):
     """Consulta la hoja de Google Sheets publicada y revisa si el usuario
     y contraseña coinciden con una fila marcada como Activo = Si. Si esa
-    fila también tiene un usuario/contraseña del RNDC vinculado (columnas
-    opcionales), los devuelve también."""
+    fila también tiene un usuario/contraseña del RNDC vinculado, o un
+    rango de consecutivos asignado (columnas ConsecutivoInicio/
+    ConsecutivoFin, ambas opcionales), los devuelve también.
+    Devuelve (ok, error, rndc_vinculado, rango_consecutivos) --
+    rango_consecutivos es (inicio, fin) como texto (ej. ('AF50000',
+    'AF50999')), o None si esa fila no tiene un rango asignado."""
     try:
         resp = requests.get(URL_HOJA_USUARIOS, timeout=10)
         resp.raise_for_status()
@@ -120,7 +124,7 @@ def validar_usuario_app(usuario, password):
 
         filas = list(csv.reader(io.StringIO(contenido)))
         if not filas:
-            return False, "La lista de usuarios está vacía.", None
+            return False, "La lista de usuarios está vacía.", None, None
 
         encabezado = [c.strip().lower() for c in filas[0]]
         try:
@@ -131,7 +135,7 @@ def validar_usuario_app(usuario, password):
             return False, (
                 "La hoja de Google Sheets no tiene las columnas esperadas "
                 f"(Usuario, Contraseña, Activo). Encabezados encontrados: {encabezado}"
-            ), None
+            ), None, None
 
         # Columnas opcionales: usuario/contraseña del RNDC vinculado. Si no
         # existen en la hoja, simplemente no se vincula nada (como antes).
@@ -140,6 +144,13 @@ def validar_usuario_app(usuario, password):
                                   "contrasenarndc", "contrasena_rndc", "contrasena rndc")
         idx_usuario_rndc = next((encabezado.index(n) for n in nombres_usuario_rndc if n in encabezado), None)
         idx_password_rndc = next((encabezado.index(n) for n in nombres_password_rndc if n in encabezado), None)
+
+        # Columnas opcionales: rango de consecutivos asignado a este
+        # trabajador (ej. ConsecutivoInicio=AF50000, ConsecutivoFin=AF50999).
+        nombres_consecutivo_inicio = ("consecutivoinicio", "consecutivo_inicio", "consecutivo inicio")
+        nombres_consecutivo_fin = ("consecutivofin", "consecutivo_fin", "consecutivo fin")
+        idx_consecutivo_inicio = next((encabezado.index(n) for n in nombres_consecutivo_inicio if n in encabezado), None)
+        idx_consecutivo_fin = next((encabezado.index(n) for n in nombres_consecutivo_fin if n in encabezado), None)
 
         for fila in filas[1:]:
             if len(fila) <= max(idx_usuario, idx_password, idx_activo):
@@ -153,9 +164,16 @@ def validar_usuario_app(usuario, password):
                             p_rndc = fila[idx_password_rndc].strip()
                             if u_rndc and p_rndc:
                                 rndc_vinculado = (u_rndc, p_rndc)
-                    return True, None, rndc_vinculado
+                    rango_consecutivos = None
+                    if idx_consecutivo_inicio is not None and idx_consecutivo_fin is not None:
+                        if len(fila) > max(idx_consecutivo_inicio, idx_consecutivo_fin):
+                            c_inicio = fila[idx_consecutivo_inicio].strip()
+                            c_fin = fila[idx_consecutivo_fin].strip()
+                            if c_inicio and c_fin:
+                                rango_consecutivos = (c_inicio, c_fin)
+                    return True, None, rndc_vinculado, rango_consecutivos
                 else:
-                    return False, "Este usuario existe pero está desactivado.", None
-        return False, "Usuario o contraseña incorrectos.", None
+                    return False, "Este usuario existe pero está desactivado.", None, None
+        return False, "Usuario o contraseña incorrectos.", None, None
     except requests.RequestException as e:
-        return False, f"No se pudo consultar la lista de usuarios autorizados: {e}", None
+        return False, f"No se pudo consultar la lista de usuarios autorizados: {e}", None, None

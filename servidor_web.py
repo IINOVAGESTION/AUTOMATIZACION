@@ -48,6 +48,7 @@ from backend.historial import (
     calcular_estadisticas,
 )
 from backend.sheets import registrar_en_sheets, revisar_actualizacion, validar_usuario_app
+import backend.rangos_consecutivos as rangos_consecutivos
 from backend import actualizador
 
 
@@ -250,6 +251,8 @@ def trabajador_de_fondo():
                     )
                     if ok_item:
                         registrar_en_sheets(v_item, resultado_item, log_trabajo)
+                        if v_item.get("Consecutivo") and v_item.get("usuario_app"):
+                            rangos_consecutivos.marcar_consecutivo_usado(v_item["usuario_app"], v_item["Consecutivo"])
             else:
                 registrar_historial(
                     trabajo["descripcion"], resultado.get("ok"), duracion,
@@ -257,6 +260,10 @@ def trabajador_de_fondo():
                 )
                 if resultado.get("ok"):
                     registrar_en_sheets(trabajo["v"], resultado, log_trabajo)
+                    if trabajo["v"].get("Consecutivo") and trabajo["v"].get("usuario_app"):
+                        rangos_consecutivos.marcar_consecutivo_usado(
+                            trabajo["v"]["usuario_app"], trabajo["v"]["Consecutivo"]
+                        )
         except Exception:
             # Red de seguridad final: bajo NINGUNA circunstancia este hilo
             # debe morir — si muriera, ningún viaje más se procesaría en
@@ -286,7 +293,7 @@ def login():
     if request.method == "POST":
         usuario = request.form.get("usuario", "").strip()
         password = request.form.get("password", "").strip()
-        ok, mensaje_error, rndc_vinculado = validar_usuario_app(usuario, password)
+        ok, mensaje_error, rndc_vinculado, rango_consecutivos = validar_usuario_app(usuario, password)
         if ok:
             session["usuario_app"] = usuario
             if rndc_vinculado:
@@ -295,6 +302,12 @@ def login():
             else:
                 session.pop("usuario_rndc_vinculado", None)
                 session.pop("password_rndc_vinculado", None)
+            if rango_consecutivos:
+                session["consecutivo_inicio"] = rango_consecutivos[0]
+                session["consecutivo_fin"] = rango_consecutivos[1]
+            else:
+                session.pop("consecutivo_inicio", None)
+                session.pop("consecutivo_fin", None)
             return redirect(url_for("formulario"))
         else:
             error = mensaje_error
@@ -323,8 +336,21 @@ def formulario():
             conductores_reales = json.load(f)
     except Exception:
         pass
+    v_formulario = ultimo_formulario
+    consecutivo_inicio = session.get("consecutivo_inicio")
+    consecutivo_fin = session.get("consecutivo_fin")
+    # Solo se sugiere un consecutivo nuevo cuando el formulario está
+    # limpio (sin uno ya escrito) -- si se está reintentando algo tras
+    # un error, se respeta lo que la persona ya tenía ahí.
+    if consecutivo_inicio and consecutivo_fin and not v_formulario.get("Consecutivo"):
+        sugerido = rangos_consecutivos.siguiente_consecutivo_sugerido(
+            session.get("usuario_app", ""), consecutivo_inicio, consecutivo_fin
+        )
+        if sugerido:
+            v_formulario = dict(v_formulario, Consecutivo=sugerido)
     return render_template(
-        'formulario.html', v=ultimo_formulario,
+        'formulario.html', v=v_formulario,
+        consecutivo_inicio=consecutivo_inicio, consecutivo_fin=consecutivo_fin,
         OBSERVACIONES_POR_DEFECTO=OBSERVACIONES_POR_DEFECTO,
         sedes_reales=sedes_reales,
         conductores_reales=conductores_reales,
@@ -537,6 +563,26 @@ def ejecutar():
 
     if not usuario_rndc or not password_rndc:
         return "Faltan tu usuario y contraseña del RNDC.", 400
+
+    # Si este trabajador tiene un rango de consecutivos asignado (columnas
+    # ConsecutivoInicio/ConsecutivoFin en la hoja de usuarios), se bloquea
+    # cualquier consecutivo que caiga fuera de ese rango -- antes de
+    # encolar nada.
+    consecutivo_inicio = session.get("consecutivo_inicio")
+    consecutivo_fin = session.get("consecutivo_fin")
+    if consecutivo_inicio and consecutivo_fin:
+        consecutivos_a_revisar = (
+            [item["Consecutivo"] for item in lista_viajes_cola] if es_cola else [v.get("Consecutivo")]
+        )
+        fuera_de_rango = [
+            c for c in consecutivos_a_revisar
+            if c and not rangos_consecutivos.dentro_del_rango(c, consecutivo_inicio, consecutivo_fin)
+        ]
+        if fuera_de_rango:
+            return (
+                f"El consecutivo {fuera_de_rango[0]} no está dentro de tu rango asignado "
+                f"({consecutivo_inicio}-{consecutivo_fin}). No se envió nada."
+            ), 400
 
     if es_cola:
         v["_viajes_cola"] = lista_viajes_cola
