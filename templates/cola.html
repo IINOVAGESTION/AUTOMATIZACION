@@ -83,13 +83,19 @@
   <div class="contenedor">
     <div class="buscador">
       <span class="lupa">🔍</span>
-      <input type="text" id="buscador_input" placeholder="Buscar por placa, consecutivo, ciudad..." oninput="actualizar()">
+      <input type="text" id="buscador_input" placeholder="Buscar por cliente, placa, consecutivo, ciudad..." oninput="actualizar()">
     </div>
     <div id="lista_trabajos"><div class="vacio">Cargando...</div></div>
   </div>
 
 <script>
 var ultimosDatos = [];
+// El nombre del cliente lo escribe una persona -- se escapa antes de
+// meterlo en el HTML para que ningún símbolo raro (< > " &) rompa la fila.
+function escaparHtml(texto) {
+    return String(texto).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
 function badgeInfo(t) {
     if (t.estado === 'pendiente') return ['pendiente', 'Pendiente'];
     if (t.estado === 'corriendo') return ['corriendo', 'Corriendo...'];
@@ -100,7 +106,8 @@ function pintarLista() {
     var cont = document.getElementById('lista_trabajos');
     var filtro = document.getElementById('buscador_input').value.trim().toUpperCase();
     var filtrados = ultimosDatos.filter(function(t) {
-        return !filtro || t.descripcion.toUpperCase().indexOf(filtro) !== -1 || String(t.id).indexOf(filtro) !== -1;
+        return !filtro || t.descripcion.toUpperCase().indexOf(filtro) !== -1 ||
+               (t.titulo || '').toUpperCase().indexOf(filtro) !== -1 || String(t.id).indexOf(filtro) !== -1;
     });
     if (!ultimosDatos.length) {
         cont.innerHTML = '<div class="vacio">No hay viajes en la fila todavía.</div>';
@@ -123,7 +130,7 @@ function pintarLista() {
             }
             return '<div class="fila-trabajo">' +
                 '<a href="' + enlace + '" style="text-decoration:none;color:inherit;flex:1;">' +
-                '<div class="trabajo"><span class="desc">#' + t.id + ' — ' + t.descripcion + '</span>' +
+                '<div class="trabajo"><span class="desc" title="' + escaparHtml(t.descripcion) + '">#' + t.id + ' — ' + escaparHtml(t.titulo || t.descripcion) + '</span>' +
                 '<span class="badge ' + b[0] + '">' + b[1] + '</span></div></a>' +
                 botonReintentar +
                 '</div>';

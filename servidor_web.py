@@ -146,12 +146,28 @@ candado = threading.Lock()
 ultimo_formulario = {}
 
 
+def titulo_para_fila(v):
+    """Texto que se muestra en la fila de viajes: el cliente con la placa
+    (ej. 'ACME SAS — AAA111'). Es solo para mostrar -- la "descripcion"
+    (con el consecutivo y las ciudades) se sigue guardando aparte porque
+    el historial la usa para detectar consecutivos repetidos."""
+    cliente = (v.get("Cliente") or "").strip() or "Sin cliente"
+    placa = (v.get("Placa") or "").strip().upper() or "sin placa"
+    titulo = f"{cliente} — {placa}"
+    if v.get("TipoViaje") == "Cola":
+        cantidad = len(v.get("_viajes_cola") or [])
+        if cantidad:
+            titulo += f" ({cantidad} viajes)"
+    return titulo
+
+
 def agregar_trabajo(v, usuario, password, descripcion):
     global siguiente_id_trabajo
     with candado:
         trabajo = {
             "id": siguiente_id_trabajo,
             "descripcion": descripcion,
+            "titulo": titulo_para_fila(v),
             "estado": "pendiente",  # pendiente -> corriendo -> terminado
             "log": [],
             "ok": None,
@@ -626,7 +642,7 @@ def estado():
     id_trabajo = request.args.get("id", type=int)
     with candado:
         lista = [
-            {"id": t["id"], "descripcion": t["descripcion"], "estado": t["estado"], "ok": t["ok"]}
+            {"id": t["id"], "descripcion": t["descripcion"], "titulo": t.get("titulo") or t["descripcion"], "estado": t["estado"], "ok": t["ok"]}
             for t in trabajos
         ]
         if id_trabajo:
