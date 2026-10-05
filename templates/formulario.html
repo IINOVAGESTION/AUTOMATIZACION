@@ -274,8 +274,8 @@
 
     <div class="fila" id="fila_datos_generales" style="margin-top:1rem;">
       <div id="campo_cliente">
-        <label>Cliente<span class="ayuda-icono" data-tip="La persona o empresa que pidió este manifiesto (no es el remitente ni el destinatario, sino quien contrató el servicio).">i</span></label>
-        <input type="text" name="Cliente" value="{{ v.get('Cliente', '') }}" tabindex="8">
+        <label>Cliente <span style="color:#f85149;" title="Obligatorio">*</span><span class="ayuda-icono" data-tip="La persona o empresa que pidió este manifiesto (no es el remitente ni el destinatario, sino quien contrató el servicio). Es obligatorio: sin cliente no se puede hacer el viaje.">i</span></label>
+        <input type="text" name="Cliente" value="{{ v.get('Cliente', '') }}" tabindex="8" required>
       </div>
       <div id="campo_consecutivo">
         <label>Consecutivo</label>

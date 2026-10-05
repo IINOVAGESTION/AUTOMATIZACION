@@ -538,6 +538,13 @@ def ejecutar():
     if not usuario_rndc or not password_rndc:
         return "Faltan tu usuario y contraseña del RNDC.", 400
 
+    # El Cliente es obligatorio para cualquier viaje (también para cada
+    # viaje de la Cola, que comparten el mismo campo general): sin él no
+    # se encola nada. Se revisa aquí en el servidor, además del "required"
+    # del formulario, para que no se pueda saltar de ninguna forma.
+    if not (v.get("Cliente") or "").strip():
+        return "Falta el Cliente: es obligatorio para poder hacer el viaje. No se envió nada.", 400
+
     if es_cola:
         v["_viajes_cola"] = lista_viajes_cola
         descripcion = f"Cola de {len(lista_viajes_cola)} viaje(s)"
