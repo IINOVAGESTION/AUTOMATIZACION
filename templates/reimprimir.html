@@ -13,21 +13,6 @@
     font-family: 'Inter', 'Segoe UI', Roboto, Arial, sans-serif;
     background: #1c1b19; color: #c9d1d9; margin: 0; padding: 0;
   }
-  .topbar {
-    background: #1a1918; padding: 1rem 2rem; display: flex; align-items: center;
-    justify-content: space-between; border-bottom: 1px solid #30363d;
-  }
-  .topbar-izq { display: flex; align-items: center; gap: 0.75rem; }
-  .logo-mark { width: 30px; height: 30px; border-radius: 7px; display: flex; align-items: center; justify-content: center; }
-  h1 { font-size: 0.95rem; margin: 0; color: #ff6a00; font-weight: 700; letter-spacing: 0.01em; }
-  .volver, .verfila {
-    color: #b0b0b0; text-decoration: none; font-size: 0.85rem; font-weight: 600;
-    padding: 0.5rem 1rem; border: 1px solid #333; border-radius: 7px;
-    transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
-  }
-  .volver { background: #ff6a00; color: #1c1b19; border-color: #ff6a00; box-shadow: 0 6px 20px -6px rgba(255,106,0,0.4); }
-  .volver:hover { background: #ff8534; transform: translateY(-1px); }
-  .verfila:hover { background: #242220; color: #ff6a00; }
   .contenedor { max-width: 640px; margin: 2rem auto; padding: 0 1.5rem; }
   .tarjeta {
     background: #232220; border: 1px solid #333; border-radius: 12px; padding: 1.5rem;
@@ -54,18 +39,7 @@
 </style>
 </head>
 <body>
-  <div class="topbar">
-    <div class="topbar-izq">
-      <div class="logo-mark"><img src="{{ url_for('static', filename='logo.png') }}" alt="Innova" style="height:100%; width:auto;"></div>
-      <h1>INNOVA &mdash; Reimprimir</h1>
-    </div>
-    <div style="display:flex; align-items:center; gap:0.75rem;">
-      <a class="verfila" href="{{ url_for('crear_tercero_pagina') }}">👤 Crear Tercero</a>
-      <a class="verfila" href="{{ url_for('anular_pagina') }}">🗑️ Anular</a>
-      <a class="verfila" href="{{ url_for('ver_cola') }}">📋 Ver toda la fila</a>
-      <a class="volver" href="{{ url_for('formulario') }}">+ Nuevo viaje →</a>
-    </div>
-  </div>
+{% set bs_pagina = 'reimprimir' %}{% set bs_subtitulo = 'Reimprimir' %}{% include '_barra_superior.html' %}
 
   <div class="contenedor">
     <div class="tarjeta">

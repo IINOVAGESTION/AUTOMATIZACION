@@ -1,0 +1,168 @@
+{#
+  Barra superior compartida por todas las pantallas. Se incluye con:
+      {% set bs_pagina = 'fila' %}{% set bs_subtitulo = 'Fila de viajes' %}
+      {% include '_barra_superior.html' %}
+  Parámetros (definidos con {% set %} justo antes del include):
+      bs_pagina    -> formulario | fila | progreso | reimprimir | anular | tercero
+      bs_subtitulo -> texto bajo el nombre (opcional; por defecto, el de la empresa)
+  Si se cambia un botón o un menú, se cambia aquí y queda igual en todas las pantallas.
+#}
+{% set bs_es_herramienta = bs_pagina in ('reimprimir', 'tercero', 'anular') %}
+<style>
+  .bs-barra {
+    box-sizing: border-box; background: #1a1918; color: #e6e6e6; padding: 0.7rem 2rem;
+    display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+    border-bottom: 1px solid #30363d; box-shadow: 0 2px 12px rgba(0,0,0,0.5);
+    font-family: 'Inter', 'Segoe UI', Roboto, Arial, sans-serif; position: relative; z-index: 50;
+  }
+  .bs-marca { display: flex; align-items: center; gap: 0.85rem; min-width: 0; }
+  .bs-logo { width: 38px; height: 38px; border-radius: 9px; display: flex; align-items: center; justify-content: center; flex: none; }
+  .bs-logo img { height: 100%; width: auto; }
+  .bs-marca-texto { display: flex; flex-direction: column; gap: 2px; }
+  .bs-nombre { font-size: 1.05rem; font-weight: 700; color: #ff6a00; letter-spacing: 0.01em; line-height: 1.2; }
+  .bs-version { font-size: 0.65rem; color: #918c80; font-weight: 400; }
+  .bs-sub { font-size: 0.75rem; color: #918c80; letter-spacing: 0.03em; }
+  .bs-acciones { margin-left: auto; display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; justify-content: flex-end; }
+  .bs-boton {
+    box-sizing: border-box; min-height: 44px; display: inline-flex; align-items: center; gap: 0.5rem;
+    padding: 0 1rem; background: transparent; color: #e6e6e6; border: 1px solid #3a3733; border-radius: 8px;
+    font: inherit; font-size: 0.88rem; font-weight: 600; text-decoration: none; cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .bs-boton:hover { background: #242220; }
+  .bs-boton:focus-visible, .bs-item:focus-visible { outline: 2px solid #ff6a00; outline-offset: 2px; }
+  .bs-boton[aria-current="page"], .bs-boton[aria-expanded="true"], .bs-boton.bs-activo { background: #2a2822; border-color: #ff6a00; }
+  .bs-boton.bs-primario { background: #ff6a00; color: #1c1b19; border-color: #ff6a00; font-weight: 700; padding: 0 1.1rem; box-shadow: 0 6px 20px -6px rgba(255,106,0,0.4); }
+  .bs-boton.bs-primario:hover { background: #ff8534; }
+  .bs-menu { position: relative; }
+  .bs-panel {
+    position: absolute; top: calc(100% + 8px); right: 0; width: 318px; max-width: calc(100vw - 2rem); box-sizing: border-box;
+    background: #232220; border: 1px solid #3a3733; border-radius: 12px; padding: 8px;
+    box-shadow: 0 16px 36px rgba(0,0,0,0.5); display: flex; flex-direction: column; gap: 2px; z-index: 1000;
+  }
+  .bs-panel[hidden] { display: none; }
+  .bs-panel.bs-panel-corto { width: 220px; }
+  .bs-item {
+    box-sizing: border-box; min-height: 52px; display: flex; align-items: center; gap: 12px;
+    padding: 8px 12px; border-radius: 8px; color: #e6e6e6; text-decoration: none;
+  }
+  .bs-item:hover, .bs-item[aria-current="page"] { background: #2a2822; }
+  .bs-item-texto { display: flex; flex-direction: column; gap: 2px; }
+  .bs-item-titulo { font-size: 0.88rem; font-weight: 600; }
+  .bs-item-nota { font-size: 0.75rem; color: #918c80; }
+  .bs-item-peligro .bs-item-titulo { color: #ff6b6b; }
+  .bs-separador { height: 1px; background: #3a3733; margin: 4px 8px; }
+  @media (max-width: 900px) { .bs-sub { display: none; } }
+  @media (max-width: 720px) { .bs-barra { padding: 0.6rem 1rem; } }
+</style>
+
+<header class="bs-barra">
+  <div class="bs-marca">
+    <div class="bs-logo"><img src="{{ url_for('static', filename='logo.png') }}" alt="Innova"></div>
+    <div class="bs-marca-texto">
+      <div class="bs-nombre">INNOVA <span class="bs-version">v{{ bs_version }}</span></div>
+      <div class="bs-sub">{{ bs_subtitulo or 'Logística Empresarial S.A.S · Automatización RNDC' }}</div>
+    </div>
+  </div>
+
+  <nav class="bs-acciones" aria-label="Navegación principal">
+    {% if bs_pagina == 'progreso' %}
+    <span id="estado-badge" class="estado corriendo"><span class="punto"></span> {{ mensaje_inicial }}</span>
+    {% endif %}
+
+    <a class="bs-boton" href="{{ url_for('ver_cola') }}" {% if bs_pagina == 'fila' %}aria-current="page"{% endif %}>
+      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+      Fila de viajes
+    </a>
+
+    <a class="bs-boton bs-primario" href="{{ url_for('formulario') }}" {% if bs_pagina == 'formulario' %}aria-current="page"{% endif %}>
+      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      Nuevo viaje
+    </a>
+
+    <div class="bs-menu">
+      <button type="button" class="bs-boton bs-menu-boton{% if bs_es_herramienta %} bs-activo{% endif %}" aria-haspopup="menu" aria-expanded="false" aria-controls="bs-panel-herramientas">
+        Herramientas
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div class="bs-panel" id="bs-panel-herramientas" role="menu" hidden>
+        <a class="bs-item" role="menuitem" href="{{ url_for('reimprimir_pagina') }}" {% if bs_pagina == 'reimprimir' %}aria-current="page"{% endif %}>
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#ff6a00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2M7 14h10v7H7z"/></svg>
+          <span class="bs-item-texto"><span class="bs-item-titulo">Reimprimir</span><span class="bs-item-nota">Descargar de nuevo una remesa o manifiesto</span></span>
+        </a>
+        <a class="bs-item" role="menuitem" href="{{ url_for('crear_tercero_pagina') }}" {% if bs_pagina == 'tercero' %}aria-current="page"{% endif %}>
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#ff6a00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M8.5 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM19 8v6M22 11h-6"/></svg>
+          <span class="bs-item-texto"><span class="bs-item-titulo">Crear Tercero</span><span class="bs-item-nota">Registrar o refrescar un conductor, titular o cliente</span></span>
+        </a>
+        <div class="bs-separador" role="separator"></div>
+        <a class="bs-item bs-item-peligro" role="menuitem" href="{{ url_for('anular_pagina') }}" {% if bs_pagina == 'anular' %}aria-current="page"{% endif %}>
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#ff6b6b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v5M14 11v5"/></svg>
+          <span class="bs-item-texto"><span class="bs-item-titulo">Anular manifiesto</span><span class="bs-item-nota">No se puede deshacer</span></span>
+        </a>
+      </div>
+    </div>
+
+    <div class="bs-menu">
+      <button type="button" class="bs-boton bs-menu-boton" aria-haspopup="menu" aria-expanded="false" aria-controls="bs-panel-usuario">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        {{ session.get('usuario_app', '') }}
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div class="bs-panel bs-panel-corto" id="bs-panel-usuario" role="menu" hidden>
+        <a class="bs-item" role="menuitem" href="{{ url_for('logout') }}" onclick="return confirm('¿Cerrar sesión?');">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#918c80" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+          <span class="bs-item-texto"><span class="bs-item-titulo">Cerrar sesión</span></span>
+        </a>
+      </div>
+    </div>
+  </nav>
+</header>
+
+<script>
+(function () {
+    // Menús desplegables de la barra: se abren con clic o con la flecha
+    // hacia abajo; se cierran con Esc o al hacer clic en otro lado; con
+    // las flechas se recorren las opciones.
+    var menus = document.querySelectorAll('.bs-menu');
+
+    function cerrar(menu, devolverFoco) {
+        var boton = menu.querySelector('.bs-menu-boton');
+        menu.querySelector('.bs-panel').hidden = true;
+        boton.setAttribute('aria-expanded', 'false');
+        if (devolverFoco) { boton.focus(); }
+    }
+    function cerrarTodos() { menus.forEach(function (m) { cerrar(m, false); }); }
+    function abrir(menu, enfocarPrimero) {
+        cerrarTodos();
+        var panel = menu.querySelector('.bs-panel');
+        panel.hidden = false;
+        menu.querySelector('.bs-menu-boton').setAttribute('aria-expanded', 'true');
+        if (enfocarPrimero) { panel.querySelector('[role="menuitem"]').focus(); }
+    }
+
+    menus.forEach(function (menu) {
+        var boton = menu.querySelector('.bs-menu-boton');
+        var panel = menu.querySelector('.bs-panel');
+        boton.addEventListener('click', function (e) {
+            e.stopPropagation();
+            if (boton.getAttribute('aria-expanded') === 'true') { cerrar(menu, false); } else { abrir(menu, false); }
+        });
+        boton.addEventListener('keydown', function (e) {
+            if (e.key === 'ArrowDown') { e.preventDefault(); abrir(menu, true); }
+        });
+        panel.addEventListener('keydown', function (e) {
+            var items = Array.prototype.slice.call(panel.querySelectorAll('[role="menuitem"]'));
+            var i = items.indexOf(document.activeElement);
+            if (e.key === 'ArrowDown') { e.preventDefault(); items[(i + 1) % items.length].focus(); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); items[(i - 1 + items.length) % items.length].focus(); }
+            else if (e.key === 'Escape') { e.preventDefault(); cerrar(menu, true); }
+        });
+    });
+    document.addEventListener('click', function (e) {
+        if (!e.target.closest('.bs-menu')) { cerrarTodos(); }
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') { cerrarTodos(); }
+    });
+})();
+</script>

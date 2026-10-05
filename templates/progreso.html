@@ -13,16 +13,6 @@
     font-family: 'Inter', 'Segoe UI', Roboto, Arial, sans-serif;
     background: #1c1b19; color: #c9d1d9; margin: 0; padding: 0;
   }
-  .topbar {
-    background: #1a1918; padding: 1rem 2rem; display: flex; align-items: center;
-    justify-content: space-between; border-bottom: 1px solid #30363d;
-  }
-  .topbar-izq { display: flex; align-items: center; gap: 0.75rem; }
-  .logo-mark {
-    width: 30px; height: 30px; border-radius: 7px; display: flex; align-items: center; justify-content: center;
-  }
-  .logo-mark svg { width: 18px; height: 18px; }
-  h1 { font-size: 0.95rem; margin: 0; color: #ff6a00; font-weight: 700; letter-spacing: 0.01em; }
   .estado {
     display: flex; align-items: center; gap: 0.4rem; font-size: 0.82rem; font-weight: 600;
     padding: 0.35rem 0.8rem; border-radius: 20px; background: #242220; color: #d0d0d0; border: 1px solid #2a2a2a;
@@ -30,14 +20,6 @@
   .punto { width: 8px; height: 8px; border-radius: 50%; background: #3fb950; }
   .estado.corriendo .punto, .estado.pendiente .punto { background: #ff6a00; animation: parpadeo 1.2s infinite; }
   @keyframes parpadeo { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
-  .volver, .verfila {
-    color: #b0b0b0; text-decoration: none; font-size: 0.85rem; font-weight: 600;
-    padding: 0.5rem 1rem; border: 1px solid #333; border-radius: 7px;
-    transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
-  }
-  .volver { background: #ff6a00; color: #1c1b19; border-color: #ff6a00; box-shadow: 0 6px 20px -6px rgba(255,106,0,0.4); }
-  .volver:hover { background: #ff8534; transform: translateY(-1px); }
-  .verfila:hover { background: #242220; color: #ff6a00; }
   .contenedor { max-width: 100%; margin: 1.5rem auto; padding: 0 2rem; }
   .aviso {
     background: #242220; border: 1px solid #333; border-radius: 8px; padding: 0.8rem 1rem;
@@ -65,24 +47,10 @@
 </style>
 </head>
 <body>
-  <div class="topbar">
-    <div class="topbar-izq">
-      <div class="logo-mark"><img src="{{ url_for('static', filename='logo.png') }}" alt="Innova" style="height:100%; width:auto;"></div>
-      <h1>INNOVA &mdash; Progreso</h1>
-    </div>
-    <div style="display:flex; align-items:center; gap:0.75rem;">
-      <span id="estado-badge" class="estado corriendo"><span class="punto"></span> {{ mensaje_inicial }}</span>
-      <a class="verfila" href="{{ url_for('reimprimir_pagina') }}">🖨️ Reimprimir</a>
-      <a class="verfila" href="{{ url_for('crear_tercero_pagina') }}">👤 Crear Tercero</a>
-      <a class="verfila" href="{{ url_for('anular_pagina') }}">🗑️ Anular</a>
-      <a class="verfila" href="{{ url_for('ver_cola') }}">📋 Ver toda la fila</a>
-      <a class="volver" href="{{ url_for('formulario') }}">+ Agregar otro viaje →</a>
-      <a class="verfila" href="{{ url_for('logout') }}" onclick="return confirm('¿Cerrar sesión?');">🚪 Cerrar sesión</a>
-    </div>
-  </div>
+{% set bs_pagina = 'progreso' %}{% set bs_subtitulo = 'Progreso del viaje' %}{% include '_barra_superior.html' %}
 
   <div class="contenedor">
-    <div class="aviso">💡 No hace falta esperar a que termine — puedes darle clic a "+ Agregar otro viaje" ya mismo para meter el siguiente, aunque este siga corriendo.</div>
+    <div class="aviso">💡 No hace falta esperar a que termine — puedes darle clic a "Nuevo viaje" ya mismo para meter el siguiente, aunque este siga corriendo.</div>
 
     <div class="pasos" id="pasos">
       <div class="paso" id="paso-login"><div class="paso-circulo">1</div><span class="paso-nombre">Login</span></div>

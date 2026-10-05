@@ -99,6 +99,14 @@ app.secret_key = _obtener_secret_key()
 app.permanent_session_lifetime = timedelta(minutes=30)
 
 
+@app.context_processor
+def datos_de_la_barra_superior():
+    """La barra superior compartida (templates/_barra_superior.html) muestra
+    la versión de la app en todas las pantallas, sin que cada ruta tenga que
+    pasarla por su cuenta."""
+    return {"bs_version": VERSION_APP}
+
+
 @app.before_request
 def revisar_inactividad():
     if "usuario_app" not in session:
