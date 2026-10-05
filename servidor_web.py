@@ -34,6 +34,7 @@ from flask import Flask, request, session, redirect, url_for, render_template, j
 import threading
 import subprocess
 import json
+import re
 import time
 import requests
 from datetime import timedelta, datetime
@@ -169,6 +170,103 @@ def titulo_para_fila(v):
     return titulo
 
 
+# Frases del registro que marcan en qué paso va un viaje. Son las mismas que
+# usa la pantalla de progreso (templates/progreso.html, actualizarPasos): si
+# se cambian allá, conviene cambiarlas aquí también (solo afecta el texto
+# "Paso 3 de 4" que se muestra en la fila).
+PASOS_DEL_VIAJE = [
+    ("Verificación", ["Login realizado", "Creando remesa", "Verificando remitente"]),
+    ("Remesa", ["Llenando REMESA", "Radicado de remesa", "Radicado del manifiesto",
+                "Creando remesa", "Radicado de la remesa", "Creando manifiesto"]),
+    ("Manifiesto", ["Llenando MANIFIESTO", "Radicado del manifiesto", "Creando manifiesto"]),
+    ("PDF", ["Descargando el PDF", "guardado correctamente", "RESUMEN",
+             "Abriendo el navegador solo para descargar"]),
+]
+
+
+def paso_del_log(lineas):
+    """Dice en qué paso va un viaje que sigue corriendo, leyendo su registro.
+    Devuelve algo como 'Paso 3 de 4 · Manifiesto', o None si todavía no hay
+    nada que lo indique."""
+    texto = "\n".join(lineas or [])
+    ultimo = None
+    for i, (nombre, frases) in enumerate(PASOS_DEL_VIAJE):
+        if any(f in texto for f in frases):
+            ultimo = i
+    if ultimo is None:
+        return None
+    return f"Paso {ultimo + 1} de {len(PASOS_DEL_VIAJE)} · {PASOS_DEL_VIAJE[ultimo][0]}"
+
+
+def detalle_para_fila(v):
+    """Línea de apoyo bajo el título de cada viaje en la fila: el consecutivo
+    y la ruta (o el rango de consecutivos, si es una Cola)."""
+    tipo = v.get("TipoViaje") or "Normal"
+    if tipo == "Cola":
+        consecutivos = [str(i.get("Consecutivo") or "").strip() for i in (v.get("_viajes_cola") or [])]
+        consecutivos = [c for c in consecutivos if c]
+        if len(consecutivos) >= 2:
+            return f"{consecutivos[0]} a {consecutivos[-1]}"
+        return consecutivos[0] if consecutivos else ""
+    consecutivo = (v.get("Consecutivo") or "").strip()
+    paradas = v.get("Paradas") or []
+    if paradas:
+        origen, destino = paradas[0].get("Origen", "?"), paradas[-1].get("Destino", "?")
+        etiqueta = "Ida y Regreso" if tipo == "IdaYRegreso" else "Multiparada"
+        partes = [consecutivo, etiqueta, f"{origen} → {destino}"]
+    else:
+        partes = [consecutivo, f"{(v.get('Origen') or '?').strip()} → {(v.get('Destino') or '?').strip()}"]
+    return " · ".join(p for p in partes if p)
+
+
+def radicados_del_resumen(resumen):
+    """Saca los radicados de las líneas de resumen que dejan los dos caminos
+    (Web Service y navegador), ej. 'Remesa AF1 -> radicado: 168964822'."""
+    encontrados = []
+    for linea in resumen or []:
+        m = re.search(r"^(Remesa|Manifiesto)\b.*?->\s*radicado:\s*(\d+)", str(linea))
+        if m:
+            encontrados.append({"tipo": m.group(1), "numero": m.group(2)})
+    return encontrados
+
+
+def motivo_del_error(resultado):
+    """Una sola línea con el motivo por el que falló un viaje, para la fila.
+    En una Cola cuenta cuántos fallaron y muestra el primer motivo."""
+    if resultado.get("ok"):
+        return None
+    por_viaje = resultado.get("resultados") or []
+    if por_viaje:
+        fallidos = [r for r in por_viaje if not r.get("ok")]
+        primero = next((str(r.get("error")) for r in fallidos if r.get("error")), "")
+        texto = f"{len(fallidos)} de {len(por_viaje)} viajes con error"
+        return f"{texto}. Primero: {primero}" if primero else texto
+    error = resultado.get("error")
+    return str(error) if error else None
+
+
+def datos_para_fila(t):
+    """Lo que la pantalla de la fila necesita saber de un viaje."""
+    v = t.get("v") or {}
+    inicio, fin = t.get("inicio"), t.get("fin")
+    motivo = " ".join(str(t.get("motivo") or "").split())
+    return {
+        "id": t["id"],
+        "descripcion": t["descripcion"],
+        "titulo": t.get("titulo") or t["descripcion"],
+        "detalle": detalle_para_fila(v),
+        "estado": t["estado"],
+        "ok": t["ok"],
+        "hora": time.strftime("%H:%M", time.localtime(inicio)) if inicio else None,
+        "duracion": int(round(fin - inicio)) if inicio and fin else None,
+        "paso": paso_del_log(t.get("log")) if t["estado"] == "corriendo" else None,
+        "radicados": radicados_del_resumen(t.get("resumen")),
+        "motivo": (motivo[:220] + "…") if len(motivo) > 220 else (motivo or None),
+        "consecutivo": (v.get("Consecutivo") or "").strip() if v.get("TipoViaje") != "Cola" else "",
+        "es_cola": v.get("TipoViaje") == "Cola",
+    }
+
+
 def agregar_trabajo(v, usuario, password, descripcion):
     global siguiente_id_trabajo
     with candado:
@@ -183,6 +281,9 @@ def agregar_trabajo(v, usuario, password, descripcion):
             "usuario": usuario,
             "password": password,
             "inicio": None,
+            "fin": None,
+            "resumen": [],
+            "motivo": None,
             "archivos": [],
         }
         trabajos.append(trabajo)
@@ -252,6 +353,9 @@ def trabajador_de_fondo():
                 resultado = {"ok": False}
 
             with candado:
+                trabajo["fin"] = time.time()
+                trabajo["resumen"] = resultado.get("resumen") or []
+                trabajo["motivo"] = motivo_del_error(resultado)
                 trabajo["estado"] = "terminado"
                 trabajo["ok"] = resultado.get("ok")
                 trabajo["archivos"] = resultado.get("archivos", [])
@@ -289,6 +393,7 @@ def trabajador_de_fondo():
             # aviso visible de que eso pasó. Mejor marcar este trabajo
             # como fallido y seguir con el siguiente.
             with candado:
+                trabajo["fin"] = time.time()
                 trabajo["estado"] = "terminado"
                 trabajo["ok"] = False
 
@@ -727,10 +832,7 @@ def reporte_log():
 def estado():
     id_trabajo = request.args.get("id", type=int)
     with candado:
-        lista = [
-            {"id": t["id"], "descripcion": t["descripcion"], "titulo": t.get("titulo") or t["descripcion"], "estado": t["estado"], "ok": t["ok"]}
-            for t in trabajos
-        ]
+        lista = [datos_para_fila(t) for t in trabajos]
         if id_trabajo:
             trabajo = next((t for t in trabajos if t["id"] == id_trabajo), None)
             log_trabajo = list(trabajo["log"]) if trabajo else []

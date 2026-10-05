@@ -62,7 +62,7 @@
       </select>
 
       <label>Consecutivo</label>
-      <input type="text" id="radicado" placeholder="ej. AF46561">
+      <input type="text" id="radicado" placeholder="ej. AF46561" value="{{ request.args.get('consecutivo', '') }}">
 
       <button id="btn_reimprimir" onclick="reimprimir()">🖨️ Reimprimir</button>
 
