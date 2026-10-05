@@ -99,6 +99,11 @@
       <iframe id="iframe_pdf" style="width:100%; height:65vh; border:1px solid #262626; border-radius:10px; background:#fff;"></iframe>
     </div>
 
+    <div style="display:flex; justify-content:flex-end; margin-bottom:0.4rem;">
+      <button id="btn_copiar_log" type="button" onclick="copiarLogCompleto()"
+        style="background:#242220; border:1px solid #3a3733; color:#c9d1d9; border-radius:6px; padding:0.35rem 0.8rem; font-size:0.8rem; font-weight:600; cursor:pointer;"
+        title="Copia el log completo, con la versión de la app y los datos del viaje (sin contraseñas), para pegarlo donde haga falta">📋 Copiar log completo</button>
+    </div>
     <div id="log">Iniciando...</div>
   </div>
 
@@ -208,6 +213,46 @@ function escaparHtml(texto) {
     div.textContent = texto;
     return div.innerHTML;
 }
+
+// >>> copiar log completo
+function copiarConTextarea(texto) {
+    // Respaldo para cuando el portapapeles moderno está bloqueado.
+    return new Promise(function (resolve, reject) {
+        var area = document.createElement('textarea');
+        area.value = texto;
+        area.style.position = 'fixed';
+        area.style.opacity = '0';
+        document.body.appendChild(area);
+        area.select();
+        var copiado = false;
+        try { copiado = document.execCommand('copy'); } catch (e) { copiado = false; }
+        document.body.removeChild(area);
+        if (copiado) { resolve(); } else { reject(new Error('copiado bloqueado')); }
+    });
+}
+function copiarTexto(texto) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(texto).catch(function () { return copiarConTextarea(texto); });
+    }
+    return copiarConTextarea(texto);
+}
+async function copiarLogCompleto() {
+    var boton = document.getElementById('btn_copiar_log');
+    var original = boton.textContent;
+    boton.disabled = true;
+    boton.textContent = '⏳ Preparando...';
+    try {
+        var resp = await fetch('{{ url_for("reporte_log") }}?id=' + idTrabajo);
+        var r = await resp.json();
+        if (!r.ok) { throw new Error(r.error || 'sin datos'); }
+        await copiarTexto(r.texto);
+        boton.textContent = '✓ Log copiado';
+    } catch (e) {
+        boton.textContent = '⚠️ No se pudo copiar';
+    }
+    setTimeout(function () { boton.textContent = original; boton.disabled = false; }, 2000);
+}
+// <<< copiar log completo
 
 function copiarRadicado(numero, boton) {
     navigator.clipboard.writeText(numero).then(function () {

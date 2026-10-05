@@ -36,7 +36,7 @@ import subprocess
 import json
 import time
 import requests
-from datetime import timedelta
+from datetime import timedelta, datetime
 
 import rndc_core
 from backend.config import (
@@ -635,6 +635,84 @@ def progreso_trabajo():
         'progreso.html', id_trabajo=id_trabajo,
         mensaje_inicial=mensajes_iniciales.get(trabajo["estado"], "..."),
     )
+
+
+def armar_reporte_trabajo(trabajo):
+    """Texto listo para pegar a quien dé soporte: versión de la app, los
+    datos principales del viaje y el log completo. Solo se incluyen datos
+    del viaje elegidos a propósito (nunca el usuario ni la contraseña del
+    RNDC) y, como red de seguridad, cualquier contraseña que llegara a
+    aparecer en el texto se tapa con asteriscos."""
+    v = trabajo.get("v") or {}
+
+    def txt(clave):
+        valor = v.get(clave)
+        return str(valor).strip() if valor not in (None, False) else ""
+
+    if trabajo.get("estado") == "terminado":
+        estado_texto = "Terminado con éxito" if trabajo.get("ok") else "Terminado con error"
+    else:
+        estado_texto = {"pendiente": "Pendiente", "corriendo": "Corriendo"}.get(
+            trabajo.get("estado"), str(trabajo.get("estado")))
+
+    lineas = [
+        "=== REPORTE DE VIAJE ===",
+        f"Versión de la app: {VERSION_APP}",
+        f"Fecha del reporte: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}",
+        f"Viaje #{trabajo.get('id')}: {trabajo.get('titulo') or trabajo.get('descripcion')}",
+        f"Estado: {estado_texto}",
+        "",
+        "--- Datos del viaje ---",
+        f"Tipo de viaje: {txt('TipoViaje') or 'Normal'}",
+        f"Camino: {'Web Service' if v.get('UsarAPI') else 'Navegador'}"
+        + (" (modo práctica)" if v.get("ModoPractica") else ""),
+        f"Usuario de la app: {txt('usuario_app')}",
+        f"Cliente: {txt('Cliente')}",
+        f"Placa: {txt('Placa')}" + (f" | Remolque: {txt('Placa_Remolque')}" if txt("Placa_Remolque") else ""),
+        f"Conductor: {txt('Tipo_Documento_Conductor') or 'C'} {txt('Cedula_Conductor')}"
+        + (f" | Segundo conductor: {txt('Tipo_Documento_Conductor2') or 'C'} {txt('Cedula_Conductor2')}"
+           if txt("Cedula_Conductor2") else ""),
+        f"Titular: {txt('Cedula_Titular')}",
+    ]
+    viajes_cola = v.get("_viajes_cola") or []
+    if viajes_cola:
+        lineas.append(f"Viajes de la Cola ({len(viajes_cola)}):")
+        for item in viajes_cola:
+            lineas.append(
+                f"  - {item.get('Consecutivo', '?')}: {item.get('Origen', '?')} → {item.get('Destino', '?')}"
+                f" | {item.get('Producto', '')} | {item.get('Peso', '')} kg | flete {item.get('Flete', '')}"
+            )
+    else:
+        lineas.append(f"Consecutivo: {txt('Consecutivo')}")
+        paradas = v.get("Paradas") or []
+        if paradas:
+            for i, parada in enumerate(paradas, 1):
+                lineas.append(f"  Parada {i}: {parada.get('Origen', '?')} → {parada.get('Destino', '?')}"
+                              f" | {parada.get('Producto', '')} | {parada.get('Peso', '')} kg")
+        else:
+            lineas.append(f"Ruta: {txt('Origen')} → {txt('Destino')}")
+            lineas.append(f"Producto: {txt('Producto')} | Peso: {txt('Peso')} kg")
+        lineas.append(f"Flete: {txt('Flete')}" + (f" | Anticipo: {txt('Anticipo')}" if txt("Anticipo") else ""))
+    lineas += ["", "=== LOG ==="] + list(trabajo.get("log") or [])
+
+    texto = "\n".join(lineas)
+    for secreto in (trabajo.get("password"), v.get("password_rndc")):
+        if secreto and len(str(secreto)) >= 4:
+            texto = texto.replace(str(secreto), "********")
+    return texto
+
+
+@app.route("/reporte_log")
+def reporte_log():
+    if "usuario_app" not in session:
+        return jsonify({"ok": False, "error": "No autenticado"}), 401
+    id_trabajo = request.args.get("id", type=int)
+    with candado:
+        trabajo = next((t for t in trabajos if t["id"] == id_trabajo), None)
+        if not trabajo:
+            return jsonify({"ok": False, "error": "No se encontró ese viaje."}), 404
+        texto = armar_reporte_trabajo(trabajo)
+    return jsonify({"ok": True, "texto": texto})
 
 
 @app.route("/estado")
