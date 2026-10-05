@@ -278,7 +278,7 @@
         <input type="text" name="Cliente" value="{{ v.get('Cliente', '') }}" tabindex="8">
       </div>
       <div id="campo_consecutivo">
-        <label>Consecutivo{% if consecutivo_inicio and consecutivo_fin %}<span style="opacity:0.7; font-weight:400;"> (tu rango: {{ consecutivo_inicio }}-{{ consecutivo_fin }})</span>{% endif %}</label>
+        <label>Consecutivo</label>
         <input type="text" name="Consecutivo" id="input_consecutivo" value="{{ v.get('Consecutivo', '') }}" class="campo-clave" tabindex="1" oninput="verificarConsecutivo()">
         <span id="aviso_consecutivo" style="display:none; align-items:center; gap:6px; background:rgba(255,106,0,0.14); border:1px solid #ff6a00; border-radius:6px; padding:6px 10px; margin-top:6px; font-size:0.82rem; color:#ff6a00;"></span>
       </div>
