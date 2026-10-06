@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<title>RNDC Automático - Anular cumplido de remesa</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Inter', 'Segoe UI', Roboto, Arial, sans-serif;
+    background: #1c1b19; color: #c9d1d9; margin: 0; padding: 0;
+  }
+  .contenedor { max-width: 640px; margin: 2rem auto; padding: 0 1.5rem; }
+  .tarjeta {
+    background: #232220; border: 1px solid #333; border-radius: 12px; padding: 1.5rem;
+  }
+  .tarjeta h2 { margin-top: 0; font-size: 1.05rem; color: #e6e6e6; }
+  .aviso {
+    background: #2a1510; border: 1px solid #a33; border-radius: 8px; padding: 0.8rem 1rem;
+    font-size: 0.85rem; color: #ffb199; margin-bottom: 1.2rem; line-height: 1.5;
+  }
+  label { display: block; font-size: 0.85rem; color: #aaa; margin-bottom: 0.3rem; }
+  input[type=text], select {
+    width: 100%; padding: 0.6rem 0.7rem; border-radius: 7px; border: 1px solid #3a3a3a;
+    background: #171614; color: #e6e6e6; font-size: 0.95rem; margin-bottom: 1rem;
+  }
+  #confirmacion { border-color: #a33; }
+  button {
+    background: #c0392b; color: #fff; border: none; border-radius: 7px;
+    padding: 0.65rem 1.2rem; font-weight: 700; font-size: 0.9rem; cursor: pointer;
+  }
+  button:hover { background: #e74c3c; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  #resultado { margin-top: 1rem; font-size: 0.88rem; }
+  #resultado.ok { color: #3fb950; }
+  #resultado.error { color: #f85149; }
+  .fila-opcion { margin-bottom: 1rem; }
+  .fila-opcion label { display: inline-block; margin-right: 1rem; color: #ddd; }
+  textarea { width: 100%; padding: 0.6rem 0.7rem; border-radius: 7px; border: 1px solid #3a3a3a; background: #171614; color: #e6e6e6; font-size: 0.95rem; margin-bottom: 1rem; font-family: inherit; }
+  #resultado { white-space: pre-line; }
+  #resultado.cargando { color: #ff6a00; }
+</style>
+</head>
+<body>
+{% set bs_pagina = 'anular_cumplido' %}{% set bs_subtitulo = 'Anular cumplido de remesa' %}{% include '_barra_superior.html' %}
+
+  <div class="contenedor">
+    <div class="tarjeta">
+      <h2>↩️ Anular el cumplido de una remesa</h2>
+
+      <div class="aviso">
+        ℹ️ El RNDC <strong>no deja anular un manifiesto</strong> mientras sus remesas estén cumplidas (error ANM070). Aquí quitas ese cumplido remesa por remesa; después anulas el manifiesto en <em>Herramientas → Anular manifiesto</em>.<br>
+        ⚠️ Esto modifica datos del RNDC. Revisa bien los consecutivos antes de confirmar.
+      </div>
+
+      {% if not rndc_vinculado %}
+      <label>Usuario del RNDC</label>
+      <input type="text" id="usuario_rndc">
+      <label>Contraseña del RNDC</label>
+      <input type="text" id="password_rndc">
+      {% endif %}
+
+      <label>¿Qué cumplido quieres anular?</label>
+      <select id="tipo" onchange="cambiarTipo()">
+        <option value="inicial">Cumplido inicial de remesa (el más común)</option>
+        <option value="remesa">Cumplido de remesa (el final)</option>
+      </select>
+
+      <div id="bloque_parte">
+        <label>¿De cuál parte?</label>
+        <div class="fila-opcion">
+          <label><input type="radio" name="parte" value="CD" checked> Cargue y Descargue</label>
+          <label><input type="radio" name="parte" value="C"> Solo Cargue</label>
+          <label><input type="radio" name="parte" value="D"> Solo Descargue</label>
+        </div>
+      </div>
+
+      <label>Consecutivo(s) de la remesa (uno o varios, separados por coma o en líneas distintas)</label>
+      <textarea id="remesas" rows="3" placeholder="ej. AF49232A, AF49232B"></textarea>
+
+      <label>Motivo *</label>
+      <select id="motivo">
+        <option value="">— Elegir —</option>
+        {% for codigo, texto in motivos.items() %}
+        <option value="{{ codigo }}">{{ texto }}</option>
+        {% endfor %}
+      </select>
+
+      <label>Observaciones (opcional)</label>
+      <input type="text" id="observaciones" maxlength="200" placeholder="ej. se va a anular el manifiesto">
+
+      <label>Escribe <strong>ANULAR</strong> para confirmar</label>
+      <input type="text" id="confirmacion" placeholder="ANULAR" autocomplete="off">
+
+      <button id="btn_anular" onclick="anular()">↩️ Anular cumplido</button>
+
+      <div id="resultado"></div>
+    </div>
+  </div>
+
+<script>
+function cambiarTipo() {
+    document.getElementById('bloque_parte').style.display =
+        document.getElementById('tipo').value === 'inicial' ? '' : 'none';
+}
+
+async function anular() {
+    var boton = document.getElementById('btn_anular');
+    var resultado = document.getElementById('resultado');
+    var tipo = document.getElementById('tipo').value;
+    var remesas = document.getElementById('remesas').value.trim();
+    var motivo = document.getElementById('motivo').value;
+    var confirmacion = document.getElementById('confirmacion').value.trim();
+    var parte = document.querySelector('input[name=parte]:checked').value;
+
+    if (!remesas || !motivo) {
+        alert('Escribe al menos una remesa y elige un motivo.');
+        return;
+    }
+    if (confirmacion !== 'ANULAR') {
+        alert('Escribe ANULAR (en mayúsculas) en el último campo para confirmar.');
+        return;
+    }
+    if (!confirm('¿Seguro que quieres anular el cumplido de: ' + remesas + '?')) {
+        return;
+    }
+
+    var datos = new FormData();
+    datos.append('tipo', tipo);
+    datos.append('parte', parte);
+    datos.append('remesas', remesas);
+    datos.append('motivo', motivo);
+    datos.append('observaciones', document.getElementById('observaciones').value.trim());
+    datos.append('confirmacion', confirmacion);
+    var campoUsuario = document.getElementById('usuario_rndc');
+    var campoPassword = document.getElementById('password_rndc');
+    if (campoUsuario) datos.append('usuario_rndc', campoUsuario.value.trim());
+    if (campoPassword) datos.append('password_rndc', campoPassword.value.trim());
+
+    boton.disabled = true;
+    resultado.className = 'cargando';
+    resultado.textContent = '⏳ Anulando...';
+
+    try {
+        var resp = await fetch('{{ url_for("anular_cumplido_route") }}', { method: 'POST', body: datos });
+        var r = await resp.json();
+        var detalle = (r.log || []).join('\n');
+        if (r.ok) {
+            resultado.className = 'ok';
+            resultado.textContent = '✅ Listo.\n' + detalle + '\nYa puedes anular el manifiesto desde Herramientas → Anular manifiesto.';
+        } else {
+            resultado.className = 'error';
+            resultado.textContent = '❌ ' + (r.error || 'No se pudo anular todo.') + (detalle ? '\n' + detalle : '');
+        }
+    } catch (e) {
+        resultado.className = 'error';
+        resultado.textContent = '⚠️ Error de conexión.';
+    } finally {
+        boton.disabled = false;
+    }
+}
+cambiarTipo();
+</script>
+</body>
+</html>

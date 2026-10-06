@@ -49,5 +49,6 @@ from core.automatizacion import ejecutar_automatizacion, ejecutar_cola
 from core.api_rndc import (
     ejecutar_viaje_api, obtener_lista_sedes_empresa_api, reimprimir_documento_api,
     anular_manifiesto_api, MOTIVOS_ANULACION_MANIFIESTO,
+    anular_cumplido_remesa_api, MOTIVOS_ANULACION_CUMPLIDO, TIPOS_ANULACION_CUMPLIDO,
     crear_tercero_api, crear_tercero_via_navegador,
 )

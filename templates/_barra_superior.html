@@ -3,11 +3,11 @@
       {% set bs_pagina = 'fila' %}{% set bs_subtitulo = 'Fila de viajes' %}
       {% include '_barra_superior.html' %}
   Parámetros (definidos con {% set %} justo antes del include):
-      bs_pagina    -> formulario | fila | progreso | reimprimir | anular | tercero
+      bs_pagina    -> formulario | fila | progreso | reimprimir | anular | anular_cumplido | tercero
       bs_subtitulo -> texto bajo el nombre (opcional; por defecto, el de la empresa)
   Si se cambia un botón o un menú, se cambia aquí y queda igual en todas las pantallas.
 #}
-{% set bs_es_herramienta = bs_pagina in ('reimprimir', 'tercero', 'anular') %}
+{% set bs_es_herramienta = bs_pagina in ('reimprimir', 'tercero', 'anular', 'anular_cumplido') %}
 <style>
   .bs-barra {
     box-sizing: border-box; background: #1a1918; color: #e6e6e6; padding: 0.7rem 2rem;
@@ -95,6 +95,10 @@
           <span class="bs-item-texto"><span class="bs-item-titulo">Crear Tercero</span><span class="bs-item-nota">Registrar o refrescar un conductor, titular o cliente</span></span>
         </a>
         <div class="bs-separador" role="separator"></div>
+        <a class="bs-item bs-item-peligro" role="menuitem" href="{{ url_for('anular_cumplido_pagina') }}" {% if bs_pagina == 'anular_cumplido' %}aria-current="page"{% endif %}>
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#ff6b6b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14L4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3"/></svg>
+          <span class="bs-item-texto"><span class="bs-item-titulo">Anular cumplido de remesa</span><span class="bs-item-nota">Necesario antes de anular un manifiesto cumplido</span></span>
+        </a>
         <a class="bs-item bs-item-peligro" role="menuitem" href="{{ url_for('anular_pagina') }}" {% if bs_pagina == 'anular' %}aria-current="page"{% endif %}>
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#ff6b6b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v5M14 11v5"/></svg>
           <span class="bs-item-texto"><span class="bs-item-titulo">Anular manifiesto</span><span class="bs-item-nota">No se puede deshacer</span></span>

@@ -1441,3 +1441,55 @@ def descargar_pdfs_del_viaje(usuario, password, v, tramos, radicado_manifiesto, 
                 pass
 
     return archivos
+
+
+MOTIVOS_ANULACION_CUMPLIDO = {
+    "D": "Error Digitación",
+    "O": "Otro",
+}
+
+TIPOS_ANULACION_CUMPLIDO = {
+    # clave: (procesoid, nombre en español)
+    "inicial": (54, "cumplido inicial de remesa"),
+    "remesa": (28, "cumplido de remesa"),
+}
+
+
+def anular_cumplido_remesa_api(usuario, password, nit_empresa, consecutivo_remesa, motivo,
+                                tipo="inicial", cargue_descargue=None,
+                                observaciones=None, log=None):
+    """Anula el cumplido de UNA remesa. tipo="inicial" -> proceso 54 (Anular
+    Cumplido Inicial de Remesa; ahí hay que decir si es el de Cargue "C" o
+    el de Descargue "D"); tipo="remesa" -> proceso 28 (Anular Cumplido de
+    Remesa). Va por el servidor general (rndcws), no por WS2. Devuelve la
+    respuesta cruda; lanza ErrorRNDC si el RNDC la rechaza.
+
+    OJO: los nombres de las variables se dedujeron de las pantallas del
+    RNDC (Anular_Cumplido_Inicial_Remesa.html / Anular_Cumplido_Remesa.html);
+    CARGUEDESCARGUE es el único que no se pudo confirmar al 100%."""
+    if tipo not in TIPOS_ANULACION_CUMPLIDO:
+        raise ErrorRNDC(f"Tipo de anulación inválido: '{tipo}'.")
+    if motivo not in MOTIVOS_ANULACION_CUMPLIDO:
+        raise ErrorRNDC(f"Motivo de anulación inválido: '{motivo}'. Debe ser uno de: "
+                         f"{', '.join(f'{k} ({v})' for k, v in MOTIVOS_ANULACION_CUMPLIDO.items())}.")
+    procesoid, nombre = TIPOS_ANULACION_CUMPLIDO[tipo]
+    if tipo == "inicial" and cargue_descargue not in ("C", "D"):
+        raise ErrorRNDC("Para el cumplido inicial hay que indicar si es el de Cargue (C) o el de Descargue (D).")
+    variables = (
+        f"<NUMNITEMPRESATRANSPORTE>{nit_empresa}</NUMNITEMPRESATRANSPORTE>"
+        f"<CONSECUTIVOREMESA>{consecutivo_remesa}</CONSECUTIVOREMESA>"
+        + (f"<CARGUEDESCARGUE>{cargue_descargue}</CARGUEDESCARGUE>" if tipo == "inicial" else "")
+        + f"<MOTIVOANULACIONCUMPLIDO>{motivo}</MOTIVOANULACIONCUMPLIDO>"
+        + (f"<OBSERVACIONES>{observaciones}</OBSERVACIONES>" if observaciones else "")
+    )
+    respuesta = _llamar(usuario, password, tipo=1, procesoid=procesoid,
+                         variables_xml=variables, servidor="real_terceros")
+    _, error = _extraer_radicado_o_error(respuesta)
+    if error:
+        raise ErrorRNDC(error, respuesta)
+    if log:
+        extra = ""
+        if tipo == "inicial":
+            extra = " de " + ("Cargue" if cargue_descargue == "C" else "Descargue")
+        log(f"✅ Anulado el {nombre}{extra} de la remesa {consecutivo_remesa}.")
+    return respuesta

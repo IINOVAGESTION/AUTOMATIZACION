@@ -989,7 +989,69 @@ def anular_route():
         )
         return jsonify({"ok": True, "log": mensajes})
     except Exception as e:
-        return jsonify({"ok": False, "error": str(e), "log": mensajes})
+        texto = str(e)
+        if "cumplido" in texto.lower():
+            texto += (" -- Este manifiesto tiene remesas cumplidas: primero anula el cumplido de sus "
+                      "remesas en Herramientas → Anular cumplido de remesa y luego vuelve a intentar.")
+        return jsonify({"ok": False, "error": texto, "log": mensajes})
+
+
+@app.route("/anular_cumplido", methods=["GET"])
+def anular_cumplido_pagina():
+    if "usuario_app" not in session:
+        return redirect(url_for("login"))
+    return render_template(
+        "anular_cumplido.html",
+        rndc_vinculado=session.get("usuario_rndc_vinculado"),
+        actualizacion=revisar_actualizacion(),
+        VERSION_APP=VERSION_APP,
+        motivos=rndc_core.MOTIVOS_ANULACION_CUMPLIDO,
+    )
+
+
+@app.route("/anular_cumplido", methods=["POST"])
+def anular_cumplido_route():
+    """Anula el cumplido de una o varias remesas (una llamada al RNDC por
+    cada remesa y por cada parte -- Cargue/Descargue -- elegida). Si una
+    falla, sigue con las demás y avisa el resultado de cada una."""
+    if "usuario_app" not in session:
+        return jsonify({"ok": False, "error": "No autenticado"}), 401
+    usuario_rndc = session.get("usuario_rndc_vinculado") or request.form.get("usuario_rndc", "").strip()
+    password_rndc = session.get("password_rndc_vinculado") or request.form.get("password_rndc", "").strip()
+    if not usuario_rndc or not password_rndc:
+        return jsonify({"ok": False, "error": "Faltan tu usuario y contraseña del RNDC."})
+    tipo = request.form.get("tipo", "inicial").strip()
+    motivo = request.form.get("motivo", "").strip()
+    parte = request.form.get("parte", "").strip()  # C, D o CD (ambas)
+    observaciones = request.form.get("observaciones", "").strip()
+    confirmacion = request.form.get("confirmacion", "").strip()
+    remesas = [r.strip().upper() for r in re.split(r"[,;\s]+", request.form.get("remesas", "")) if r.strip()]
+    if tipo not in rndc_core.TIPOS_ANULACION_CUMPLIDO:
+        return jsonify({"ok": False, "error": "Tipo de anulación no válido."})
+    if not remesas or not motivo:
+        return jsonify({"ok": False, "error": "Faltan el consecutivo de la remesa y/o el motivo."})
+    if confirmacion != "ANULAR":
+        return jsonify({"ok": False, "error": "Hay que escribir ANULAR para confirmar -- no se mandó nada."})
+    partes = [None]
+    if tipo == "inicial":
+        if parte not in ("C", "D", "CD"):
+            return jsonify({"ok": False, "error": "Elige si es el cumplido de Cargue, de Descargue o ambos."})
+        partes = list(parte)
+    nit_empresa = rndc_core.FIJOS_REMESA["NUMIDPROPIETARIO"]
+    mensajes, resultados = [], []
+    for remesa in remesas:
+        for una_parte in partes:
+            try:
+                rndc_core.anular_cumplido_remesa_api(
+                    usuario_rndc, password_rndc, nit_empresa, remesa, motivo, tipo=tipo,
+                    cargue_descargue=una_parte, observaciones=observaciones or None,
+                    log=mensajes.append,
+                )
+                resultados.append({"remesa": remesa, "parte": una_parte, "ok": True})
+            except Exception as e:
+                mensajes.append(f"❌ Remesa {remesa}" + (f" ({'Cargue' if una_parte == 'C' else 'Descargue'})" if una_parte else "") + f": {e}")
+                resultados.append({"remesa": remesa, "parte": una_parte, "ok": False, "error": str(e)})
+    return jsonify({"ok": all(r["ok"] for r in resultados), "resultados": resultados, "log": mensajes})
 
 
 @app.route("/reimprimir", methods=["GET"])
