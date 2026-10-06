@@ -1473,17 +1473,50 @@ def anular_cumplido_remesa_api(usuario, password, nit_empresa, consecutivo_remes
         raise ErrorRNDC(f"Motivo de anulación inválido: '{motivo}'. Debe ser uno de: "
                          f"{', '.join(f'{k} ({v})' for k, v in MOTIVOS_ANULACION_CUMPLIDO.items())}.")
     procesoid, nombre = TIPOS_ANULACION_CUMPLIDO[tipo]
-    variables = (
-        f"<NUMNITEMPRESATRANSPORTE>{nit_empresa}</NUMNITEMPRESATRANSPORTE>"
-        f"<CONSECUTIVOREMESA>{consecutivo_remesa}</CONSECUTIVOREMESA>"
-        + f"<MOTIVOANULACIONCUMPLIDO>{motivo}</MOTIVOANULACIONCUMPLIDO>"
-        + (f"<OBSERVACIONES>{observaciones}</OBSERVACIONES>" if observaciones else "")
-    )
-    respuesta = _llamar(usuario, password, tipo=1, procesoid=procesoid,
-                         variables_xml=variables, servidor="real_terceros")
-    _, error = _extraer_radicado_o_error(respuesta)
-    if error:
+    # El RNDC no publica el nombre exacto de la variable del motivo para
+    # estos procesos y ya rechazó "MOTIVOANULACIONCUMPLIDO" (Error 13: "no
+    # se encuentra en Diccionario de Datos"). Un Error 13 significa que el
+    # RNDC NO procesó nada, así que es seguro ir probando nombres
+    # candidatos hasta que uno sea aceptado. El que funcione queda en el log.
+    candidatos_motivo = [
+        "CODMOTIVOANULACIONCUMPLIDO",
+        "MOTIVOANULACIONCUMPLIDOREMESA",
+        "MOTIVOANULACIONCUMPLIDOINICIAL",
+        "CODMOTIVOANULACION",
+        "MOTIVOANULACION",
+        "NOMMOTIVOANULACIONCUMPLIDO",
+    ]
+    incluir_observaciones = bool(observaciones)
+    probados = []
+    for nombre_motivo in candidatos_motivo:
+        variables = (
+            f"<NUMNITEMPRESATRANSPORTE>{nit_empresa}</NUMNITEMPRESATRANSPORTE>"
+            f"<CONSECUTIVOREMESA>{consecutivo_remesa}</CONSECUTIVOREMESA>"
+            f"<{nombre_motivo}>{motivo}</{nombre_motivo}>"
+            + (f"<OBSERVACIONES>{observaciones}</OBSERVACIONES>" if incluir_observaciones else "")
+        )
+        respuesta = _llamar(usuario, password, tipo=1, procesoid=procesoid,
+                             variables_xml=variables, servidor="real_terceros")
+        _, error = _extraer_radicado_o_error(respuesta)
+        if not error:
+            if log:
+                log(f"✅ Anulado el {nombre} de la remesa {consecutivo_remesa}. "
+                    f"(variable de motivo aceptada por el RNDC: {nombre_motivo})")
+            return respuesta
+        probados.append(nombre_motivo)
+        texto = str(error)
+        if "no se encuentra en Diccionario" in texto:
+            if nombre_motivo in texto:
+                continue  # ese nombre no existe: probar el siguiente
+            if "OBSERVACIONES" in texto and incluir_observaciones:
+                incluir_observaciones = False  # el proceso no tiene observaciones
+                if log:
+                    log("ℹ️ El RNDC no acepta observaciones en este proceso; se reintenta sin ellas.")
+                # reintentar el mismo nombre de motivo sin observaciones
+                candidatos_motivo.insert(candidatos_motivo.index(nombre_motivo) + 1, nombre_motivo)
+                continue
         raise ErrorRNDC(error, respuesta)
-    if log:
-        log(f"✅ Anulado el {nombre} de la remesa {consecutivo_remesa}.")
-    return respuesta
+    raise ErrorRNDC(
+        "El RNDC no reconoció ninguno de los nombres probados para el motivo de anulación ("
+        + ", ".join(probados[:6]) + "). Se necesita el nombre exacto de la variable del proceso "
+        f"{procesoid}.")
