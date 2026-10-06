@@ -1387,18 +1387,13 @@ def _reimprimir_documento_una_vez(usuario, password, tipo_documento, radicado, n
 
 def reimprimir_documento_api(usuario, password, tipo_documento, radicado, nombre_archivo, log=None,
                                por="radicado"):
-    """Igual que antes, pero el navegador trabaja INVISIBLE (sin ventana). Si
-    así no se logra bajar el PDF, se reintenta una vez con la ventana
-    visible, como funcionaba antes."""
+    """El navegador trabaja INVISIBLE y se intenta UNA sola vez (sin reintento
+    con ventana visible: si falla, falla rápido)."""
     log = log or (lambda m: None)
     archivo = _reimprimir_documento_una_vez(usuario, password, tipo_documento, radicado,
                                              nombre_archivo, log, por, invisible=True)
     if not archivo and not _rndc_responde():
-        log("⚠️  El sitio del RNDC no está respondiendo ahora; no se reintenta. Prueba de nuevo en unos minutos.")
-    elif not archivo:
-        log("    No se logró en modo invisible; reintentando una vez con el navegador visible...")
-        archivo = _reimprimir_documento_una_vez(usuario, password, tipo_documento, radicado,
-                                                 nombre_archivo, log, por, invisible=False)
+        log("⚠️  El sitio del RNDC no está respondiendo ahora. Prueba de nuevo en unos minutos.")
     return archivo
 
 
@@ -1542,19 +1537,13 @@ def _reimprimir_viaje_una_vez(usuario, password, nit_empresa, consecutivo_manifi
 
 def reimprimir_viaje_api(usuario, password, nit_empresa, consecutivo_manifiesto,
                           remesas=None, placa=None, log=None):
-    """Primero con el navegador INVISIBLE; si no se baja ni un solo PDF,
-    se reintenta una vez con la ventana visible (como funcionaba antes).
-    La placa y las remesas averiguadas en el primer intento se reutilizan."""
+    """Navegador INVISIBLE y UN solo intento (sin reintento con ventana visible)."""
     log = log or (lambda m: None)
     r = _reimprimir_viaje_una_vez(usuario, password, nit_empresa, consecutivo_manifiesto,
                                    remesas, placa, log, invisible=True)
     if not r["archivos"] and not _rndc_responde():
-        log("⚠️  El sitio del RNDC no está respondiendo ahora; no se reintenta. Prueba de nuevo en unos minutos.")
+        log("⚠️  El sitio del RNDC no está respondiendo ahora. Prueba de nuevo en unos minutos.")
         r["faltantes"].append("El sitio del RNDC no está respondiendo ahora. Prueba de nuevo en unos minutos.")
-    elif not r["archivos"]:
-        log("    No se logró en modo invisible; reintentando una vez con el navegador visible...")
-        r = _reimprimir_viaje_una_vez(usuario, password, nit_empresa, consecutivo_manifiesto,
-                                       r["remesas"] or remesas, r["placa"] or placa, log, invisible=False)
     return r
 
 
@@ -1633,17 +1622,14 @@ def _descargar_pdfs_del_viaje_una_vez(usuario, password, v, tramos, radicado_man
 
 
 def descargar_pdfs_del_viaje(usuario, password, v, tramos, radicado_manifiesto, log):
-    """Baja los PDF del viaje recién creado con el navegador INVISIBLE; si no
-    se baja ninguno, reintenta una vez con la ventana visible."""
+    """Baja los PDF del viaje recién creado con el navegador INVISIBLE y UN
+    solo intento. Si falla, el viaje ya quedó creado: los PDF se piden luego
+    desde Herramientas → Reimprimir."""
     archivos = _descargar_pdfs_del_viaje_una_vez(usuario, password, v, tramos, radicado_manifiesto,
                                                   log, invisible=True)
-    if not archivos and not _rndc_responde():
-        log("⚠️  El sitio del RNDC no está respondiendo ahora; no se reintentan los PDF. "
-            "El viaje ya quedó creado: bájalos luego desde Herramientas → Reimprimir.")
-    elif not archivos:
-        log("    No se logró en modo invisible; reintentando una vez con el navegador visible...")
-        archivos = _descargar_pdfs_del_viaje_una_vez(usuario, password, v, tramos, radicado_manifiesto,
-                                                      log, invisible=False)
+    if not archivos:
+        log("⚠️  No se bajaron los PDF. El viaje ya quedó creado: puedes pedirlos luego desde "
+            "Herramientas → Reimprimir.")
     return archivos
 
 
