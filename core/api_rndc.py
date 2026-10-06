@@ -829,8 +829,8 @@ def verificar_antes_de_crear(v, tramos, usuario, password, nit_empresa, log):
     for placa, rol in placas:
         if vehiculo_existe(usuario, password, nit_empresa, placa) is False:
             if rol == "principal" and not (v.get("Tipo_Vehiculo_Nuevo") or "").strip():
-                avisos.append(f"La placa {placa} ({rol}) no está registrada en el RNDC. "
-                               f"Regístrala primero en el RNDC (esta app ya no la crea desde el formulario).")
+                avisos.append(f"La placa {placa} ({rol}) no está registrada, y falta elegir su "
+                               f"\"Tipo de vehículo\" en el formulario para registrarla sola.")
             else:
                 log(f"    (la placa {placa} [{rol}] no existe todavía, pero se puede registrar "
                     f"sola cuando haga falta)")
@@ -1097,8 +1097,10 @@ def ejecutar_viaje_api(v, usuario, password, log):
                             tipo_veh = (v.get("Tipo_Vehiculo_Nuevo") or "").strip()
                             peso_vacio = PESO_VACIO_POR_TIPO.get(tipo_veh)
                             if not peso_vacio:
-                                log(f"❌ La placa {placa_nueva} no está registrada en el RNDC. "
-                                    f"Regístrala primero en el RNDC (esta app ya no la crea desde el formulario).")
+                                log(f"❌ La placa {placa_nueva} no está registrada en el RNDC. Para "
+                                    f"registrarla automáticamente elige el \"Tipo de vehículo\" en el "
+                                    f"bloque \"¿La placa es nueva en el RNDC?\" del formulario (define "
+                                    f"el peso vacío).")
                                 raise
                             configuracion = CONFIGURACION_POR_TIPO.get(tipo_veh)
                             modelo = (v.get("Modelo_Vehiculo_Nuevo") or "").strip() or None

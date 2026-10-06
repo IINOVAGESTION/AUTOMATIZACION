@@ -115,6 +115,22 @@
   .nit-desplegable .contenido-nit {
     margin-top: 0.5rem; padding: 0.5rem 0.6rem; background: #211f1d; border-radius: 6px; border: 1px solid #2a2a2a;
   }
+  .bloque-nuevo {
+    margin-top: 0.7rem; background: #2a2412; border: 1px solid #6b5416; border-radius: 10px;
+    font-size: 0.85rem;
+  }
+  .bloque-nuevo summary {
+    cursor: pointer; list-style: none; user-select: none; color: #f0b44c; font-weight: 600;
+    padding: 0.65rem 0.9rem; font-size: 0.82rem; line-height: 1.35;
+  }
+  .bloque-nuevo summary::-webkit-details-marker { display: none; }
+  .bloque-nuevo summary::before { content: "▸ "; }
+  .bloque-nuevo[open] summary::before { content: "▾ "; }
+  .bloque-nuevo[open] summary { border-bottom: 1px solid #4a3a10; }
+  .bloque-nuevo summary:hover { color: #ffcc66; }
+  .bloque-nuevo .contenido-nuevo { padding: 0.2rem 0.9rem 0.9rem; }
+  .bloque-nuevo label { color: #c9c0a8; font-size: 0.75rem; margin-top: 0.7rem; }
+  .bloque-nuevo input, .bloque-nuevo select { background: #171614; }
   .barra-acciones {
     position: sticky; bottom: 0.75rem; z-index: 30; margin-top: 1.25rem;
     display: flex; align-items: center; gap: 1.75rem; flex-wrap: wrap;
@@ -365,6 +381,43 @@
       <div><label>Placa Remolque (solo tractocamión)<span class="ayuda-icono" data-tip="Si el vehículo es un tractocamión (lleva remolque), escribe aquí su placa. Esto también hace que se calcule automáticamente un pago adicional llamado FOPAT.">i</span></label><input type="text" name="Placa_Remolque" value="{{ v.get('Placa_Remolque', '') }}" tabindex="3"></div>
     </div>
     <span id="aviso_conductor_sugerido" style="display:none; align-items:center; gap:8px; background:rgba(255,106,0,0.14); border:1px solid #ff6a00; border-radius:6px; padding:6px 10px; margin-bottom:0.75rem; font-size:0.82rem; color:#ff6a00;"></span>
+    <details class="bloque-nuevo" id="bloque_placa_nueva">
+      <summary>⚠️ ¿La placa es nueva en el RNDC? Complétala aquí (solo si el RNDC dice que no existe)</summary>
+      <div class="contenido-nuevo">
+        <div class="fila">
+          <div>
+            <label>Tipo de vehículo (define el peso vacío)</label>
+            <select name="Tipo_Vehiculo_Nuevo">
+              <option value="">— Elegir —</option>
+              <option value="camioneta" {{ 'selected' if v.get('Tipo_Vehiculo_Nuevo') == 'camioneta' else '' }}>Camioneta (1.500 kg)</option>
+              <option value="camion" {{ 'selected' if v.get('Tipo_Vehiculo_Nuevo') == 'camion' else '' }}>Camión rígido de 2 ejes (2.000 kg)</option>
+              <option value="tractocamion" {{ 'selected' if v.get('Tipo_Vehiculo_Nuevo') == 'tractocamion' else '' }}>Tractocamión de 3 ejes (5.000 kg)</option>
+            </select>
+          </div>
+        </div>
+        <div class="fila">
+          <div>
+            <label>Modelo/año (opcional -- solo si el RNDC lo pide, ej. VEH060)</label>
+            <input type="text" name="Modelo_Vehiculo_Nuevo" value="{{ v.get('Modelo_Vehiculo_Nuevo', '') }}" placeholder="ej. 2006" maxlength="4">
+          </div>
+          <div>
+            <label>Combustible (opcional -- solo si el RNDC lo pide, ej. VEH200)</label>
+            <select name="Combustible_Vehiculo_Nuevo">
+              <option value="">— No especificar —</option>
+              <option value="1" {{ 'selected' if v.get('Combustible_Vehiculo_Nuevo') == '1' else '' }}>Gasolina</option>
+              <option value="2" {{ 'selected' if v.get('Combustible_Vehiculo_Nuevo') == '2' else '' }}>Gas</option>
+              <option value="3" {{ 'selected' if v.get('Combustible_Vehiculo_Nuevo') == '3' else '' }}>Diesel o ACPM</option>
+              <option value="4" {{ 'selected' if v.get('Combustible_Vehiculo_Nuevo') == '4' else '' }}>Gas/Gasolina</option>
+              <option value="5" {{ 'selected' if v.get('Combustible_Vehiculo_Nuevo') == '5' else '' }}>Eléctrico</option>
+              <option value="6" {{ 'selected' if v.get('Combustible_Vehiculo_Nuevo') == '6' else '' }}>Hidrógeno</option>
+              <option value="10" {{ 'selected' if v.get('Combustible_Vehiculo_Nuevo') == '10' else '' }}>Gasolina/Eléctrico</option>
+              <option value="11" {{ 'selected' if v.get('Combustible_Vehiculo_Nuevo') == '11' else '' }}>Diesel/Eléctrico</option>
+            </select>
+          </div>
+        </div>
+        <small style="opacity:0.75;">Si además el remolque es nuevo, se registra como semirremolque de 3 ejes (5.000 kg).</small>
+      </div>
+    </details>
     <div id="fila_titular_conductor" class="pila-personas">
       <div id="campo_titular">
         <label>Titular del manifiesto (Cédula/NIT) <span class="asterisco" title="Obligatorio">*</span></label>
