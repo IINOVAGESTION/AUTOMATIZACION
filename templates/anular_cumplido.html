@@ -64,19 +64,10 @@
       {% endif %}
 
       <label>¿Qué cumplido quieres anular?</label>
-      <select id="tipo" onchange="cambiarTipo()">
+      <select id="tipo">
         <option value="inicial">Cumplido inicial de remesa (el más común)</option>
         <option value="remesa">Cumplido de remesa (el final)</option>
       </select>
-
-      <div id="bloque_parte">
-        <label>¿De cuál parte?</label>
-        <div class="fila-opcion">
-          <label><input type="radio" name="parte" value="CD" checked> Cargue y Descargue</label>
-          <label><input type="radio" name="parte" value="C"> Solo Cargue</label>
-          <label><input type="radio" name="parte" value="D"> Solo Descargue</label>
-        </div>
-      </div>
 
       <label>Consecutivo(s) de la remesa (uno o varios, separados por coma o en líneas distintas)</label>
       <textarea id="remesas" rows="3" placeholder="ej. AF49232A, AF49232B"></textarea>
@@ -102,11 +93,6 @@
   </div>
 
 <script>
-function cambiarTipo() {
-    document.getElementById('bloque_parte').style.display =
-        document.getElementById('tipo').value === 'inicial' ? '' : 'none';
-}
-
 async function anular() {
     var boton = document.getElementById('btn_anular');
     var resultado = document.getElementById('resultado');
@@ -114,7 +100,6 @@ async function anular() {
     var remesas = document.getElementById('remesas').value.trim();
     var motivo = document.getElementById('motivo').value;
     var confirmacion = document.getElementById('confirmacion').value.trim();
-    var parte = document.querySelector('input[name=parte]:checked').value;
 
     if (!remesas || !motivo) {
         alert('Escribe al menos una remesa y elige un motivo.');
@@ -130,7 +115,6 @@ async function anular() {
 
     var datos = new FormData();
     datos.append('tipo', tipo);
-    datos.append('parte', parte);
     datos.append('remesas', remesas);
     datos.append('motivo', motivo);
     datos.append('observaciones', document.getElementById('observaciones').value.trim());
@@ -162,7 +146,6 @@ async function anular() {
         boton.disabled = false;
     }
 }
-cambiarTipo();
 </script>
 </body>
 </html>

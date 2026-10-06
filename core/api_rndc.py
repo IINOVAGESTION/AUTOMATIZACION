@@ -1459,26 +1459,23 @@ def anular_cumplido_remesa_api(usuario, password, nit_empresa, consecutivo_remes
                                 tipo="inicial", cargue_descargue=None,
                                 observaciones=None, log=None):
     """Anula el cumplido de UNA remesa. tipo="inicial" -> proceso 54 (Anular
-    Cumplido Inicial de Remesa; ahí hay que decir si es el de Cargue "C" o
-    el de Descargue "D"); tipo="remesa" -> proceso 28 (Anular Cumplido de
+    Cumplido Inicial de Remesa); tipo="remesa" -> proceso 28 (Anular Cumplido de
     Remesa). Va por el servidor general (rndcws), no por WS2. Devuelve la
     respuesta cruda; lanza ErrorRNDC si el RNDC la rechaza.
 
     OJO: los nombres de las variables se dedujeron de las pantallas del
-    RNDC (Anular_Cumplido_Inicial_Remesa.html / Anular_Cumplido_Remesa.html);
-    CARGUEDESCARGUE es el único que no se pudo confirmar al 100%."""
+    RNDC. CARGUEDESCARGUE NO existe en el diccionario del proceso 54 (el
+    RNDC respondió Error 13), por eso el parámetro cargue_descargue ya no
+    se manda; se deja solo por compatibilidad."""
     if tipo not in TIPOS_ANULACION_CUMPLIDO:
         raise ErrorRNDC(f"Tipo de anulación inválido: '{tipo}'.")
     if motivo not in MOTIVOS_ANULACION_CUMPLIDO:
         raise ErrorRNDC(f"Motivo de anulación inválido: '{motivo}'. Debe ser uno de: "
                          f"{', '.join(f'{k} ({v})' for k, v in MOTIVOS_ANULACION_CUMPLIDO.items())}.")
     procesoid, nombre = TIPOS_ANULACION_CUMPLIDO[tipo]
-    if tipo == "inicial" and cargue_descargue not in ("C", "D"):
-        raise ErrorRNDC("Para el cumplido inicial hay que indicar si es el de Cargue (C) o el de Descargue (D).")
     variables = (
         f"<NUMNITEMPRESATRANSPORTE>{nit_empresa}</NUMNITEMPRESATRANSPORTE>"
         f"<CONSECUTIVOREMESA>{consecutivo_remesa}</CONSECUTIVOREMESA>"
-        + (f"<CARGUEDESCARGUE>{cargue_descargue}</CARGUEDESCARGUE>" if tipo == "inicial" else "")
         + f"<MOTIVOANULACIONCUMPLIDO>{motivo}</MOTIVOANULACIONCUMPLIDO>"
         + (f"<OBSERVACIONES>{observaciones}</OBSERVACIONES>" if observaciones else "")
     )
@@ -1488,8 +1485,5 @@ def anular_cumplido_remesa_api(usuario, password, nit_empresa, consecutivo_remes
     if error:
         raise ErrorRNDC(error, respuesta)
     if log:
-        extra = ""
-        if tipo == "inicial":
-            extra = " de " + ("Cargue" if cargue_descargue == "C" else "Descargue")
-        log(f"✅ Anulado el {nombre}{extra} de la remesa {consecutivo_remesa}.")
+        log(f"✅ Anulado el {nombre} de la remesa {consecutivo_remesa}.")
     return respuesta
