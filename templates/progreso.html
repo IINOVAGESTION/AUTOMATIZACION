@@ -19,68 +19,180 @@
   }
   .punto { width: 8px; height: 8px; border-radius: 50%; background: #3fb950; }
   .estado.corriendo .punto, .estado.pendiente .punto { background: #ff6a00; animation: parpadeo 1.2s infinite; }
+  .estado.error .punto { background: #ff6b6b; }
   @keyframes parpadeo { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
-  .contenedor { max-width: 100%; margin: 1.5rem auto; padding: 0 2rem; }
+  .contenedor { max-width: 980px; margin: 1.5rem auto; padding: 0 2rem; }
   .aviso {
     background: #242220; border: 1px solid #333; border-radius: 8px; padding: 0.8rem 1rem;
     margin-bottom: 1rem; font-size: 0.88rem; color: #ff6a00;
   }
-  #log {
-    white-space: pre-wrap; word-break: break-word; font-family: 'Consolas', 'Courier New', monospace; font-size: 0.86rem;
-    background: #171614; padding: 1.25rem 1.5rem; border-radius: 10px; height: 60vh; overflow-y: auto; overflow-x: hidden;
-    border: 1px solid #262626; line-height: 1.6;
+
+  /* ---- tarjeta principal ---- */
+  .tarjeta {
+    background: #232220; border: 1px solid #333; border-radius: 14px; padding: 1.5rem;
+    display: flex; flex-direction: column; gap: 1.25rem;
   }
-  .pasos { display: flex; align-items: center; margin-bottom: 1.25rem; }
-  .paso { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 1; }
+  .tarjeta.ok { border-color: #2c4a33; }
+  .tarjeta.error { border-color: #5a2a2a; }
+  .encabezado { display: flex; align-items: center; gap: 0.9rem; }
+  .icono {
+    width: 48px; height: 48px; flex: none; border-radius: 50%; display: flex;
+    align-items: center; justify-content: center; font-size: 1.4rem; font-weight: 700;
+    background: #4a3a10; color: #ff6a00;
+  }
+  .tarjeta.ok .icono { background: #16301c; color: #3fb950; }
+  .tarjeta.error .icono { background: #3a1a1a; color: #ff6b6b; }
+  .tarjeta.corriendo .icono { animation: parpadeo 1.4s infinite; }
+  .titulo-resultado { font-size: 1.25rem; font-weight: 700; color: #e6e6e6; }
+  .subtitulo-resultado { font-size: 0.84rem; color: #918c80; margin-top: 2px; }
+
+  /* ---- pasos ---- */
+  .pasos { display: flex; align-items: center; }
+  .paso { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: none; }
   .paso-circulo {
-    width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center;
-    justify-content: center; font-size: 0.9rem; font-weight: 700; border: 2px solid #333;
-    background: #1e1c1a; color: #666; transition: all 0.3s;
+    width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center;
+    justify-content: center; font-size: 0.85rem; font-weight: 700; border: 2px solid #4a4640;
+    background: transparent; color: #918c80; transition: all 0.3s;
   }
-  .paso-nombre { font-size: 0.78rem; color: #777; transition: color 0.3s; }
-  .paso-linea { height: 2px; background: #333; flex: 1; margin-bottom: 24px; transition: background 0.3s; }
-  .paso.completado .paso-circulo { background: #173821; border-color: #3fb950; color: #3fb950; }
+  .paso-nombre { font-size: 0.78rem; color: #918c80; transition: color 0.3s; }
+  .paso-linea { height: 2px; background: #3a3733; flex: 1; margin: 0 6px 22px; transition: background 0.3s; }
+  .paso.completado .paso-circulo { border-color: #3fb950; color: #3fb950; }
   .paso.completado .paso-nombre { color: #3fb950; }
   .paso.completado + .paso-linea { background: #3fb950; }
   .paso.actual .paso-circulo { background: #4a3a10; border-color: #ff6a00; color: #ff6a00; animation: parpadeo 1.2s infinite; }
   .paso.actual .paso-nombre { color: #ff6a00; font-weight: 700; }
+  .paso.fallo .paso-circulo { border-color: #ff6b6b; color: #ff6b6b; }
+  .paso.fallo .paso-nombre { color: #ff6b6b; font-weight: 700; }
+  .paso.completado.antes-del-fallo + .paso-linea { background: #3fb950; }
+  .paso.antes-del-fallo + .paso-linea { background: #3fb950; }
+  .paso.fallo + .paso-linea { background: #3a3733; }
+  .paso-linea.hacia-fallo { background: #ff6b6b !important; }
+
+  /* ---- resultado ---- */
+  .bloque { display: flex; flex-direction: column; gap: 0.6rem; }
+  .bloque-titulo { font-size: 0.82rem; font-weight: 600; color: #c9d1d9; }
+  .fila-radicado {
+    display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
+    background: #171614; border: 1px solid #333; border-radius: 10px; padding: 0.7rem 1rem;
+  }
+  .fila-radicado .tipo { font-size: 0.75rem; color: #918c80; display: block; }
+  .fila-radicado .numero { font-size: 1.1rem; font-weight: 700; letter-spacing: 0.02em; color: #e6e6e6; }
+  .fila-radicado .texto { flex: 1 1 160px; }
+  .boton {
+    background: transparent; color: #e6e6e6; border: 1px solid #3a3733; border-radius: 8px;
+    padding: 0.55rem 1rem; font-size: 0.84rem; font-weight: 600; cursor: pointer;
+    font-family: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 0.4rem;
+    min-height: 40px;
+  }
+  .boton:hover { background: #29271f; border-color: #4a463f; }
+  .boton.primario { background: #ff6a00; color: #1c1b19; border-color: #ff6a00; font-weight: 700; min-height: 46px; padding: 0.6rem 1.4rem; }
+  .boton.primario:hover { background: #ff8534; }
+  .boton:disabled { opacity: 0.6; cursor: default; }
+  .acciones { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+  .caja-error {
+    background: #2a1717; border: 1px solid #5a2a2a; border-radius: 10px; padding: 0.9rem 1rem;
+    display: flex; flex-direction: column; gap: 0.35rem;
+  }
+  .caja-error .motivo { font-size: 0.98rem; font-weight: 700; color: #ff8a8a; word-break: break-word; }
+  .caja-error .nota { font-size: 0.88rem; color: #d8c8c8; line-height: 1.5; }
+  .lista { margin: 0; padding-left: 1.3rem; display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.9rem; color: #c9d1d9; line-height: 1.5; }
+  .pdf-fila { display: flex; align-items: center; gap: 4px; }
+
+  /* ---- log ---- */
+  details.detalle { background: #171614; border: 1px solid #333; border-radius: 10px; padding: 0 1rem; }
+  details.detalle > summary {
+    min-height: 46px; display: flex; align-items: center; font-size: 0.88rem; font-weight: 600;
+    color: #c9d1d9; cursor: pointer; list-style: none; user-select: none;
+  }
+  details.detalle > summary::-webkit-details-marker { display: none; }
+  details.detalle > summary::before { content: "▸ "; margin-right: 0.4rem; color: #918c80; }
+  details.detalle[open] > summary::before { content: "▾ "; }
+  .barra-log { display: flex; justify-content: flex-end; margin-bottom: 0.5rem; }
+  #log {
+    white-space: pre-wrap; word-break: break-word; font-family: 'Consolas', 'Courier New', monospace; font-size: 0.86rem;
+    background: #171614; padding: 0.5rem 0 1rem; height: 50vh; overflow-y: auto; overflow-x: hidden;
+    line-height: 1.6;
+  }
+  .oculto { display: none !important; }
 </style>
 </head>
 <body>
 {% set bs_pagina = 'progreso' %}{% set bs_subtitulo = 'Progreso del viaje' %}{% include '_barra_superior.html' %}
 
   <div class="contenedor">
-    <div class="aviso">💡 No hace falta esperar a que termine — puedes darle clic a "Nuevo viaje" ya mismo para meter el siguiente, aunque este siga corriendo.</div>
+    <div class="aviso" id="aviso_no_esperar">💡 No hace falta esperar a que termine — puedes darle clic a "Nuevo viaje" ya mismo para meter el siguiente, aunque este siga corriendo.</div>
 
-    <div class="pasos" id="pasos">
-      <div class="paso" id="paso-login"><div class="paso-circulo">1</div><span class="paso-nombre">Login</span></div>
-      <div class="paso-linea"></div>
-      <div class="paso" id="paso-remesa"><div class="paso-circulo">2</div><span class="paso-nombre">Remesa</span></div>
-      <div class="paso-linea"></div>
-      <div class="paso" id="paso-manifiesto"><div class="paso-circulo">3</div><span class="paso-nombre">Manifiesto</span></div>
-      <div class="paso-linea"></div>
-      <div class="paso" id="paso-pdf"><div class="paso-circulo">4</div><span class="paso-nombre">PDF</span></div>
-    </div>
+    <div class="tarjeta corriendo" id="tarjeta">
 
-    <div id="botones_pdf" style="display:none; margin-bottom: 1rem;"></div>
-    <div id="visor_pdf" style="display:none; margin-bottom: 1.25rem;">
-      <iframe id="iframe_pdf" style="width:100%; height:65vh; border:1px solid #262626; border-radius:10px; background:#fff;"></iframe>
-    </div>
+      <div class="encabezado">
+        <div class="icono" id="icono_resultado" aria-hidden="true">⏳</div>
+        <div>
+          <div class="titulo-resultado" id="titulo_resultado">{{ mensaje_inicial }}</div>
+          <div class="subtitulo-resultado" id="subtitulo_resultado"></div>
+        </div>
+      </div>
 
-    <div style="display:flex; justify-content:flex-end; margin-bottom:0.4rem;">
-      <button id="btn_copiar_log" type="button" onclick="copiarLogCompleto()"
-        style="background:#242220; border:1px solid #3a3733; color:#c9d1d9; border-radius:6px; padding:0.35rem 0.8rem; font-size:0.8rem; font-weight:600; cursor:pointer;"
-        title="Copia el log completo, con la versión de la app y los datos del viaje (sin contraseñas), para pegarlo donde haga falta">📋 Copiar log completo</button>
+      <div class="pasos" id="pasos" aria-label="Pasos del viaje">
+        <div class="paso" id="paso-login"><div class="paso-circulo">1</div><span class="paso-nombre">Verificación</span></div>
+        <div class="paso-linea"></div>
+        <div class="paso" id="paso-remesa"><div class="paso-circulo">2</div><span class="paso-nombre">Remesa</span></div>
+        <div class="paso-linea"></div>
+        <div class="paso" id="paso-manifiesto"><div class="paso-circulo">3</div><span class="paso-nombre">Manifiesto</span></div>
+        <div class="paso-linea"></div>
+        <div class="paso" id="paso-pdf"><div class="paso-circulo">4</div><span class="paso-nombre">PDF</span></div>
+      </div>
+
+      <div class="bloque oculto" id="bloque_error"></div>
+
+      <div class="bloque oculto" id="bloque_radicados"></div>
+
+      <div class="bloque oculto" id="bloque_pdf">
+        <div class="bloque-titulo">Documentos</div>
+        <div id="botones_pdf"></div>
+        <div id="visor_pdf" class="oculto">
+          <iframe id="iframe_pdf" style="width:100%; height:65vh; border:1px solid #262626; border-radius:10px; background:#fff;"></iframe>
+        </div>
+      </div>
+
+      <div class="bloque oculto" id="bloque_ajustes"></div>
+
+      <div class="bloque oculto" id="bloque_que_hacer"></div>
+
+      <div class="acciones oculto" id="acciones_resultado"></div>
+
+      <details class="detalle" id="detalle_log" open>
+        <summary id="resumen_log">Registro en vivo</summary>
+        <div class="barra-log">
+          <button id="btn_copiar_log" type="button" class="boton" onclick="copiarLogCompleto()"
+            title="Copia el log completo, con la versión de la app y los datos del viaje (sin contraseñas), para pegarlo donde haga falta">📋 Copiar log completo</button>
+        </div>
+        <div id="log">Iniciando...</div>
+      </details>
+
     </div>
-    <div id="log">Iniciando...</div>
   </div>
 
 <script>
 var idTrabajo = {{ id_trabajo }};
+var URL_REINTENTAR = '{{ url_for("reintentar_trabajo", id_trabajo=999999) }}'.replace('999999', idTrabajo);
+var URL_NUEVO_VIAJE = '{{ url_for("formulario") }}';
+var URL_FILA = '{{ url_for("ver_cola") }}';
 
-function actualizarPasos(lineasLog) {
+var PASOS = ['login', 'remesa', 'manifiesto', 'pdf'];
+
+// ---------- utilidades de pantalla (todo texto va por textContent) ----------
+function el(etiqueta, clase, texto) {
+    var e = document.createElement(etiqueta);
+    if (clase) e.className = clase;
+    if (texto !== undefined && texto !== null) e.textContent = texto;
+    return e;
+}
+function vaciar(nodo) { while (nodo.firstChild) nodo.removeChild(nodo.firstChild); }
+function mostrar(id, si) { document.getElementById(id).classList.toggle('oculto', !si); }
+
+function paso_alcanzado(lineasLog) {
+    // Último paso del viaje que el registro menciona (0..3), o -1.
     var texto = lineasLog.join("\n");
-    var pasos = ['login', 'remesa', 'manifiesto', 'pdf'];
     // Cada paso reconoce frases del camino por navegador (Selenium) y del
     // Web Service (API) -- son distintos, pero llegan al mismo paso.
     var marcadores = {
@@ -91,98 +203,149 @@ function actualizarPasos(lineasLog) {
         pdf: ["Descargando el PDF", "guardado correctamente", "RESUMEN",
               "Abriendo el navegador solo para descargar"]
     };
-    var alcanzado = {login: false, remesa: false, manifiesto: false, pdf: false};
-    for (var i = 0; i < pasos.length; i++) {
-        var p = pasos[i];
-        alcanzado[p] = marcadores[p].some(function(m) { return texto.indexOf(m) !== -1; });
+    var ultimo = -1;
+    for (var i = 0; i < PASOS.length; i++) {
+        if (marcadores[PASOS[i]].some(function (m) { return texto.indexOf(m) !== -1; })) ultimo = i;
     }
-    // Si se alcanzó un paso más adelante, los anteriores también cuentan como completados.
-    var ultimoAlcanzado = -1;
-    for (var i = 0; i < pasos.length; i++) {
-        if (alcanzado[pasos[i]]) ultimoAlcanzado = i;
-    }
-    for (var i = 0; i < pasos.length; i++) {
-        var el = document.getElementById('paso-' + pasos[i]);
-        el.classList.remove('completado', 'actual');
-        if (i < ultimoAlcanzado) {
-            el.classList.add('completado');
-        } else if (i === ultimoAlcanzado) {
-            el.classList.add(texto.indexOf('=== TERMINADO ===') !== -1 || texto.indexOf('RESUMEN') !== -1 ? 'completado' : 'actual');
+    return ultimo;
+}
+
+// resultado: null (sigue corriendo), true (salió bien) o false (falló)
+function actualizarPasos(lineasLog, resultado) {
+    var ultimo = paso_alcanzado(lineasLog);
+    var lineas = document.querySelectorAll('#pasos .paso-linea');
+    for (var i = 0; i < PASOS.length; i++) {
+        var nodo = document.getElementById('paso-' + PASOS[i]);
+        nodo.classList.remove('completado', 'actual', 'fallo');
+        var circulo = nodo.querySelector('.paso-circulo');
+        circulo.textContent = String(i + 1);
+        if (resultado === true) {
+            nodo.classList.add('completado');
+            circulo.textContent = '✓';
+        } else if (resultado === false) {
+            var falla = ultimo < 0 ? 0 : ultimo;
+            if (i < falla) { nodo.classList.add('completado'); circulo.textContent = '✓'; }
+            else if (i === falla) { nodo.classList.add('fallo'); circulo.textContent = '✕'; }
+        } else {
+            if (i < ultimo) { nodo.classList.add('completado'); circulo.textContent = '✓'; }
+            else if (i === ultimo) { nodo.classList.add('actual'); }
         }
     }
+    for (var j = 0; j < lineas.length; j++) lineas[j].classList.remove('hacia-fallo');
+    if (resultado === false) {
+        var f = ultimo < 0 ? 0 : ultimo;
+        if (f > 0) lineas[f - 1].classList.add('hacia-fallo');
+    }
 }
 
+// ---------- lo que se sabe del viaje a partir del registro ----------
+function ajustesDelLog(lineas) {
+    var encontrados = [], dentro = false;
+    for (var i = 0; i < lineas.length; i++) {
+        var l = lineas[i];
+        if (l.indexOf('Se ajustó solo, por detrás') !== -1) { dentro = true; continue; }
+        if (dentro) {
+            var m = l.match(/^\s*│\s+•\s*(.+)$/);
+            if (m) encontrados.push(m[1].trim()); else break;
+        }
+    }
+    return encontrados;
+}
+function radicadosDelLog(lineas) {
+    var salida = [], vistos = {};
+    lineas.forEach(function (l) {
+        var m = l.match(/Radicado (?:de la |de el |del |de )?(remesa|manifiesto)([^:\n]*):\s*(\d+)/i);
+        if (m && !vistos[m[3]]) {
+            vistos[m[3]] = true;
+            salida.push({tipo: m[1].toLowerCase() === 'remesa' ? 'Remesa' : 'Manifiesto',
+                         etiqueta: (m[2] || '').trim(), numero: m[3]});
+        }
+    });
+    return salida;
+}
+function ultimoMotivoDelLog(lineas) {
+    for (var i = lineas.length - 1; i >= 0; i--) {
+        if (lineas[i].indexOf('❌') !== -1 || lineas[i].indexOf('🛑') !== -1) {
+            return lineas[i].replace(/^[\s❌🛑]+/, '').trim();
+        }
+    }
+    return '';
+}
+function tituloDeFallo(lineas, esCola) {
+    if (esCola) return 'Algunos viajes de la lista no se pudieron crear';
+    var p = paso_alcanzado(lineas);
+    if (p === 2) return 'No se pudo crear el manifiesto';
+    if (p === 1) return 'No se pudo crear la remesa';
+    if (p === 3) return 'El viaje se creó, pero falló el PDF';
+    if (p === 0) return 'No pasó la verificación de los datos';
+    return 'El viaje no se pudo completar';
+}
+function esRespuestaRara(motivo, lineas) {
+    var m = (motivo || '').toUpperCase();
+    return lineas.join('\n').indexOf('NO se va a reintentar, para no arriesgarse a un duplicado') !== -1 ||
+        m.indexOf('EXPIDIENDO') !== -1 || m.indexOf('PROCESANDO') !== -1;
+}
+function consejosParaError(motivo, lineas) {
+    var m = (motivo || '').toUpperCase();
+    var todo = lineas.join('\n');
+    var pasos = [];
+    if (esRespuestaRara(motivo, lineas)) {
+        pasos.push('No lo reintentes todavía: puede que el manifiesto SÍ haya quedado creado. Búscalo en el RNDC (Consultas) con el consecutivo antes de hacer cualquier otra cosa.');
+        return pasos;
+    }
+    if (m.indexOf('LICENCIA') !== -1 || m.indexOf('VENCID') !== -1) {
+        pasos.push('Confirma con el conductor que su licencia de conducción esté vigente (el RNDC la toma del RUNT).');
+    } else if (m.indexOf('NO EXISTE') !== -1 || m.indexOf('NO ESTÁ CREAD') !== -1 || m.indexOf('NO ESTA CREAD') !== -1) {
+        pasos.push('Algo del viaje (tercero o placa) no existe en el RNDC. En el formulario usa el botón Verificar para saber cuál, y completa sus datos en el aviso ámbar.');
+    } else if (m.indexOf('CONSECUTIVO') !== -1 || m.indexOf('YA EXISTE') !== -1 || m.indexOf('DUPLICAD') !== -1) {
+        pasos.push('Parece que ese consecutivo ya fue usado. Revisa cuál sigue libre y cámbialo en el formulario.');
+    } else {
+        pasos.push('Lee el motivo de arriba y corrige el dato que corresponda en el formulario.');
+    }
+    pasos.push('Usa «Corregir y reintentar»: vuelve al formulario con todos los datos ya puestos.');
+    pasos.push('Si no se entiende el motivo, usa «Copiar log completo» y envíalo para revisarlo.');
+    return pasos;
+}
+
+// ---------- PDF ----------
 function mostrarPDF(nombre) {
     document.getElementById('iframe_pdf').src = "{{ url_for('ver_pdf') }}?archivo=" + encodeURIComponent(nombre);
-    document.getElementById('visor_pdf').style.display = 'block';
+    document.getElementById('visor_pdf').classList.remove('oculto');
     document.getElementById('visor_pdf').scrollIntoView({behavior: 'smooth'});
 }
-
 function mostrarBotonesPDF(archivos) {
     var cont = document.getElementById('botones_pdf');
-    if (!archivos || !archivos.length) return;
-    cont.innerHTML = '';
-    var contenedor = document.createElement('div');
-    contenedor.style.display = 'flex';
-    contenedor.style.gap = '8px';
-    contenedor.style.flexWrap = 'wrap';
+    if (!archivos || !archivos.length) { mostrar('bloque_pdf', false); return; }
+    vaciar(cont);
+    var contenedor = el('div');
+    contenedor.style.cssText = 'display:flex; gap:8px; flex-wrap:wrap;';
     archivos.forEach(function (nombre) {
-        var fila = document.createElement('div');
-        fila.style.display = 'flex';
-        fila.style.alignItems = 'center';
-        fila.style.gap = '4px';
-
-        var boton = document.createElement('button');
+        var fila = el('div', 'pdf-fila');
+        var boton = el('button', 'boton', '👁 Ver ' + nombre);
         boton.type = 'button';
-        boton.textContent = '👁 Ver ' + nombre;
-        boton.style.background = '#242220';
-        boton.style.color = '#ff6a00';
-        boton.style.border = '1px solid #ff6a00';
-        boton.style.padding = '0.5rem 1rem';
-        boton.style.borderRadius = '7px';
-        boton.style.cursor = 'pointer';
-        boton.style.fontSize = '0.85rem';
-        boton.style.fontWeight = '600';
+        boton.style.color = '#ff6a00'; boton.style.borderColor = '#ff6a00';
         boton.addEventListener('click', function () { mostrarPDF(nombre); });
 
-        var abrirCarpeta = document.createElement('button');
+        var abrirCarpeta = el('button', 'boton', '📂 Ver en carpeta');
         abrirCarpeta.type = 'button';
-        abrirCarpeta.textContent = '📂 Ver en carpeta';
         abrirCarpeta.title = 'Abre el Explorador de Windows con este archivo ya seleccionado, listo para arrastrarlo a donde quieras';
-        abrirCarpeta.style.background = '#241d08';
-        abrirCarpeta.style.color = '#ff6a00';
-        abrirCarpeta.style.border = '1px solid #ff6a00';
-        abrirCarpeta.style.padding = '0.5rem 0.8rem';
-        abrirCarpeta.style.borderRadius = '7px';
-        abrirCarpeta.style.cursor = 'pointer';
-        abrirCarpeta.style.fontSize = '0.8rem';
-        abrirCarpeta.style.fontWeight = '600';
         abrirCarpeta.addEventListener('click', function () {
             var datos = new FormData();
             datos.append('archivo', nombre);
             fetch("{{ url_for('abrir_carpeta') }}", { method: 'POST', body: datos })
                 .then(function (r) { return r.json(); })
-                .then(function (r) {
-                    if (!r.ok) alert('⚠️ ' + (r.error || 'No se pudo abrir la carpeta.'));
-                })
+                .then(function (r) { if (!r.ok) alert('⚠️ ' + (r.error || 'No se pudo abrir la carpeta.')); })
                 .catch(function () { alert('⚠️ Error de conexión al abrir la carpeta.'); });
         });
-
         fila.appendChild(boton);
         fila.appendChild(abrirCarpeta);
         contenedor.appendChild(fila);
     });
     cont.appendChild(contenedor);
-    cont.style.display = 'block';
+    mostrar('bloque_pdf', true);
 }
 
-function escaparHtml(texto) {
-    var div = document.createElement('div');
-    div.textContent = texto;
-    return div.innerHTML;
-}
-
-// >>> copiar log completo
+// ---------- copiar ----------
 function copiarConTextarea(texto) {
     // Respaldo para cuando el portapapeles moderno está bloqueado.
     return new Promise(function (resolve, reject) {
@@ -204,8 +367,8 @@ function copiarTexto(texto) {
     }
     return copiarConTextarea(texto);
 }
-async function copiarLogCompleto() {
-    var boton = document.getElementById('btn_copiar_log');
+async function copiarLogCompleto(boton) {
+    boton = (boton && boton.tagName) ? boton : document.getElementById('btn_copiar_log');
     var original = boton.textContent;
     boton.disabled = true;
     boton.textContent = '⏳ Preparando...';
@@ -220,22 +383,23 @@ async function copiarLogCompleto() {
     }
     setTimeout(function () { boton.textContent = original; boton.disabled = false; }, 2000);
 }
-// <<< copiar log completo
-
 function copiarRadicado(numero, boton) {
-    navigator.clipboard.writeText(numero).then(function () {
+    copiarTexto(numero).then(function () {
         var original = boton.textContent;
         boton.textContent = '✓ Copiado';
         setTimeout(function () { boton.textContent = original; }, 1500);
-    }).catch(function () {
-        boton.textContent = '⚠️ No se pudo copiar';
-    });
+    }).catch(function () { boton.textContent = '⚠️ No se pudo copiar'; });
 }
 
+// ---------- registro (log) ----------
+function escaparHtml(texto) {
+    var div = document.createElement('div');
+    div.textContent = texto;
+    return div.innerHTML;
+}
 function pintarLogConBotones(texto) {
     // Cada línea se pinta según su contenido: éxito en verde, advertencias
-    // en ámbar, errores en rojo, separadores "---"/"===" atenuados. Así se
-    // puede seguir el progreso de un vistazo en vez de leer texto plano.
+    // en ámbar, errores en rojo, separadores "---"/"===" atenuados.
     var lineasPintadas = texto.split('\n').map(function (linea) {
         var escapada = escaparHtml(linea);
         if (/^(-{3,}|={3,})/.test(linea.trim())) {
@@ -254,9 +418,7 @@ function pintarLogConBotones(texto) {
     });
     var conColor = lineasPintadas.join('\n');
     // Le agrega un botón de copiar a cada número que aparezca después de
-    // la palabra "Radicado" en el registro. Se usa un atributo data-numero
-    // (sin comillas anidadas problemáticas) en vez de un onclick con el
-    // número incrustado directamente.
+    // la palabra "Radicado" en el registro.
     return conColor.replace(/(Radicado[^:\n]*:\s*)(\d+)/g, function (coincidencia, prefijo, numero) {
         return prefijo + '<b style="color:#ff6a00;">' + numero + '</b>' +
             ' <button class="btn-copiar-radicado" data-numero="' + numero + '" type="button" ' +
@@ -264,12 +426,154 @@ function pintarLogConBotones(texto) {
             'padding:1px 7px; font-size:0.72rem; cursor:pointer; vertical-align:1px;">📋 Copiar</button>';
     });
 }
-
 document.getElementById('log').addEventListener('click', function (e) {
     if (e.target.classList.contains('btn-copiar-radicado')) {
         copiarRadicado(e.target.dataset.numero, e.target);
     }
 });
+
+// ---------- tarjeta de resultado ----------
+function bloqueRadicados(radicados) {
+    var cont = document.getElementById('bloque_radicados');
+    vaciar(cont);
+    if (!radicados.length) { mostrar('bloque_radicados', false); return; }
+    cont.appendChild(el('div', 'bloque-titulo', 'Radicados'));
+    radicados.forEach(function (r) {
+        var fila = el('div', 'fila-radicado');
+        var texto = el('div', 'texto');
+        texto.appendChild(el('span', 'tipo', r.tipo + (r.etiqueta ? ' ' + r.etiqueta : '')));
+        texto.appendChild(el('span', 'numero', r.numero));
+        var copiar = el('button', 'boton', '📋 Copiar');
+        copiar.type = 'button';
+        copiar.addEventListener('click', function () { copiarRadicado(r.numero, copiar); });
+        fila.appendChild(texto);
+        fila.appendChild(copiar);
+        cont.appendChild(fila);
+    });
+    mostrar('bloque_radicados', true);
+}
+function bloqueAjustes(ajustes) {
+    var cont = document.getElementById('bloque_ajustes');
+    vaciar(cont);
+    if (!ajustes.length) { mostrar('bloque_ajustes', false); return; }
+    cont.appendChild(el('div', 'bloque-titulo', 'La app ajustó sola, por detrás'));
+    var ul = el('ul', 'lista');
+    ajustes.forEach(function (a) { ul.appendChild(el('li', null, a)); });
+    cont.appendChild(ul);
+    mostrar('bloque_ajustes', true);
+}
+function bloqueError(motivo, radicados, esCola) {
+    var cont = document.getElementById('bloque_error');
+    vaciar(cont);
+    var caja = el('div', 'caja-error');
+    caja.appendChild(el('div', 'motivo', motivo || 'El viaje no se pudo completar (no se recibió un motivo; revisa el registro).'));
+    if (!esCola) {
+        var remesas = radicados.filter(function (r) { return r.tipo === 'Remesa'; });
+        var manif = radicados.filter(function (r) { return r.tipo === 'Manifiesto'; });
+        if (remesas.length && !manif.length) {
+            var lista = remesas.map(function (r) { return (r.etiqueta ? r.etiqueta + ' ' : '') + '(radicado ' + r.numero + ')'; }).join(', ');
+            caja.appendChild(el('div', 'nota', 'La remesa ' + lista + ' sí quedó creada en el RNDC, pero el manifiesto no.'));
+        }
+    }
+    cont.appendChild(caja);
+    mostrar('bloque_error', true);
+}
+function bloqueQueHacer(pasos) {
+    var cont = document.getElementById('bloque_que_hacer');
+    vaciar(cont);
+    cont.appendChild(el('div', 'bloque-titulo', 'Qué hacer'));
+    var ol = el('ol', 'lista');
+    pasos.forEach(function (p) { ol.appendChild(el('li', null, p)); });
+    cont.appendChild(ol);
+    mostrar('bloque_que_hacer', true);
+}
+function accionesResultado(ok, noReintentar) {
+    var cont = document.getElementById('acciones_resultado');
+    vaciar(cont);
+    if (ok) {
+        var nuevo = el('a', 'boton primario', 'Nuevo viaje'); nuevo.href = URL_NUEVO_VIAJE;
+        var fila = el('a', 'boton', 'Ver la fila'); fila.href = URL_FILA;
+        cont.appendChild(nuevo); cont.appendChild(fila);
+    } else {
+        var reintentar = el('a', noReintentar ? 'boton' : 'boton primario', 'Corregir y reintentar'); reintentar.href = URL_REINTENTAR;
+        var copiar = el('button', 'boton', '📋 Copiar log completo'); copiar.type = 'button';
+        copiar.addEventListener('click', function () { copiarLogCompleto(copiar); });
+        var fila2 = el('a', 'boton', 'Ver la fila'); fila2.href = URL_FILA;
+        cont.appendChild(reintentar); cont.appendChild(copiar); cont.appendChild(fila2);
+    }
+    mostrar('acciones_resultado', true);
+}
+
+function textoSubtitulo(t) {
+    var partes = [];
+    if (t) {
+        if (t.titulo) partes.push(t.titulo);
+        if (t.consecutivo) partes.push(t.consecutivo);
+        else if (t.detalle) partes.push(t.detalle);
+        if (t.duracion !== null && t.duracion !== undefined) {
+            partes.push(t.duracion + (t.duracion === 1 ? ' segundo' : ' segundos'));
+        }
+    }
+    return partes.join(' · ');
+}
+
+var firmaResultado = null;
+function pintarTarjeta(data, textoLog) {
+    var tarjeta = document.getElementById('tarjeta');
+    var t = null;
+    (data.trabajos || []).forEach(function (x) { if (x.id === idTrabajo) t = x; });
+    var lineas = data.log || [];
+    document.getElementById('subtitulo_resultado').textContent = textoSubtitulo(t);
+    mostrar('pasos', !(t && t.es_cola));
+
+    if (!data.terminado) {
+        tarjeta.className = 'tarjeta corriendo';
+        document.getElementById('icono_resultado').textContent = '⏳';
+        var pendiente = data.estado_trabajo === 'pendiente';
+        var paso = t && t.paso ? t.paso : null;
+        document.getElementById('titulo_resultado').textContent =
+            pendiente ? 'Esperando turno en la fila…' : (paso ? 'Haciendo el viaje · ' + paso : 'Haciendo el viaje…');
+        actualizarPasos(lineas, null);
+        return;
+    }
+
+    var ok = t ? (t.ok === true) : (paso_alcanzado(lineas) === 3 && lineas.join('\n').indexOf('RESUMEN') !== -1);
+    var esCola = !!(t && t.es_cola);
+    var radicados = (t && t.radicados && t.radicados.length) ? t.radicados : radicadosDelLog(lineas);
+    var motivo = (t && t.motivo) ? t.motivo : ultimoMotivoDelLog(lineas);
+    var ajustes = ajustesDelLog(lineas);
+
+    var firma = JSON.stringify([ok, radicados, motivo, ajustes, (data.archivos || []), t ? t.duracion : null]);
+    actualizarPasos(lineas, ok);
+    if (firma === firmaResultado) return;   // nada cambió: no se redibuja (así no se pierde el "✓ Copiado")
+    firmaResultado = firma;
+
+    tarjeta.className = 'tarjeta ' + (ok ? 'ok' : 'error');
+    document.getElementById('aviso_no_esperar').classList.add('oculto');
+    document.getElementById('icono_resultado').textContent = ok ? '✓' : '!';
+    document.getElementById('titulo_resultado').textContent = ok ? 'Viaje terminado' : tituloDeFallo(lineas, esCola);
+
+    bloqueRadicados(radicados);
+    bloqueAjustes(ok ? ajustes : []);
+    if (ok) {
+        mostrar('bloque_error', false);
+        mostrar('bloque_que_hacer', false);
+        mostrarBotonesPDF(data.archivos);
+    } else {
+        mostrar('bloque_pdf', false);
+        bloqueError(motivo, radicados, esCola);
+        bloqueQueHacer(consejosParaError(motivo, lineas));
+    }
+    accionesResultado(ok, !ok && esRespuestaRara(motivo, lineas));
+
+    var detalle = document.getElementById('detalle_log');
+    var resumen = document.getElementById('resumen_log');
+    resumen.textContent = 'Ver detalle técnico (log)';
+    if (!detalle.dataset.decidido) {      // solo la primera vez: después se respeta lo que la persona haga
+        detalle.open = !ok;               // si falló, se deja abierto para leerlo; si salió bien, cerrado
+        detalle.dataset.decidido = '1';
+    }
+}
 
 var consultasExtraPendientes = 3;  // cubre hasta ~4.5s después de "terminado", por si Google tarda en responder
 function actualizar() {
@@ -280,24 +584,23 @@ function actualizar() {
             try {
                 var textoLog = data.log.join("\n");
                 var caja = document.getElementById('log');
-                caja.innerHTML = pintarLogConBotones(textoLog);
-                caja.scrollTop = caja.scrollHeight;
-                actualizarPasos(data.log);
+                var pegadoAbajo = (caja.scrollHeight - caja.scrollTop - caja.clientHeight) < 40;
+                caja.innerHTML = pintarLogConBotones(data.terminado ? textoLog + "\n\n=== TERMINADO ===" : textoLog);
+                if (pegadoAbajo || !data.terminado) caja.scrollTop = caja.scrollHeight;
+
                 var badge = document.getElementById('estado-badge');
+                terminado = !!data.terminado;
+                pintarTarjeta(data, textoLog);
                 if (data.estado_trabajo === 'pendiente') {
                     badge.className = 'estado pendiente';
                     badge.innerHTML = '<span class="punto"></span> Esperando turno en la fila...';
                 } else if (data.estado_trabajo === 'corriendo') {
                     badge.className = 'estado corriendo';
                     badge.innerHTML = '<span class="punto"></span> Ejecutando...';
-                }
-                terminado = !!data.terminado;
-                if (terminado) {
-                    caja.innerHTML = pintarLogConBotones(textoLog + "\n\n=== TERMINADO ===");
-                    actualizarPasos(data.log.concat(['=== TERMINADO ===']));
-                    badge.className = 'estado';
-                    badge.innerHTML = '<span class="punto"></span> Terminado';
-                    mostrarBotonesPDF(data.archivos);
+                } else if (terminado) {
+                    var salioBien = document.getElementById('tarjeta').classList.contains('ok');
+                    badge.className = salioBien ? 'estado' : 'estado error';
+                    badge.innerHTML = '<span class="punto"></span> ' + (salioBien ? 'Terminado' : 'Con error');
                 }
             } catch (errorAlDibujar) {
                 // Si algo falla al pintar la pantalla, no se queda pegada:
@@ -312,9 +615,8 @@ function actualizar() {
             // Justo después de que "terminado" pasa a true, el programa
             // todavía escribe un par de líneas más en el log (el registro
             // en Google Sheets, entre otras) que toman uno o dos segundos
-            // en la red. Si dejáramos de consultar apenas vemos "terminado",
-            // esas últimas líneas casi nunca alcanzarían a verse. Por eso
-            // se hace UNA consulta extra antes de detenerse del todo.
+            // en la red. Por eso se hacen unas consultas extra antes de
+            // detenerse del todo.
             if (!terminado) {
                 setTimeout(actualizar, 1500);
             } else if (consultasExtraPendientes > 0) {
