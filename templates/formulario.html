@@ -44,6 +44,14 @@
   .panel-encabezado h2, .panel > h2 { margin-bottom: 0; cursor: default; }
   .panel > h2 { margin-bottom: 0.8rem; }
   .panel-ancho { margin-top: 1.25rem; }
+  .descripcion-tipo { margin: -0.6rem 0 1.1rem; font-size: 0.85rem; color: #918c80; min-height: 1.2em; }
+  .grid-ruta { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem 1.25rem; align-items: start; }
+  .grid-ruta label, .grid-2 label { margin-top: 0; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; margin-bottom: 0.9rem; }
+  .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem 1.25rem; margin-bottom: 0.9rem; align-items: start; }
+  @media (max-width: 1100px) { .grid-ruta, .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 640px) { .grid-ruta, .grid-4, .grid-2 { grid-template-columns: minmax(0, 1fr); } }
+  #campo_observaciones textarea { min-height: 5.5rem; }
   .leyenda-obligatorio { margin-left: auto; align-self: center; font-size: 0.78rem; color: #918c80; white-space: nowrap; padding: 0 0.4rem; }
   .asterisco { color: #f85149; font-weight: 700; }
   .pila-personas > div { margin-top: 0.9rem; }
@@ -87,16 +95,16 @@
     display: inline-block; background: rgba(255,106,0,0.18); color: #ff6a00;
     font-weight: 700; font-size: 0.85rem; padding: 0.25rem 0.7rem; border-radius: 6px;
   }
-  .fila-paradas { display: flex; gap: 1.25rem; align-items: flex-start; flex-wrap: wrap; }
-  .fila-paradas > .parada-columna { flex: 1; min-width: 220px; }
+  .fila-paradas { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem 1.25rem; align-items: stretch; }
+  .fila-paradas > .parada-columna { min-width: 0; }
   #lista_paradas { display: contents; }
   .parada-ligera {
-    flex: 1; min-width: 220px; border: 1.5px solid #333; padding: 0.9rem 1rem;
+    min-width: 0; border: 1.5px solid #333; padding: 0.9rem 1rem;
     border-radius: 10px; background: #211f1d; position: relative;
   }
   .etiqueta-parada { display: block; color: #ff6a00; font-weight: 700; font-size: 0.72rem; margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 0.03em; }
   .tarjeta-agregar-parada {
-    flex: 1; min-width: 180px; border: 1.5px dashed #3a3733; border-radius: 10px;
+    min-width: 0; border: 1.5px dashed #3a3733; border-radius: 10px;
     display: flex; align-items: center; justify-content: center; min-height: 90px;
     color: #918c80; cursor: pointer; font-size: 0.85rem; font-weight: 600; text-align: center;
     transition: border-color 0.15s, color 0.15s; background: transparent;
@@ -287,12 +295,13 @@
       </button>
       <span class="leyenda-obligatorio"><span class="asterisco">*</span> obligatorio</span>
     </div>
+    <p class="descripcion-tipo" id="descripcion_tipo"></p>
 
     <div class="dos-columnas">
 
     <section class="panel" id="panel_viaje">
     <div class="panel-encabezado">
-      <h2>Viaje</h2>
+      <h2>Datos del viaje</h2>
       <details class="nit-desplegable" id="campo_fecha_opcional" style="margin:0;">
         <summary>Fecha (opcional)</summary>
         <div class="contenido-nit" style="min-width:220px;">
@@ -313,55 +322,6 @@
       </div>
     </div>
 
-    <div id="simple">
-      <div class="fila">
-        <div>
-          <label>Origen</label>
-          <input type="text" name="Origen" value="{{ v.get('Origen', '') }}" list="lista_ciudades" class="campo-clave" tabindex="4">
-          <div class="nit-bajo-ciudad">
-            <label>NIT/Cédula del Remitente (opcional)<span class="ayuda-icono" data-tip="Algunos clientes piden que el remitente aparezca con SU PROPIO NIT/cédula en vez del NIT fijo de la empresa. Déjalo vacío para usar el fijo de siempre.">i</span></label>
-            <div class="fila-verificar">
-              <select name="TipoID_Remitente_Cliente" tabindex="21">
-                <option value="" {{ 'selected' if v.get('TipoID_Remitente_Cliente', '') == '' else '' }}>Fijo</option>
-                <option value="C" {{ 'selected' if v.get('TipoID_Remitente_Cliente') == 'C' else '' }}>Cédula</option>
-                <option value="N" {{ 'selected' if v.get('TipoID_Remitente_Cliente') == 'N' else '' }}>Nit</option>
-                <option value="P" {{ 'selected' if v.get('TipoID_Remitente_Cliente') == 'P' else '' }}>Pasaporte</option>
-                <option value="E" {{ 'selected' if v.get('TipoID_Remitente_Cliente') == 'E' else '' }}>C.Extr.</option>
-                <option value="T" {{ 'selected' if v.get('TipoID_Remitente_Cliente') == 'T' else '' }}>T.I.</option>
-              </select>
-              <input type="text" name="NIT_Remitente_Cliente" id="input_nit_remitente" value="{{ v.get('NIT_Remitente_Cliente', '') }}" tabindex="22" placeholder="NIT/CC">
-              <button type="button" class="secundario" onclick="verificarPersona('input_nit_remitente', 'resultado_nit_remitente', document.querySelector('select[name=TipoID_Remitente_Cliente]').value || 'N')">🔍</button>
-            </div>
-            <span id="resultado_nit_remitente" class="resultado-verificar"></span>
-          </div>
-        </div>
-        <div>
-          <label>Destino</label>
-          <input type="text" name="Destino" value="{{ v.get('Destino', '') }}" list="lista_ciudades" class="campo-clave" tabindex="5">
-          <div class="nit-bajo-ciudad">
-            <label>NIT/Cédula del Destinatario (opcional)<span class="ayuda-icono" data-tip="Algunos clientes piden que el destinatario aparezca con SU PROPIO NIT/cédula en vez del NIT fijo de la empresa. Déjalo vacío para usar el fijo de siempre.">i</span></label>
-            <div class="fila-verificar">
-              <select name="TipoID_Destinatario_Cliente" tabindex="23">
-                <option value="" {{ 'selected' if v.get('TipoID_Destinatario_Cliente', '') == '' else '' }}>Fijo</option>
-                <option value="C" {{ 'selected' if v.get('TipoID_Destinatario_Cliente') == 'C' else '' }}>Cédula</option>
-                <option value="N" {{ 'selected' if v.get('TipoID_Destinatario_Cliente') == 'N' else '' }}>Nit</option>
-                <option value="P" {{ 'selected' if v.get('TipoID_Destinatario_Cliente') == 'P' else '' }}>Pasaporte</option>
-                <option value="E" {{ 'selected' if v.get('TipoID_Destinatario_Cliente') == 'E' else '' }}>C.Extr.</option>
-                <option value="T" {{ 'selected' if v.get('TipoID_Destinatario_Cliente') == 'T' else '' }}>T.I.</option>
-              </select>
-              <input type="text" name="NIT_Destinatario_Cliente" id="input_nit_destinatario" value="{{ v.get('NIT_Destinatario_Cliente', '') }}" tabindex="24" placeholder="NIT/CC">
-              <button type="button" class="secundario" onclick="verificarPersona('input_nit_destinatario', 'resultado_nit_destinatario', document.querySelector('select[name=TipoID_Destinatario_Cliente]').value || 'N')">🔍</button>
-            </div>
-            <span id="resultado_nit_destinatario" class="resultado-verificar"></span>
-          </div>
-        </div>
-      </div>
-      <div class="fila">
-        <div><label>Producto</label><input type="text" name="Producto" value="{{ v.get('Producto', '') }}" class="campo-clave" tabindex="6"></div>
-        <div><label>Peso (kg)</label><input type="text" name="Peso" value="{{ v.get('Peso', '') }}" class="campo-clave" tabindex="7" oninput="formatearMiles(this)"></div>
-      </div>
-    </div>
-
     <div class="fila">
       <div id="campo_flete">
         <label>Valor del flete <span class="asterisco" title="Obligatorio">*</span></label>
@@ -371,6 +331,10 @@
         <label>Anticipo (opcional)<span class="ayuda-icono" data-tip="Valor que el cliente paga por adelantado antes de que salga el viaje. Déjalo vacío si no aplica para este viaje.">i</span></label>
         <input type="text" name="Anticipo" value="{{ v.get('Anticipo', '') }}" tabindex="10">
       </div>
+    </div>
+    <div id="campo_observaciones" style="margin-top:0.2rem;">
+      <label>Observaciones del manifiesto</label>
+      <textarea name="Observaciones" rows="4" tabindex="25">{{ v.get('Observaciones', OBSERVACIONES_POR_DEFECTO) }}</textarea>
     </div>
     </section>
 
@@ -475,6 +439,54 @@
 
     </div>  <!-- /dos-columnas -->
 
+    <div id="simple" class="panel panel-ancho">
+      <h2>Ruta y carga</h2>
+      <div class="grid-ruta">
+        <div>
+          <label>Origen</label>
+          <input type="text" name="Origen" value="{{ v.get('Origen', '') }}" list="lista_ciudades" class="campo-clave" tabindex="4">
+          <div class="nit-bajo-ciudad">
+            <label>NIT/Cédula del Remitente (opcional)<span class="ayuda-icono" data-tip="Algunos clientes piden que el remitente aparezca con SU PROPIO NIT/cédula en vez del NIT fijo de la empresa. Déjalo vacío para usar el fijo de siempre.">i</span></label>
+            <div class="fila-verificar">
+              <select name="TipoID_Remitente_Cliente" tabindex="21">
+                <option value="" {{ 'selected' if v.get('TipoID_Remitente_Cliente', '') == '' else '' }}>Fijo</option>
+                <option value="C" {{ 'selected' if v.get('TipoID_Remitente_Cliente') == 'C' else '' }}>Cédula</option>
+                <option value="N" {{ 'selected' if v.get('TipoID_Remitente_Cliente') == 'N' else '' }}>Nit</option>
+                <option value="P" {{ 'selected' if v.get('TipoID_Remitente_Cliente') == 'P' else '' }}>Pasaporte</option>
+                <option value="E" {{ 'selected' if v.get('TipoID_Remitente_Cliente') == 'E' else '' }}>C.Extr.</option>
+                <option value="T" {{ 'selected' if v.get('TipoID_Remitente_Cliente') == 'T' else '' }}>T.I.</option>
+              </select>
+              <input type="text" name="NIT_Remitente_Cliente" id="input_nit_remitente" value="{{ v.get('NIT_Remitente_Cliente', '') }}" tabindex="22" placeholder="NIT/CC">
+              <button type="button" class="secundario" onclick="verificarPersona('input_nit_remitente', 'resultado_nit_remitente', document.querySelector('select[name=TipoID_Remitente_Cliente]').value || 'N')">🔍</button>
+            </div>
+            <span id="resultado_nit_remitente" class="resultado-verificar"></span>
+          </div>
+        </div>
+        <div>
+          <label>Destino</label>
+          <input type="text" name="Destino" value="{{ v.get('Destino', '') }}" list="lista_ciudades" class="campo-clave" tabindex="5">
+          <div class="nit-bajo-ciudad">
+            <label>NIT/Cédula del Destinatario (opcional)<span class="ayuda-icono" data-tip="Algunos clientes piden que el destinatario aparezca con SU PROPIO NIT/cédula en vez del NIT fijo de la empresa. Déjalo vacío para usar el fijo de siempre.">i</span></label>
+            <div class="fila-verificar">
+              <select name="TipoID_Destinatario_Cliente" tabindex="23">
+                <option value="" {{ 'selected' if v.get('TipoID_Destinatario_Cliente', '') == '' else '' }}>Fijo</option>
+                <option value="C" {{ 'selected' if v.get('TipoID_Destinatario_Cliente') == 'C' else '' }}>Cédula</option>
+                <option value="N" {{ 'selected' if v.get('TipoID_Destinatario_Cliente') == 'N' else '' }}>Nit</option>
+                <option value="P" {{ 'selected' if v.get('TipoID_Destinatario_Cliente') == 'P' else '' }}>Pasaporte</option>
+                <option value="E" {{ 'selected' if v.get('TipoID_Destinatario_Cliente') == 'E' else '' }}>C.Extr.</option>
+                <option value="T" {{ 'selected' if v.get('TipoID_Destinatario_Cliente') == 'T' else '' }}>T.I.</option>
+              </select>
+              <input type="text" name="NIT_Destinatario_Cliente" id="input_nit_destinatario" value="{{ v.get('NIT_Destinatario_Cliente', '') }}" tabindex="24" placeholder="NIT/CC">
+              <button type="button" class="secundario" onclick="verificarPersona('input_nit_destinatario', 'resultado_nit_destinatario', document.querySelector('select[name=TipoID_Destinatario_Cliente]').value || 'N')">🔍</button>
+            </div>
+            <span id="resultado_nit_destinatario" class="resultado-verificar"></span>
+          </div>
+        </div>
+        <div><label>Producto</label><input type="text" name="Producto" value="{{ v.get('Producto', '') }}" class="campo-clave" tabindex="6"></div>
+        <div><label>Peso (kg)</label><input type="text" name="Peso" value="{{ v.get('Peso', '') }}" class="campo-clave" tabindex="7" oninput="formatearMiles(this)"></div>
+      </div>
+    </div>
+
     <div id="paradas" class="oculto panel panel-ancho">
       <h2>Ruta del viaje</h2>
       <small>Escribe la ciudad de Origen, la(s) ciudad(es) Intermedia(s) en orden, y la ciudad Destino final. En "Ida y Regreso", el Destino se llena solo (vuelve al Origen).</small>
@@ -536,12 +548,6 @@
       <div class="tarjeta-agregar-parada" style="min-height:56px;" onclick="agregarViajeCola()">+ Agregar viaje</div>
     </div>
     <input type="hidden" name="ColaJSON" id="ColaJSON">
-
-    <div class="seccion">
-    <h2 onclick="toggleSeccion(this)">Observaciones del manifiesto</h2>
-    <label>Texto de Observaciones/Recomendaciones</label>
-    <textarea name="Observaciones" rows="3" tabindex="25">{{ v.get('Observaciones', OBSERVACIONES_POR_DEFECTO) }}</textarea>
-    </div>
 
     <div class="seccion">
     <h2 onclick="toggleSeccion(this)">Credenciales del RNDC</h2>
@@ -1183,6 +1189,14 @@ function toggleTipoViaje() {
     var esCola = (tipo === 'Cola');
     var esNormal = (tipo === 'Normal');
 
+    var descripciones = {
+        Normal: 'Un viaje de un origen a un destino: se crea una remesa y su manifiesto.',
+        IdaYRegreso: 'Va a un destino y vuelve al origen: se crea una remesa por tramo y un solo manifiesto.',
+        Multiparada: 'Varias ciudades en orden: se crea una remesa por tramo y un solo manifiesto.',
+        Cola: 'Varios viajes de una vez, uno detrás de otro, con el mismo cliente, vehículo, titular y conductor.'
+    };
+    var textoDescripcion = document.getElementById('descripcion_tipo');
+    if (textoDescripcion) textoDescripcion.textContent = descripciones[tipo] || '';
     document.getElementById('simple').classList.toggle('oculto', !esNormal);
     document.getElementById('paradas').classList.toggle('oculto', !esParadas);
     document.getElementById('cola').classList.toggle('oculto', !esCola);
@@ -1234,15 +1248,13 @@ function agregarViajeCola(datos) {
         <span class="etiqueta-viaje">Viaje</span>
         <button type="button" class="secundario" onclick="this.closest('.parada').remove(); renumerarViajesCola();">Quitar</button>
       </div>
-      <div class="fila">
+      <div class="grid-4">
         <div><label style="margin-top:0;">Consecutivo</label><input type="text" class="q_consecutivo campo-clave"></div>
         <div><label style="margin-top:0;">Fecha (opcional)</label><input type="date" class="q_fecha"></div>
-        <div><label style="margin-top:0;">Producto</label><input type="text" class="q_producto campo-clave"></div>
-        <div><label style="margin-top:0;">Peso (kg)</label><input type="text" class="q_peso campo-clave"></div>
         <div><label style="margin-top:0;">Flete</label><input type="text" class="q_flete campo-clave"></div>
         <div><label style="margin-top:0;">Anticipo (opcional)</label><input type="text" class="q_anticipo"></div>
       </div>
-      <div class="fila">
+      <div class="grid-2" style="margin-top:0.2rem;">
         <div>
           <label>Origen</label>
           <input type="text" class="q_origen campo-clave" list="lista_ciudades">
@@ -1279,6 +1291,10 @@ function agregarViajeCola(datos) {
             </div>
           </div>
         </div>
+      </div>
+      <div class="grid-2">
+        <div><label>Producto</label><input type="text" class="q_producto campo-clave"></div>
+        <div><label>Peso (kg)</label><input type="text" class="q_peso campo-clave"></div>
       </div>
       <label>Observaciones del manifiesto (opcional)</label>
       <textarea class="q_observaciones" rows="2"></textarea>
