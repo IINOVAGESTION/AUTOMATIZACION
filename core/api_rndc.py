@@ -1303,6 +1303,18 @@ def anular_manifiesto_api(usuario, password, nit_empresa, numero_manifiesto, mot
     return respuesta
 
 
+def _rndc_responde():
+    """Chequeo rápido (máx. 6 s) de si el sitio web del RNDC contesta. Se usa
+    para no repetir una descarga que va a fallar igual cuando el RNDC está
+    caído o muy lento."""
+    try:
+        import requests as _rq
+        r = _rq.get(URL_LOGIN, timeout=6)
+        return r.status_code < 500
+    except Exception:
+        return False
+
+
 def _reimprimir_documento_una_vez(usuario, password, tipo_documento, radicado, nombre_archivo, log=None,
                                    por="radicado", invisible=False):
     """Descarga de nuevo el PDF de una Remesa o un Manifiesto YA
@@ -1381,8 +1393,10 @@ def reimprimir_documento_api(usuario, password, tipo_documento, radicado, nombre
     log = log or (lambda m: None)
     archivo = _reimprimir_documento_una_vez(usuario, password, tipo_documento, radicado,
                                              nombre_archivo, log, por, invisible=True)
-    if not archivo:
-        log("    No se logró en modo invisible; reintentando con el navegador visible...")
+    if not archivo and not _rndc_responde():
+        log("⚠️  El sitio del RNDC no está respondiendo ahora; no se reintenta. Prueba de nuevo en unos minutos.")
+    elif not archivo:
+        log("    No se logró en modo invisible; reintentando una vez con el navegador visible...")
         archivo = _reimprimir_documento_una_vez(usuario, password, tipo_documento, radicado,
                                                  nombre_archivo, log, por, invisible=False)
     return archivo
@@ -1459,6 +1473,7 @@ def _reimprimir_viaje_una_vez(usuario, password, nit_empresa, consecutivo_manifi
 
     archivos = []
     driver = None
+    remesas_a_bajar = None
     try:
         log("    Abriendo el navegador solo para reimprimir los PDF...")
         chrome_options = crear_opciones_chrome(carpeta_descargas=CARPETA_DESCARGAS, invisible=invisible)
@@ -1490,8 +1505,16 @@ def _reimprimir_viaje_una_vez(usuario, password, nit_empresa, consecutivo_manifi
                               "archivo": _os.path.basename(ruta)})
         else:
             faltantes.append(f"No se pudo descargar el manifiesto {consecutivo_manifiesto}.")
+            if not _rndc_responde():
+                log("⚠️  El sitio del RNDC no responde; se omiten las remesas para no esperar de más.")
+                faltantes.append("El sitio del RNDC no está respondiendo; no se intentaron las remesas.")
+                remesas_a_bajar = []
+            else:
+                remesas_a_bajar = remesas
+        if archivos or remesas_a_bajar is None:
+            remesas_a_bajar = remesas
 
-        for remesa in remesas:
+        for remesa in remesas_a_bajar:
             log(f"    Descargando la remesa {remesa}...")
             ruta = descargar_pdf_documento(
                 driver, wait, URL_REIMPRIMIR_REMESA, remesa,
@@ -1525,8 +1548,11 @@ def reimprimir_viaje_api(usuario, password, nit_empresa, consecutivo_manifiesto,
     log = log or (lambda m: None)
     r = _reimprimir_viaje_una_vez(usuario, password, nit_empresa, consecutivo_manifiesto,
                                    remesas, placa, log, invisible=True)
-    if not r["archivos"]:
-        log("    No se logró en modo invisible; reintentando con el navegador visible...")
+    if not r["archivos"] and not _rndc_responde():
+        log("⚠️  El sitio del RNDC no está respondiendo ahora; no se reintenta. Prueba de nuevo en unos minutos.")
+        r["faltantes"].append("El sitio del RNDC no está respondiendo ahora. Prueba de nuevo en unos minutos.")
+    elif not r["archivos"]:
+        log("    No se logró en modo invisible; reintentando una vez con el navegador visible...")
         r = _reimprimir_viaje_una_vez(usuario, password, nit_empresa, consecutivo_manifiesto,
                                        r["remesas"] or remesas, r["placa"] or placa, log, invisible=False)
     return r
@@ -1578,6 +1604,10 @@ def _descargar_pdfs_del_viaje_una_vez(usuario, password, v, tramos, radicado_man
                 archivos.append(_os.path.basename(archivo_remesa))
                 log(f"✅ PDF de la remesa {tramo['consecutivo']} descargado: "
                     f"{_os.path.basename(archivo_remesa)}")
+            elif not archivos and not _rndc_responde():
+                log("⚠️  El sitio del RNDC no responde; se omiten los demás PDF para no esperar de más. "
+                    "El viaje ya quedó creado: bájalos luego desde Herramientas → Reimprimir.")
+                return archivos
 
         nombre_manifiesto = f"{v['Placa']}"
         archivo_manifiesto = descargar_pdf_documento(
@@ -1607,8 +1637,11 @@ def descargar_pdfs_del_viaje(usuario, password, v, tramos, radicado_manifiesto, 
     se baja ninguno, reintenta una vez con la ventana visible."""
     archivos = _descargar_pdfs_del_viaje_una_vez(usuario, password, v, tramos, radicado_manifiesto,
                                                   log, invisible=True)
-    if not archivos:
-        log("    No se logró en modo invisible; reintentando con el navegador visible...")
+    if not archivos and not _rndc_responde():
+        log("⚠️  El sitio del RNDC no está respondiendo ahora; no se reintentan los PDF. "
+            "El viaje ya quedó creado: bájalos luego desde Herramientas → Reimprimir.")
+    elif not archivos:
+        log("    No se logró en modo invisible; reintentando una vez con el navegador visible...")
         archivos = _descargar_pdfs_del_viaje_una_vez(usuario, password, v, tramos, radicado_manifiesto,
                                                       log, invisible=False)
     return archivos
