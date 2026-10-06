@@ -264,6 +264,7 @@ def datos_para_fila(t):
         "motivo": (motivo[:220] + "…") if len(motivo) > 220 else (motivo or None),
         "consecutivo": (v.get("Consecutivo") or "").strip() if v.get("TipoViaje") != "Cola" else "",
         "es_cola": v.get("TipoViaje") == "Cola",
+        "placa": (v.get("Placa") or "").strip().upper() if v.get("TipoViaje") != "Cola" else "",
     }
 
 
@@ -1072,13 +1073,29 @@ def reimprimir_route():
     password_rndc = session.get("password_rndc_vinculado") or request.form.get("password_rndc", "").strip()
     if not usuario_rndc or not password_rndc:
         return jsonify({"ok": False, "error": "Faltan tu usuario y contraseña del RNDC."})
-    tipo_documento = request.form.get("tipo_documento", "manifiesto").strip()
+    tipo_documento = request.form.get("tipo_documento", "viaje").strip()
     por = "consecutivo" if request.form.get("buscar_por") == "consecutivo" else "radicado"
     radicado = request.form.get("radicado", "").strip()
+    placa = re.sub(r"[^A-Za-z0-9]", "", request.form.get("placa", "")).upper()
     if not radicado:
         return jsonify({"ok": False, "error": f"Escribe el {por} a reimprimir."})
+    if tipo_documento == "viaje":
+        remesas = [r.strip().upper() for r in re.split(r"[,;\s]+", request.form.get("remesas", "")) if r.strip()]
+        mensajes = []
+        try:
+            nit_empresa = rndc_core.FIJOS_REMESA["NUMIDPROPIETARIO"]
+            r = rndc_core.reimprimir_viaje_api(
+                usuario_rndc, password_rndc, nit_empresa, radicado.upper(),
+                remesas=remesas, placa=placa, log=mensajes.append,
+            )
+            if not r["archivos"]:
+                return jsonify({"ok": False, "error": " ".join(r["faltantes"]) or "No se encontró ningún PDF.",
+                                "log": mensajes})
+            return jsonify({"ok": not r["faltantes"], **r, "log": mensajes})
+        except Exception as e:
+            return jsonify({"ok": False, "error": str(e), "log": mensajes})
     mensajes = []
-    nombre_archivo = f"reimpreso_{tipo_documento}_{radicado}"
+    nombre_archivo = f"reimpreso_{tipo_documento}_{radicado}" + (f"_{placa}" if placa else "")
     try:
         archivo = rndc_core.reimprimir_documento_api(
             usuario_rndc, password_rndc, tipo_documento, radicado, nombre_archivo, mensajes.append,

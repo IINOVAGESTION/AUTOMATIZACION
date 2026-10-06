@@ -201,7 +201,7 @@ function tarjeta(t) {
             '<button type="button" class="fl-boton" data-copiar-log="' + t.id + '">Copiar log</button>';
     } else {
         if (t.es_cola) acciones += '<a class="fl-boton" href="' + enlaceProgreso + '">Ver detalle</a>';
-        else if (t.consecutivo) acciones += '<a class="fl-boton" href="{{ url_for("reimprimir_pagina") }}?consecutivo=' + encodeURIComponent(t.consecutivo) + '">Reimprimir</a>';
+        else if (t.consecutivo) acciones += '<a class="fl-boton" href="{{ url_for("reimprimir_pagina") }}?consecutivo=' + encodeURIComponent(t.consecutivo) + (t.placa ? '&placa=' + encodeURIComponent(t.placa) : '') + '">Reimprimir</a>';
         acciones += '<a class="fl-boton discreto" href="' + enlaceReintentar + '" title="Volver al formulario con estos datos para corregir y ejecutar de nuevo">Corregir y reintentar</a>';
     }
 

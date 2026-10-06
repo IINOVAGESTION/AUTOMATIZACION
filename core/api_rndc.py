@@ -1373,6 +1373,135 @@ def reimprimir_documento_api(usuario, password, tipo_documento, radicado, nombre
                 pass
 
 
+def _limpiar_para_nombre(texto):
+    """Deja solo letras, números, guion y guion bajo (para nombres de archivo)."""
+    return "".join(c for c in str(texto or "") if c.isalnum() or c in "-_").upper()
+
+
+def consultar_manifiesto_api(usuario, password, nit_empresa, consecutivo_manifiesto, log=None):
+    """Consulta (solo lectura) un manifiesto ya creado y devuelve
+    {"placa": str|None, "remesas": [consecutivos]}. Es "a mejor esfuerzo":
+    si el RNDC no responde como se espera, devuelve lo que pudo (o vacío)
+    y NUNCA lanza error -- quien la llama pide los datos a mano en ese caso."""
+    log = log or (lambda m: None)
+    documento = (
+        f"<NUMNITEMPRESATRANSPORTE>{nit_empresa}</NUMNITEMPRESATRANSPORTE>"
+        f"<NUMMANIFIESTOCARGA>{consecutivo_manifiesto}</NUMMANIFIESTOCARGA>"
+    )
+    for variables in ("NUMPLACA,REMESASMAN", "NUMPLACA"):
+        try:
+            respuesta = _llamar(usuario, password, tipo=3, procesoid=4,
+                                 variables_xml=variables, documento_xml=documento,
+                                 servidor="real_terceros")
+            raiz = ET.fromstring(str(respuesta))
+        except Exception as e:
+            log(f"    (No se pudo consultar el manifiesto en el RNDC con '{variables}': {e})")
+            continue
+        placa = None
+        for el in raiz.iter("NUMPLACA"):
+            if el.text and el.text.strip():
+                placa = el.text.strip().upper()
+                break
+        remesas = []
+        for el in raiz.iter("CONSECUTIVOREMESA"):
+            if el.text and el.text.strip() and el.text.strip() not in remesas:
+                remesas.append(el.text.strip())
+        if placa or remesas:
+            return {"placa": placa, "remesas": remesas}
+        error = raiz.find("ErrorMSG")
+        if error is not None:
+            log(f"    (El RNDC respondió a la consulta del manifiesto: {''.join(error.itertext()).strip()[:160]})")
+    return {"placa": None, "remesas": []}
+
+
+def reimprimir_viaje_api(usuario, password, nit_empresa, consecutivo_manifiesto,
+                          remesas=None, placa=None, log=None):
+    """Descarga de una vez el PDF del manifiesto y los de todas sus remesas,
+    con la placa en el nombre de cada archivo (ej. Manifiesto_AF49232_JYM305).
+    Si no se dan las remesas o la placa, se intentan averiguar consultando
+    el manifiesto en el RNDC. Usa UN solo navegador para todo.
+    Devuelve {"placa", "remesas", "archivos": [{"tipo","consecutivo","archivo"}],
+    "faltantes": [textos]}."""
+    log = log or (lambda m: None)
+    remesas = [r for r in (remesas or []) if r]
+    placa = _limpiar_para_nombre(placa)
+    faltantes = []
+
+    if not placa or not remesas:
+        log("    Consultando el manifiesto en el RNDC para averiguar su placa y sus remesas...")
+        datos = consultar_manifiesto_api(usuario, password, nit_empresa, consecutivo_manifiesto, log)
+        if not placa and datos["placa"]:
+            placa = _limpiar_para_nombre(datos["placa"])
+        if not remesas and datos["remesas"]:
+            remesas = datos["remesas"]
+    if not placa:
+        faltantes.append("No se pudo averiguar la placa; los archivos quedaron sin placa en el nombre "
+                         "(puedes escribirla en el campo Placa y repetir).")
+    if not remesas:
+        faltantes.append("No se pudieron averiguar las remesas del manifiesto; solo se descargó el manifiesto "
+                         "(escribe los consecutivos de las remesas en su campo y repite).")
+    sufijo = f"_{placa}" if placa else ""
+
+    archivos = []
+    driver = None
+    try:
+        log("    Abriendo el navegador solo para reimprimir los PDF...")
+        chrome_options = crear_opciones_chrome()
+        driver = crear_driver_con_limite(chrome_options, obtener_chromedriver_path())
+        driver.set_page_load_timeout(25)
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.webdriver.common.by import By
+        import time as _time
+        import os as _os
+
+        wait = WebDriverWait(driver, 20)
+        driver.get(URL_LOGIN)
+        _time.sleep(1)
+        wait.until(lambda d: d.find_element(By.ID, "dnn_ctr390_FormLogIn_edUsername")).send_keys(usuario)
+        driver.find_element(By.ID, "dnn_ctr390_FormLogIn_edPassword").send_keys(password)
+        driver.find_element(By.ID, "dnn_ctr390_FormLogIn_btIngresar").click()
+        _time.sleep(2)
+
+        log(f"    Descargando el manifiesto {consecutivo_manifiesto}...")
+        ruta = descargar_pdf_documento(
+            driver, wait, URL_REIMPRIMIR_MANIFIESTO, consecutivo_manifiesto,
+            f"Manifiesto_{_limpiar_para_nombre(consecutivo_manifiesto)}{sufijo}",
+            CARPETA_DESCARGAS, "dnn_ctr394_ReimprimirManifiesto_NUMMANIFIESTOCARGA",
+            "dnn_ctr394_ReimprimirManifiesto_btImprimir", log,
+            id_boton_consultar="dnn_ctr394_ReimprimirManifiesto_btConsultar",
+        )
+        if ruta:
+            archivos.append({"tipo": "Manifiesto", "consecutivo": consecutivo_manifiesto,
+                              "archivo": _os.path.basename(ruta)})
+        else:
+            faltantes.append(f"No se pudo descargar el manifiesto {consecutivo_manifiesto}.")
+
+        for remesa in remesas:
+            log(f"    Descargando la remesa {remesa}...")
+            ruta = descargar_pdf_documento(
+                driver, wait, URL_REIMPRIMIR_REMESA, remesa,
+                f"Remesa_{_limpiar_para_nombre(remesa)}{sufijo}",
+                CARPETA_DESCARGAS,
+                ["dnn_ctr394_ReimprimirRemesa_CONSECUTIVOREMESA", "dnn_ctr394_ReimprimirRemesa_NUMREMESA"],
+                "dnn_ctr394_ReimprimirRemesa_btImprimir", log,
+            )
+            if ruta:
+                archivos.append({"tipo": "Remesa", "consecutivo": remesa,
+                                  "archivo": _os.path.basename(ruta)})
+            else:
+                faltantes.append(f"No se pudo descargar la remesa {remesa}.")
+    except Exception as e:
+        log(f"⚠️  No se pudo reimprimir: {e}")
+        faltantes.append(f"Error durante la descarga: {e}")
+    finally:
+        if driver:
+            try:
+                driver.quit()
+            except Exception:
+                pass
+    return {"placa": placa or None, "remesas": remesas, "archivos": archivos, "faltantes": faltantes}
+
+
 def descargar_pdfs_del_viaje(usuario, password, v, tramos, radicado_manifiesto, log):
     """Después de crear la(s) Remesa(s) y el Manifiesto por el Web
     Service, se abre un navegador SOLO para bajar los PDF (el Web

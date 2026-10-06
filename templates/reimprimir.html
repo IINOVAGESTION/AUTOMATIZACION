@@ -34,6 +34,10 @@
   #resultado.ok { color: #3fb950; }
   #resultado.error { color: #f85149; }
   #resultado.cargando { color: #ff6a00; }
+  #resultado { white-space: pre-line; }
+  #lista_pdfs { margin-top: 1rem; }
+  .boton-pdf { display: block; width: 100%; text-align: left; background: #232220; border: 1px solid #3a3a3a; color: #e6e6e6; padding: 0.55rem 0.8rem; border-radius: 8px; margin-bottom: 0.4rem; font-size: 0.85rem; font-weight: 500; }
+  .boton-pdf:hover { border-color: #ff6a00; background: #2a2825; }
   #visor_pdf { display: none; margin-top: 1.5rem; }
   #visor_pdf iframe { width: 100%; height: 75vh; border: 1px solid #333; border-radius: 10px; background: #fff; }
 </style>
@@ -43,9 +47,9 @@
 
   <div class="contenedor">
     <div class="tarjeta">
-      <h2>🖨️ Reimprimir una Remesa o Manifiesto</h2>
+      <h2>🖨️ Reimprimir un viaje, manifiesto o remesa</h2>
       <p style="font-size:0.85rem; opacity:0.75; margin-top:-0.5rem;">
-        Para cuando se perdió el PDF original o hace falta una copia extra. Puedes buscarlo por su consecutivo o por su radicado.
+        Para cuando se perdió el PDF original o hace falta una copia extra. Cada PDF se guarda con la placa del vehículo en el nombre (ej. Manifiesto_AF46561_JYM305).
       </p>
 
       {% if not rndc_vinculado %}
@@ -55,36 +59,75 @@
       <input type="text" id="password_rndc">
       {% endif %}
 
-      <label>¿Qué es?</label>
-      <select id="tipo_documento">
-        <option value="manifiesto">Manifiesto</option>
-        <option value="remesa">Remesa</option>
+      <label>¿Qué quieres reimprimir?</label>
+      <select id="tipo_documento" onchange="cambiarTipo()">
+        <option value="viaje" selected>El viaje completo: manifiesto + todas sus remesas</option>
+        <option value="manifiesto">Solo un manifiesto</option>
+        <option value="remesa">Solo una remesa</option>
       </select>
 
-      <label>Buscar por</label>
-      <select id="buscar_por" onchange="cambiarBuscarPor()">
-        <option value="consecutivo" selected>Consecutivo (el de la empresa, ej. AF46561)</option>
-        <option value="radicado">Radicado (el número que da el RNDC)</option>
-      </select>
+      <div id="bloque_buscar_por" style="display:none">
+        <label>Buscar por</label>
+        <select id="buscar_por" onchange="cambiarBuscarPor()">
+          <option value="consecutivo" selected>Consecutivo (el de la empresa, ej. AF46561)</option>
+          <option value="radicado">Radicado (el número que da el RNDC)</option>
+        </select>
+      </div>
 
-      <label id="etiqueta_numero">Consecutivo</label>
+      <label id="etiqueta_numero">Consecutivo del manifiesto</label>
       <input type="text" id="radicado" placeholder="ej. AF46561" value="{{ request.args.get('consecutivo', '') }}">
+
+      <div id="bloque_remesas">
+        <label>Consecutivos de las remesas <span style="color:#888">(opcional: si lo dejas vacío, la app las busca sola en el RNDC)</span></label>
+        <input type="text" id="remesas" placeholder="ej. AF46561A, AF46561B">
+      </div>
+
+      <label>Placa del vehículo <span style="color:#888">(opcional: si la dejas vacía, la app la busca sola)</span></label>
+      <input type="text" id="placa" placeholder="ej. JYM305" value="{{ request.args.get('placa', '') }}" style="text-transform:uppercase">
 
       <button id="btn_reimprimir" onclick="reimprimir()">🖨️ Reimprimir</button>
 
       <div id="resultado"></div>
     </div>
 
+    <div id="lista_pdfs" style="display:none"></div>
     <div id="visor_pdf">
       <iframe id="iframe_pdf"></iframe>
     </div>
   </div>
 
 <script>
+function cambiarTipo() {
+    var tipo = document.getElementById('tipo_documento').value;
+    var esViaje = tipo === 'viaje';
+    document.getElementById('bloque_buscar_por').style.display = esViaje ? 'none' : '';
+    document.getElementById('bloque_remesas').style.display = esViaje ? '' : 'none';
+    if (esViaje) document.getElementById('buscar_por').value = 'consecutivo';
+    cambiarBuscarPor();
+}
 function cambiarBuscarPor() {
+    var esViaje = document.getElementById('tipo_documento').value === 'viaje';
     var porConsecutivo = document.getElementById('buscar_por').value === 'consecutivo';
-    document.getElementById('etiqueta_numero').textContent = porConsecutivo ? 'Consecutivo' : 'Radicado';
+    document.getElementById('etiqueta_numero').textContent = esViaje ? 'Consecutivo del manifiesto' : (porConsecutivo ? 'Consecutivo' : 'Radicado');
     document.getElementById('radicado').placeholder = porConsecutivo ? 'ej. AF46561' : 'ej. 169182830';
+}
+function verPdf(nombre) {
+    document.getElementById('iframe_pdf').src = "{{ url_for('ver_pdf') }}?archivo=" + encodeURIComponent(nombre);
+    document.getElementById('visor_pdf').style.display = 'block';
+    document.getElementById('visor_pdf').scrollIntoView({behavior: 'smooth'});
+}
+function mostrarLista(archivos) {
+    var caja = document.getElementById('lista_pdfs');
+    caja.innerHTML = '';
+    archivos.forEach(function (a) {
+        var boton = document.createElement('button');
+        boton.type = 'button';
+        boton.className = 'boton-pdf';
+        boton.textContent = '📄 ' + a.tipo + ' ' + a.consecutivo + ' — ' + a.archivo;
+        boton.onclick = function () { verPdf(a.archivo); };
+        caja.appendChild(boton);
+    });
+    caja.style.display = archivos.length ? 'block' : 'none';
 }
 async function reimprimir() {
     var boton = document.getElementById('btn_reimprimir');
@@ -93,7 +136,7 @@ async function reimprimir() {
     var tipoDocumento = document.getElementById('tipo_documento').value;
 
     if (!radicado) {
-        alert('Escribe el ' + document.getElementById('buscar_por').value + ' a reimprimir.');
+        alert('Escribe el ' + (tipoDocumento === 'viaje' ? 'consecutivo del manifiesto' : document.getElementById('buscar_por').value) + ' a reimprimir.');
         return;
     }
 
@@ -101,6 +144,8 @@ async function reimprimir() {
     datos.append('radicado', radicado);
     datos.append('tipo_documento', tipoDocumento);
     datos.append('buscar_por', document.getElementById('buscar_por').value);
+    datos.append('remesas', document.getElementById('remesas').value.trim());
+    datos.append('placa', document.getElementById('placa').value.trim());
     var campoUsuario = document.getElementById('usuario_rndc');
     var campoPassword = document.getElementById('password_rndc');
     if (campoUsuario) datos.append('usuario_rndc', campoUsuario.value.trim());
@@ -108,18 +153,27 @@ async function reimprimir() {
 
     boton.disabled = true;
     resultado.className = 'cargando';
-    resultado.textContent = '⏳ Abriendo el navegador y buscando el PDF... (puede tardar hasta un minuto)';
+    resultado.textContent = tipoDocumento === 'viaje'
+        ? '⏳ Buscando el manifiesto y sus remesas y descargando los PDF... (puede tardar un par de minutos)'
+        : '⏳ Abriendo el navegador y buscando el PDF... (puede tardar hasta un minuto)';
     document.getElementById('visor_pdf').style.display = 'none';
+    document.getElementById('lista_pdfs').style.display = 'none';
 
     try {
         var resp = await fetch('{{ url_for("reimprimir_route") }}', { method: 'POST', body: datos });
         var r = await resp.json();
-        if (r.ok) {
+        if (r.archivos) {
+            // Viaje completo
+            var avisos = (r.faltantes || []).map(function (f) { return '⚠️ ' + f; }).join('\n');
+            resultado.className = (r.faltantes && r.faltantes.length) ? 'error' : 'ok';
+            resultado.textContent = '✅ ' + r.archivos.length + ' PDF descargado(s)' + (r.placa ? ' · Placa: ' + r.placa : '') +
+                (avisos ? '\n' + avisos : '');
+            mostrarLista(r.archivos);
+            if (r.archivos.length) verPdf(r.archivos[0].archivo);
+        } else if (r.ok) {
             resultado.className = 'ok';
             resultado.textContent = '✅ PDF encontrado: ' + r.archivo;
-            document.getElementById('iframe_pdf').src = "{{ url_for('ver_pdf') }}?archivo=" + encodeURIComponent(r.archivo);
-            document.getElementById('visor_pdf').style.display = 'block';
-            document.getElementById('visor_pdf').scrollIntoView({behavior: 'smooth'});
+            verPdf(r.archivo);
         } else {
             resultado.className = 'error';
             resultado.textContent = '❌ ' + (r.error || 'No se pudo reimprimir.');
@@ -131,6 +185,7 @@ async function reimprimir() {
         boton.disabled = false;
     }
 }
+cambiarTipo();
 </script>
 </body>
 </html>
