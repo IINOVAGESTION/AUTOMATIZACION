@@ -772,6 +772,22 @@ def verificar_antes_de_crear(v, tramos, usuario, password, nit_empresa, log):
     listo o se puede arreglar solo con los datos que ya trae el
     formulario)."""
     avisos = []
+    # Datos numéricos obligatorios: se revisan PRIMERO y sin llamar al RNDC.
+    # Antes, un Flete vacío solo reventaba al crear el Manifiesto
+    # ("could not convert string to float: ''"), cuando las Remesas ya
+    # estaban creadas en el RNDC y quedaban huérfanas.
+    def _vacio_o_cero(texto):
+        digitos = _limpiar_numero(texto or "")
+        return not digitos or int(digitos) == 0
+    if _vacio_o_cero(v.get("Flete")):
+        avisos.append("Falta el valor del flete.")
+    for tramo in tramos:
+        if _vacio_o_cero(tramo.get("peso")):
+            avisos.append(f"Falta el peso de la remesa {tramo['consecutivo']}.")
+        if not str(tramo.get("producto") or "").strip():
+            avisos.append(f"Falta el producto de la remesa {tramo['consecutivo']}.")
+    if avisos:
+        return avisos
     log("    Verificando remitente, destinatario, conductor, titular y placa(s) antes de crear...")
 
     vistos = set()

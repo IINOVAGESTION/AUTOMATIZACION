@@ -364,8 +364,8 @@
 
     <div class="fila">
       <div id="campo_flete">
-        <label>Valor del flete</label>
-        <input type="text" name="Flete" value="{{ v.get('Flete', '') }}" class="campo-clave" tabindex="9" oninput="formatearMiles(this)">
+        <label>Valor del flete <span class="asterisco" title="Obligatorio">*</span></label>
+        <input type="text" name="Flete" id="input_flete" value="{{ v.get('Flete', '') }}" class="campo-clave" tabindex="9" oninput="formatearMiles(this)" required>
       </div>
       <div id="campo_anticipo">
         <label>Anticipo (opcional)<span class="ayuda-icono" data-tip="Valor que el cliente paga por adelantado antes de que salga el viaje. Déjalo vacío si no aplica para este viaje.">i</span></label>
@@ -1258,6 +1258,10 @@ function toggleTipoViaje() {
     ['campo_consecutivo', 'campo_flete', 'campo_anticipo', 'campo_fecha_opcional'].forEach(id => {
         document.getElementById(id).style.display = esCola ? 'none' : '';
     });
+
+    // El flete es obligatorio salvo en Récord (ahí cada viaje trae el suyo y
+    // el campo general está oculto: un 'required' invisible bloquearía el envío).
+    document.getElementById('input_flete').required = !esCola;
 
     // Titular y Conductor viven siempre en la columna "Vehículo y personas"
     // y se comparten en todas las pestañas (incluida Récord), así que ya no

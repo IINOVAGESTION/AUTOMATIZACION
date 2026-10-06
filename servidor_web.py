@@ -674,6 +674,12 @@ def ejecutar():
     if not (v.get("Cliente") or "").strip():
         return "Falta el Cliente: es obligatorio para poder hacer el viaje. No se envió nada.", 400
 
+    # El Flete también es obligatorio (menos en Récord, donde cada viaje
+    # trae el suyo). Sin él, antes se llegaba a crear las Remesas y recién
+    # al crear el Manifiesto salía un error raro.
+    if not es_cola and not "".join(c for c in str(v.get("Flete") or "") if c.isdigit()).strip("0"):
+        return "Falta el valor del flete: es obligatorio. No se envió nada.", 400
+
     if es_cola:
         v["_viajes_cola"] = lista_viajes_cola
         descripcion = f"Cola de {len(lista_viajes_cola)} viaje(s)"
