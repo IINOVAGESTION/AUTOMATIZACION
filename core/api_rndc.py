@@ -1290,8 +1290,11 @@ def anular_manifiesto_api(usuario, password, nit_empresa, numero_manifiesto, mot
         f"{f'<NUMMANIFIESTOCARGANUEVO>{manifiesto_nuevo}</NUMMANIFIESTOCARGANUEVO>' if manifiesto_nuevo else ''}"
         f"{f'<OBSERVACIONES>{observaciones}</OBSERVACIONES>' if observaciones else ''}"
     )
+    # La guía del RNDC reserva el servidor rndcws2 SOLO para expedir
+    # remesas y manifiestos; anular (proceso 32) va por el servidor general
+    # (rndcws). Por eso antes daba "WS2 No se puede atender la solicitud".
     respuesta = _llamar(usuario, password, tipo=1, procesoid=32,
-                         variables_xml=variables, servidor="real_remesas")
+                         variables_xml=variables, servidor="real_terceros")
     _, error = _extraer_radicado_o_error(respuesta)
     if error:
         raise ErrorRNDC(error, respuesta)
