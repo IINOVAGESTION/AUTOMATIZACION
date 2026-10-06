@@ -1013,18 +1013,20 @@ def reimprimir_route():
     if not usuario_rndc or not password_rndc:
         return jsonify({"ok": False, "error": "Faltan tu usuario y contraseña del RNDC."})
     tipo_documento = request.form.get("tipo_documento", "manifiesto").strip()
+    por = "consecutivo" if request.form.get("buscar_por") == "consecutivo" else "radicado"
     radicado = request.form.get("radicado", "").strip()
     if not radicado:
-        return jsonify({"ok": False, "error": "Escribe el radicado a reimprimir."})
+        return jsonify({"ok": False, "error": f"Escribe el {por} a reimprimir."})
     mensajes = []
     nombre_archivo = f"reimpreso_{tipo_documento}_{radicado}"
     try:
         archivo = rndc_core.reimprimir_documento_api(
-            usuario_rndc, password_rndc, tipo_documento, radicado, nombre_archivo, mensajes.append
+            usuario_rndc, password_rndc, tipo_documento, radicado, nombre_archivo, mensajes.append,
+            por=por,
         )
         if archivo:
             return jsonify({"ok": True, "archivo": archivo, "log": mensajes})
-        return jsonify({"ok": False, "error": "No se encontró un PDF para ese radicado.", "log": mensajes})
+        return jsonify({"ok": False, "error": f"No se encontró un PDF para ese {por}.", "log": mensajes})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e), "log": mensajes})
 

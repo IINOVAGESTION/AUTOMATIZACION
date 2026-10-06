@@ -1300,18 +1300,23 @@ def anular_manifiesto_api(usuario, password, nit_empresa, numero_manifiesto, mot
     return respuesta
 
 
-def reimprimir_documento_api(usuario, password, tipo_documento, radicado, nombre_archivo, log=None):
+def reimprimir_documento_api(usuario, password, tipo_documento, radicado, nombre_archivo, log=None,
+                               por="radicado"):
     """Descarga de nuevo el PDF de una Remesa o un Manifiesto YA
     creado, dado su radicado -- para cuando se perdió el PDF original o
     hace falta una copia extra. Abre un navegador solo para este paso
     (el Web Service no entrega el PDF directamente -- ver
     descargar_pdfs_del_viaje). tipo_documento es 'remesa' o
-    'manifiesto'. Devuelve el nombre del archivo descargado, o None si
-    no se pudo."""
+    'manifiesto'. 'por' dice qué es lo que se escribió en 'radicado':
+    "radicado" (el número que da el RNDC) o "consecutivo" (el de la
+    empresa, ej. AF46561) -- la página de Reimprimir del RNDC tiene una
+    casilla distinta para cada uno, y el dato tiene que ir en la suya.
+    Devuelve el nombre del archivo descargado, o None si no se pudo."""
     log = log or (lambda m: None)
     driver = None
+    por_consecutivo = (por == "consecutivo")
     try:
-        log("    Abriendo el navegador solo para reimprimir el PDF...")
+        log(f"    Abriendo el navegador solo para reimprimir el PDF (buscando por {'consecutivo' if por_consecutivo else 'radicado'})...")
         chrome_options = crear_opciones_chrome()
         driver = crear_driver_con_limite(chrome_options, obtener_chromedriver_path())
         driver.set_page_load_timeout(25)
@@ -1329,15 +1334,27 @@ def reimprimir_documento_api(usuario, password, tipo_documento, radicado, nombre
         _time.sleep(2)
 
         if tipo_documento == "remesa":
+            # Casilla del consecutivo de la remesa: el nombre sale de la
+            # variable CONSECUTIVOREMESA del RNDC (igual que el manifiesto
+            # usa NUMMANIFIESTOCARGA); si el sitio la llama distinto, el
+            # error dirá qué casillas se buscaron.
+            casilla = (
+                ["dnn_ctr394_ReimprimirRemesa_CONSECUTIVOREMESA", "dnn_ctr394_ReimprimirRemesa_NUMREMESA"]
+                if por_consecutivo else "dnn_ctr394_ReimprimirRemesa_RADICADO"
+            )
             archivo = descargar_pdf_documento(
                 driver, wait, URL_REIMPRIMIR_REMESA, radicado, nombre_archivo,
-                CARPETA_DESCARGAS, "dnn_ctr394_ReimprimirRemesa_RADICADO",
+                CARPETA_DESCARGAS, casilla,
                 "dnn_ctr394_ReimprimirRemesa_btImprimir", log,
             )
         else:
+            casilla = (
+                "dnn_ctr394_ReimprimirManifiesto_NUMMANIFIESTOCARGA"
+                if por_consecutivo else "dnn_ctr394_ReimprimirManifiesto_RADICADO"
+            )
             archivo = descargar_pdf_documento(
                 driver, wait, URL_REIMPRIMIR_MANIFIESTO, radicado, nombre_archivo,
-                CARPETA_DESCARGAS, "dnn_ctr394_ReimprimirManifiesto_RADICADO",
+                CARPETA_DESCARGAS, casilla,
                 "dnn_ctr394_ReimprimirManifiesto_btImprimir", log,
                 id_boton_consultar="dnn_ctr394_ReimprimirManifiesto_btConsultar",
             )

@@ -24,13 +24,26 @@ def descargar_pdf_documento(driver, wait, url_reimprimir, radicado, nombre_archi
     for intento in range(1, 4):
         try:
             driver.get(url_reimprimir)
+            # id_campo_radicado puede ser un solo id o una lista de ids
+            # candidatos (se usa la primera casilla que exista en la página).
+            candidatos = [id_campo_radicado] if isinstance(id_campo_radicado, str) else list(id_campo_radicado)
             try:
-                wait.until(EC.presence_of_element_located((By.ID, id_campo_radicado)))
+                wait.until(lambda d: any(d.find_elements(By.ID, c) for c in candidatos))
             except TimeoutException:
                 pass
             time.sleep(0.6)
 
-            campo = driver.find_element(By.ID, id_campo_radicado)
+            campo = None
+            for candidato in candidatos:
+                encontrados = driver.find_elements(By.ID, candidato)
+                if encontrados:
+                    campo = encontrados[0]
+                    break
+            if campo is None:
+                raise NoSuchElementException(
+                    "No se encontró la casilla de búsqueda en la página de Reimprimir "
+                    f"(se buscó: {', '.join(candidatos)})."
+                )
             campo.clear()
             campo.send_keys(radicado)
             campo.send_keys(Keys.TAB)
