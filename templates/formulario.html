@@ -28,13 +28,26 @@
   .stat-valor { font-size: 1.05rem; font-weight: 700; color: #ff6a00; margin: 0; }
   .stat-valor.stat-danger { color: #ff6b6b; }
   @media (max-width: 700px) { .panel-stats { flex-wrap: wrap; } .stat-card { flex: 1 1 45%; border-right: none; border-bottom: 1px solid #2a2822; } }
-  .caja {
-    background: #1e1c1a; border-radius: 14px;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.3), 0 16px 40px -12px rgba(0,0,0,0.55);
-    padding: 2rem 2.25rem 2.5rem; border: 1px solid #2a2822;
+  .caja { padding: 0; }
+  .seccion, .panel {
+    background: #1e1c1a; border: 1px solid #2a2822; border-radius: 14px;
+    padding: 1.4rem 1.6rem 1.6rem;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.3), 0 12px 30px -14px rgba(0,0,0,0.55);
   }
-  .seccion { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid #262626; }
-  .seccion:first-of-type { margin-top: 0.5rem; padding-top: 0; border-top: none; }
+  .seccion { margin-top: 1.25rem; }
+  .dos-columnas {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.25rem; align-items: start;
+  }
+  @media (max-width: 980px) { .dos-columnas { grid-template-columns: minmax(0, 1fr); } }
+  .panel-encabezado { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 1.9rem; margin-bottom: 0.4rem; }
+  .panel-encabezado h2, .panel > h2 { margin-bottom: 0; cursor: default; }
+  .panel > h2 { margin-bottom: 0.8rem; }
+  .panel-ancho { margin-top: 1.25rem; }
+  .leyenda-obligatorio { margin-left: auto; align-self: center; font-size: 0.78rem; color: #918c80; white-space: nowrap; padding: 0 0.4rem; }
+  .asterisco { color: #f85149; font-weight: 700; }
+  .pila-personas > div { margin-top: 0.9rem; }
+  .pila-personas label { margin-top: 0; }
   h2 {
     font-size: 1.05rem; letter-spacing: -0.01em;
     color: #ff6a00; margin: 0 0 1.1rem 0; font-weight: 600;
@@ -56,6 +69,13 @@
     font-family: inherit; resize: vertical;
   }
   input[type=date]::-webkit-calendar-picker-indicator { filter: invert(0.7); cursor: pointer; }
+  select {
+    padding: 0.55rem 0.6rem; border: 1.5px solid #333; border-radius: 8px; font-size: 0.85rem;
+    background: #242220; color: #e8e3d9; font-family: inherit; color-scheme: dark;
+    transition: border-color 0.2s;
+  }
+  .fila > div > select { width: 100%; }
+  select:focus { outline: none; border-color: #ff6a00; box-shadow: 0 0 0 3px rgba(255,106,0,0.14); }
   input:focus, textarea:focus { outline: none; border-color: #ff6a00; background: #1f1f1f; box-shadow: 0 0 0 3px rgba(255,106,0,0.14); }
   .fila { display: flex; gap: 1.25rem; flex-wrap: wrap; }
   .fila > div { flex: 1; min-width: 200px; }
@@ -95,6 +115,33 @@
   .nit-desplegable .contenido-nit {
     margin-top: 0.5rem; padding: 0.5rem 0.6rem; background: #211f1d; border-radius: 6px; border: 1px solid #2a2a2a;
   }
+  .bloque-nuevo {
+    margin-top: 0.7rem; background: #2a2412; border: 1px solid #6b5416; border-radius: 10px;
+    font-size: 0.85rem;
+  }
+  .bloque-nuevo summary {
+    cursor: pointer; list-style: none; user-select: none; color: #f0b44c; font-weight: 600;
+    padding: 0.65rem 0.9rem; font-size: 0.82rem; line-height: 1.35;
+  }
+  .bloque-nuevo summary::-webkit-details-marker { display: none; }
+  .bloque-nuevo summary::before { content: "▸ "; }
+  .bloque-nuevo[open] summary::before { content: "▾ "; }
+  .bloque-nuevo[open] summary { border-bottom: 1px solid #4a3a10; }
+  .bloque-nuevo summary:hover { color: #ffcc66; }
+  .bloque-nuevo .contenido-nuevo { padding: 0.2rem 0.9rem 0.9rem; }
+  .bloque-nuevo label { color: #c9c0a8; font-size: 0.75rem; margin-top: 0.7rem; }
+  .bloque-nuevo input, .bloque-nuevo select { background: #171614; }
+  .barra-acciones {
+    position: sticky; bottom: 0.75rem; z-index: 30; margin-top: 1.25rem;
+    display: flex; align-items: center; gap: 1.75rem; flex-wrap: wrap;
+    background: rgba(26,25,24,0.97); border: 1px solid #30363d; border-radius: 14px;
+    padding: 0.85rem 1.25rem; box-shadow: 0 -6px 24px -8px rgba(0,0,0,0.7), 0 10px 30px -10px rgba(0,0,0,0.6);
+    backdrop-filter: blur(6px);
+  }
+  .accion-check { display: flex; align-items: center; gap: 0.6rem; margin: 0; cursor: pointer; font-size: 0.9rem; font-weight: 500; color: #ddd8cd; }
+  .accion-check input { width: 1.2rem; height: 1.2rem; accent-color: #ff6a00; cursor: pointer; margin: 0; }
+  .accion-check small { display: inline; color: #918c80; font-weight: 400; margin: 0; font-size: 0.82rem; }
+  .boton-ejecutar { margin: 0 0 0 auto; padding: 0.8rem 2.2rem; font-size: 1rem; font-weight: 700; }
   .check-multiparada {
     display: flex; align-items: center; gap: 0.5rem; font-weight: 600; font-size: 0.9rem;
     background: #241d08; border: 1px solid #4a3a10; padding: 0.7rem 1rem; border-radius: 8px;
@@ -147,6 +194,7 @@
     padding: 0.75rem 1.1rem; cursor: pointer; transition: color 0.15s, border-color 0.15s;
     user-select: none; display: flex; align-items: center; gap: 0.5rem; white-space: nowrap;
   }
+  .pestana-tipo, .pestana-tipo:hover, .pestana-tipo:active { margin: 0; box-shadow: none; transform: none; background: transparent; }
   .pestana-tipo:hover { color: #ff6a00; }
   .pestana-tipo .tarjeta-icono { font-size: 1.05rem; margin: 0; }
   .pestana-tipo .tarjeta-titulo { font-size: 0.88rem; font-weight: 700; color: #918c80; }
@@ -237,11 +285,14 @@
         <span class="tarjeta-icono">📋</span>
         <span class="tarjeta-titulo">Récord</span>
       </button>
+      <span class="leyenda-obligatorio"><span class="asterisco">*</span> obligatorio</span>
     </div>
 
-    <div class="seccion">
-    <div style="display:flex; align-items:center; justify-content:space-between;">
-      <h2 style="margin-bottom:0;" onclick="toggleSeccion(this)">Datos generales</h2>
+    <div class="dos-columnas">
+
+    <section class="panel" id="panel_viaje">
+    <div class="panel-encabezado">
+      <h2>Viaje</h2>
       <details class="nit-desplegable" id="campo_fecha_opcional" style="margin:0;">
         <summary>Fecha (opcional)</summary>
         <div class="contenido-nit" style="min-width:220px;">
@@ -250,10 +301,9 @@
         <small>Deja vacío para usar hoy. El pago siempre queda 5 días después de esta fecha, automáticamente.</small>
       </details>
     </div>
-
-    <div class="fila" id="fila_datos_generales" style="margin-top:1rem;">
+    <div class="fila" id="fila_datos_generales" style="margin-top:0.2rem;">
       <div id="campo_cliente">
-        <label>Cliente <span style="color:#f85149;" title="Obligatorio">*</span><span class="ayuda-icono" data-tip="La persona o empresa que pidió este manifiesto (no es el remitente ni el destinatario, sino quien contrató el servicio). Es obligatorio: sin cliente no se puede hacer el viaje.">i</span></label>
+        <label>Cliente <span class="asterisco" title="Obligatorio">*</span><span class="ayuda-icono" data-tip="La persona o empresa que pidió este manifiesto (no es el remitente ni el destinatario, sino quien contrató el servicio). Es obligatorio: sin cliente no se puede hacer el viaje.">i</span></label>
         <input type="text" name="Cliente" value="{{ v.get('Cliente', '') }}" tabindex="8" required>
       </div>
       <div id="campo_consecutivo">
@@ -261,10 +311,7 @@
         <input type="text" name="Consecutivo" id="input_consecutivo" value="{{ v.get('Consecutivo', '') }}" class="campo-clave" tabindex="1" oninput="verificarConsecutivo()">
         <span id="aviso_consecutivo" style="display:none; align-items:center; gap:6px; background:rgba(255,106,0,0.14); border:1px solid #ff6a00; border-radius:6px; padding:6px 10px; margin-top:6px; font-size:0.82rem; color:#ff6a00;"></span>
       </div>
-      <div id="campo_placa"><label>Placa</label><input type="text" name="Placa" id="input_placa" value="{{ v.get('Placa', '') }}" class="campo-clave" tabindex="2" oninput="sugerirConductor()"></div>
-      <div><label>Placa Remolque (solo tractocamión)<span class="ayuda-icono" data-tip="Si el vehículo es un tractocamión (lleva remolque), escribe aquí su placa. Esto también hace que se calcule automáticamente un pago adicional llamado FOPAT.">i</span></label><input type="text" name="Placa_Remolque" value="{{ v.get('Placa_Remolque', '') }}" tabindex="3"></div>
     </div>
-    <span id="aviso_conductor_sugerido" style="display:none; align-items:center; gap:8px; background:rgba(255,106,0,0.14); border:1px solid #ff6a00; border-radius:6px; padding:6px 10px; margin-bottom:0.75rem; font-size:0.82rem; color:#ff6a00;"></span>
 
     <div id="simple">
       <div class="fila">
@@ -315,7 +362,183 @@
       </div>
     </div>
 
-    <div id="paradas" class="oculto">
+    <div class="fila">
+      <div id="campo_flete">
+        <label>Valor del flete</label>
+        <input type="text" name="Flete" value="{{ v.get('Flete', '') }}" class="campo-clave" tabindex="9" oninput="formatearMiles(this)">
+      </div>
+      <div id="campo_anticipo">
+        <label>Anticipo (opcional)<span class="ayuda-icono" data-tip="Valor que el cliente paga por adelantado antes de que salga el viaje. Déjalo vacío si no aplica para este viaje.">i</span></label>
+        <input type="text" name="Anticipo" value="{{ v.get('Anticipo', '') }}" tabindex="10">
+      </div>
+    </div>
+    </section>
+
+    <section class="panel" id="panel_personas">
+      <div class="panel-encabezado"><h2>Vehículo y personas</h2></div>
+    <div class="fila" style="margin-top:0.2rem;">
+      <div id="campo_placa"><label>Placa</label><input type="text" name="Placa" id="input_placa" value="{{ v.get('Placa', '') }}" class="campo-clave" tabindex="2" oninput="sugerirConductor()"></div>
+      <div><label>Placa Remolque (solo tractocamión)<span class="ayuda-icono" data-tip="Si el vehículo es un tractocamión (lleva remolque), escribe aquí su placa. Esto también hace que se calcule automáticamente un pago adicional llamado FOPAT.">i</span></label><input type="text" name="Placa_Remolque" value="{{ v.get('Placa_Remolque', '') }}" tabindex="3"></div>
+    </div>
+    <span id="aviso_conductor_sugerido" style="display:none; align-items:center; gap:8px; background:rgba(255,106,0,0.14); border:1px solid #ff6a00; border-radius:6px; padding:6px 10px; margin-bottom:0.75rem; font-size:0.82rem; color:#ff6a00;"></span>
+    <details class="bloque-nuevo" id="bloque_placa_nueva">
+      <summary>⚠️ ¿La placa es nueva en el RNDC? Complétala aquí (solo si el RNDC dice que no existe)</summary>
+      <div class="contenido-nuevo">
+        <div class="fila">
+          <div>
+            <label>Tipo de vehículo (define el peso vacío)</label>
+            <select name="Tipo_Vehiculo_Nuevo">
+              <option value="">— Elegir —</option>
+              <option value="camioneta" {{ 'selected' if v.get('Tipo_Vehiculo_Nuevo') == 'camioneta' else '' }}>Camioneta (1.500 kg)</option>
+              <option value="camion" {{ 'selected' if v.get('Tipo_Vehiculo_Nuevo') == 'camion' else '' }}>Camión rígido de 2 ejes (2.000 kg)</option>
+              <option value="tractocamion" {{ 'selected' if v.get('Tipo_Vehiculo_Nuevo') == 'tractocamion' else '' }}>Tractocamión de 3 ejes (5.000 kg)</option>
+            </select>
+          </div>
+        </div>
+        <div class="fila">
+          <div>
+            <label>Modelo/año (opcional -- solo si el RNDC lo pide, ej. VEH060)</label>
+            <input type="text" name="Modelo_Vehiculo_Nuevo" value="{{ v.get('Modelo_Vehiculo_Nuevo', '') }}" placeholder="ej. 2006" maxlength="4">
+          </div>
+          <div>
+            <label>Combustible (opcional -- solo si el RNDC lo pide, ej. VEH200)</label>
+            <select name="Combustible_Vehiculo_Nuevo">
+              <option value="">— No especificar —</option>
+              <option value="1" {{ 'selected' if v.get('Combustible_Vehiculo_Nuevo') == '1' else '' }}>Gasolina</option>
+              <option value="2" {{ 'selected' if v.get('Combustible_Vehiculo_Nuevo') == '2' else '' }}>Gas</option>
+              <option value="3" {{ 'selected' if v.get('Combustible_Vehiculo_Nuevo') == '3' else '' }}>Diesel o ACPM</option>
+              <option value="4" {{ 'selected' if v.get('Combustible_Vehiculo_Nuevo') == '4' else '' }}>Gas/Gasolina</option>
+              <option value="5" {{ 'selected' if v.get('Combustible_Vehiculo_Nuevo') == '5' else '' }}>Eléctrico</option>
+              <option value="6" {{ 'selected' if v.get('Combustible_Vehiculo_Nuevo') == '6' else '' }}>Hidrógeno</option>
+              <option value="10" {{ 'selected' if v.get('Combustible_Vehiculo_Nuevo') == '10' else '' }}>Gasolina/Eléctrico</option>
+              <option value="11" {{ 'selected' if v.get('Combustible_Vehiculo_Nuevo') == '11' else '' }}>Diesel/Eléctrico</option>
+            </select>
+          </div>
+        </div>
+        <small style="opacity:0.75;">Si además el remolque es nuevo, se registra como semirremolque de 3 ejes (5.000 kg).</small>
+      </div>
+    </details>
+    <div id="fila_titular_conductor" class="pila-personas">
+      <div id="campo_titular">
+        <label>Titular del manifiesto (Cédula/NIT) <span class="asterisco" title="Obligatorio">*</span></label>
+        <div class="fila-verificar">
+          <input type="text" name="Cedula_Titular" id="input_cedula_titular" value="{{ v.get('Cedula_Titular', '') }}" required class="campo-clave" tabindex="12">
+          <button type="button" class="secundario" onclick="verificarPersona('input_cedula_titular', 'resultado_cedula_titular', 'C', 'bloque_titular_nuevo')">🔍 Verificar</button>
+        </div>
+        <span id="resultado_cedula_titular" class="resultado-verificar"></span>
+    <details class="bloque-nuevo" id="bloque_titular_nuevo">
+      <summary>⚠️ ¿El titular es nuevo en el RNDC? Complétalo aquí (solo si "Verificar" dice que no existe)</summary>
+      <div class="contenido-nuevo">
+        <div class="fila">
+          <div>
+            <label>Nombre del titular</label>
+            <input type="text" name="Nombre_Titular" value="{{ v.get('Nombre_Titular', '') }}">
+          </div>
+          <div>
+            <label>Primer apellido</label>
+            <input type="text" name="Apellido1_Titular" value="{{ v.get('Apellido1_Titular', '') }}">
+          </div>
+        </div>
+        <div class="fila">
+          <div>
+            <label>Segundo apellido (opcional)</label>
+            <input type="text" name="Apellido2_Titular" value="{{ v.get('Apellido2_Titular', '') }}">
+          </div>
+          <div>
+            <label>Municipio del titular</label>
+            <input type="text" name="Municipio_Titular" value="{{ v.get('Municipio_Titular', '') }}">
+          </div>
+        </div>
+        <div class="fila">
+          <div style="flex:1;">
+            <label>Dirección (opcional -- si la deja en blanco, se usa el municipio)</label>
+            <input type="text" name="Direccion_Titular" value="{{ v.get('Direccion_Titular', '') }}">
+          </div>
+        </div>
+      </div>
+    </details>
+      </div>
+      <div id="campo_cedula_conductor">
+        <label>Conductor (documento)</label>
+        <div class="fila-verificar">
+          <select name="Tipo_Documento_Conductor" id="tipo_documento_conductor" style="flex:0 0 11rem; max-width:11rem;">
+            <option value="C" {{ 'selected' if v.get('Tipo_Documento_Conductor', 'C') == 'C' else '' }}>Cédula Ciudadanía</option>
+            <option value="N" {{ 'selected' if v.get('Tipo_Documento_Conductor') == 'N' else '' }}>Nit</option>
+            <option value="P" {{ 'selected' if v.get('Tipo_Documento_Conductor') == 'P' else '' }}>Pasaporte</option>
+            <option value="E" {{ 'selected' if v.get('Tipo_Documento_Conductor') == 'E' else '' }}>Cédula Extranjería</option>
+            <option value="T" {{ 'selected' if v.get('Tipo_Documento_Conductor') == 'T' else '' }}>Tarjeta Identidad</option>
+            <option value="U" {{ 'selected' if v.get('Tipo_Documento_Conductor') == 'U' else '' }}>NUIP</option>
+            <option value="D" {{ 'selected' if v.get('Tipo_Documento_Conductor') == 'D' else '' }}>Carné Diplomático</option>
+            <option value="X" {{ 'selected' if v.get('Tipo_Documento_Conductor') == 'X' else '' }}>Identificación Extranjera</option>
+            <option value="Y" {{ 'selected' if v.get('Tipo_Documento_Conductor') == 'Y' else '' }}>Permiso Protección Temporal Venezuela</option>
+          </select>
+          <input type="text" name="Cedula_Conductor" id="input_cedula_conductor" value="{{ v.get('Cedula_Conductor', '') }}" class="campo-clave" list="lista_conductores" tabindex="11">
+          <button type="button" class="secundario" onclick="verificarPersona('input_cedula_conductor', 'resultado_cedula_conductor', document.getElementById('tipo_documento_conductor').value, 'bloque_conductor_nuevo')">🔍 Verificar</button>
+        </div>
+        <span id="resultado_cedula_conductor" class="resultado-verificar"></span>
+    <details class="bloque-nuevo" id="bloque_conductor_nuevo">
+      <summary>⚠️ ¿El conductor es nuevo en el RNDC? Complétalo aquí (solo si "Verificar" dice que no existe)</summary>
+      <div class="contenido-nuevo">
+        <div class="fila">
+          <div>
+            <label>Nombre del conductor</label>
+            <input type="text" name="Nombre_Conductor" value="{{ v.get('Nombre_Conductor', '') }}">
+          </div>
+          <div>
+            <label>Primer apellido</label>
+            <input type="text" name="Apellido1_Conductor" value="{{ v.get('Apellido1_Conductor', '') }}">
+          </div>
+        </div>
+        <div class="fila">
+          <div>
+            <label>Segundo apellido (opcional)</label>
+            <input type="text" name="Apellido2_Conductor" value="{{ v.get('Apellido2_Conductor', '') }}">
+          </div>
+          <div>
+            <label>Municipio del conductor</label>
+            <input type="text" name="Municipio_Conductor" value="{{ v.get('Municipio_Conductor', '') }}">
+          </div>
+        </div>
+        <div class="fila">
+          <div style="flex:1;">
+            <label>Dirección (opcional -- si la deja en blanco, se usa el municipio)</label>
+            <input type="text" name="Direccion_Conductor" value="{{ v.get('Direccion_Conductor', '') }}">
+          </div>
+        </div>
+      </div>
+    </details>
+      </div>
+    </div>
+    <details class="nit-desplegable" id="bloque_segundo_conductor" style="margin-top:0.6rem;">
+      <summary style="font-size:0.85rem;">¿Este viaje lleva segundo conductor? (solo si el cliente lo pide)</summary>
+      <div class="contenido-nit" style="margin-top:0.5rem;">
+        <div id="campo_cedula_conductor2">
+          <label>Segundo conductor (documento)</label>
+          <div class="fila-verificar">
+            <select name="Tipo_Documento_Conductor2" id="tipo_documento_conductor2" style="flex:0 0 11rem; max-width:11rem;">
+              <option value="C" {{ 'selected' if v.get('Tipo_Documento_Conductor2', 'C') == 'C' else '' }}>Cédula Ciudadanía</option>
+              <option value="N" {{ 'selected' if v.get('Tipo_Documento_Conductor2') == 'N' else '' }}>Nit</option>
+              <option value="P" {{ 'selected' if v.get('Tipo_Documento_Conductor2') == 'P' else '' }}>Pasaporte</option>
+              <option value="E" {{ 'selected' if v.get('Tipo_Documento_Conductor2') == 'E' else '' }}>Cédula Extranjería</option>
+              <option value="T" {{ 'selected' if v.get('Tipo_Documento_Conductor2') == 'T' else '' }}>Tarjeta Identidad</option>
+              <option value="U" {{ 'selected' if v.get('Tipo_Documento_Conductor2') == 'U' else '' }}>NUIP</option>
+              <option value="D" {{ 'selected' if v.get('Tipo_Documento_Conductor2') == 'D' else '' }}>Carné Diplomático</option>
+              <option value="X" {{ 'selected' if v.get('Tipo_Documento_Conductor2') == 'X' else '' }}>Identificación Extranjera</option>
+              <option value="Y" {{ 'selected' if v.get('Tipo_Documento_Conductor2') == 'Y' else '' }}>Permiso Protección Temporal Venezuela</option>
+            </select>
+            <input type="text" name="Cedula_Conductor2" id="input_cedula_conductor2" value="{{ v.get('Cedula_Conductor2', '') }}" class="campo-clave" list="lista_conductores">
+            <button type="button" class="secundario" onclick="verificarPersona('input_cedula_conductor2', 'resultado_cedula_conductor2', document.getElementById('tipo_documento_conductor2').value)">🔍 Verificar</button>
+          </div>
+          <span id="resultado_cedula_conductor2" class="resultado-verificar"></span>
+        </div>
+      </div>
+    </details>
+    </section>
+
+    </div>  <!-- /dos-columnas -->
+
+    <div id="paradas" class="oculto panel panel-ancho">
+      <h2>Ruta del viaje</h2>
       <small>Escribe la ciudad de Origen, la(s) ciudad(es) Intermedia(s) en orden, y la ciudad Destino final. En "Ida y Regreso", el Destino se llena solo (vuelve al Origen).</small>
 
       <div class="fila-paradas" style="margin-top:0.75rem;">
@@ -368,193 +591,19 @@
     </div>
     <input type="hidden" name="ParadasJSON" id="ParadasJSON">
 
-    <div id="cola" class="oculto">
-      <small>El vehículo, conductor, titular y cliente de arriba se usan para TODOS los viajes de esta lista. Agrega uno por bloque: se van a ejecutar UNO DETRÁS DE OTRO, automáticamente, reutilizando el mismo navegador. Si alguno falla, el programa sigue con el siguiente (no se detiene toda la lista).</small>
+    <div id="cola" class="oculto panel panel-ancho">
+      <h2>Viajes de la lista (Récord)</h2>
+      <small>El Cliente y los datos de "Vehículo y personas" (placa, titular, conductor) se usan para TODOS los viajes de esta lista. Agrega uno por bloque: se van a ejecutar UNO DETRÁS DE OTRO, automáticamente, reutilizando el mismo navegador. Si alguno falla, el programa sigue con el siguiente (no se detiene toda la lista).</small>
       <div id="lista_cola" style="margin-top:0.75rem;"></div>
       <div class="tarjeta-agregar-parada" style="min-height:56px;" onclick="agregarViajeCola()">+ Agregar viaje</div>
     </div>
     <input type="hidden" name="ColaJSON" id="ColaJSON">
-
-    <div class="fila">
-      <div id="campo_flete">
-        <label>Valor del flete</label>
-        <input type="text" name="Flete" value="{{ v.get('Flete', '') }}" class="campo-clave" tabindex="9" oninput="formatearMiles(this)">
-      </div>
-      <div id="campo_anticipo">
-        <label>Anticipo (opcional)<span class="ayuda-icono" data-tip="Valor que el cliente paga por adelantado antes de que salga el viaje. Déjalo vacío si no aplica para este viaje.">i</span></label>
-        <input type="text" name="Anticipo" value="{{ v.get('Anticipo', '') }}" tabindex="10">
-      </div>
-    </div>
-
-    <div class="fila" id="fila_titular_conductor">
-      <div id="campo_titular">
-        <label>Titular del manifiesto (Cédula/NIT)</label>
-        <div class="fila-verificar">
-          <input type="text" name="Cedula_Titular" id="input_cedula_titular" value="{{ v.get('Cedula_Titular', '') }}" required class="campo-clave" tabindex="12">
-          <button type="button" class="secundario" onclick="verificarPersona('input_cedula_titular', 'resultado_cedula_titular', 'C', 'bloque_titular_nuevo')">🔍 Verificar</button>
-        </div>
-        <span id="resultado_cedula_titular" class="resultado-verificar"></span>
-      </div>
-      <div id="campo_cedula_conductor">
-        <label>Conductor (documento)</label>
-        <div class="fila-verificar">
-          <select name="Tipo_Documento_Conductor" id="tipo_documento_conductor" style="flex:0 0 auto; max-width:9.5rem;">
-            <option value="C" {{ 'selected' if v.get('Tipo_Documento_Conductor', 'C') == 'C' else '' }}>Cédula Ciudadanía</option>
-            <option value="N" {{ 'selected' if v.get('Tipo_Documento_Conductor') == 'N' else '' }}>Nit</option>
-            <option value="P" {{ 'selected' if v.get('Tipo_Documento_Conductor') == 'P' else '' }}>Pasaporte</option>
-            <option value="E" {{ 'selected' if v.get('Tipo_Documento_Conductor') == 'E' else '' }}>Cédula Extranjería</option>
-            <option value="T" {{ 'selected' if v.get('Tipo_Documento_Conductor') == 'T' else '' }}>Tarjeta Identidad</option>
-            <option value="U" {{ 'selected' if v.get('Tipo_Documento_Conductor') == 'U' else '' }}>NUIP</option>
-            <option value="D" {{ 'selected' if v.get('Tipo_Documento_Conductor') == 'D' else '' }}>Carné Diplomático</option>
-            <option value="X" {{ 'selected' if v.get('Tipo_Documento_Conductor') == 'X' else '' }}>Identificación Extranjera</option>
-            <option value="Y" {{ 'selected' if v.get('Tipo_Documento_Conductor') == 'Y' else '' }}>Permiso Protección Temporal Venezuela</option>
-          </select>
-          <input type="text" name="Cedula_Conductor" id="input_cedula_conductor" value="{{ v.get('Cedula_Conductor', '') }}" class="campo-clave" list="lista_conductores" tabindex="11">
-          <button type="button" class="secundario" onclick="verificarPersona('input_cedula_conductor', 'resultado_cedula_conductor', document.getElementById('tipo_documento_conductor').value, 'bloque_conductor_nuevo')">🔍 Verificar</button>
-        </div>
-        <span id="resultado_cedula_conductor" class="resultado-verificar"></span>
-      </div>
-    </div>
-
-    <details class="nit-desplegable" id="bloque_segundo_conductor" style="margin-top:0.6rem;">
-      <summary style="font-size:0.85rem;">¿Este viaje lleva segundo conductor? (solo si el cliente lo pide)</summary>
-      <div class="contenido-nit" style="margin-top:0.5rem;">
-        <div id="campo_cedula_conductor2">
-          <label>Segundo conductor (documento)</label>
-          <div class="fila-verificar">
-            <select name="Tipo_Documento_Conductor2" id="tipo_documento_conductor2" style="flex:0 0 auto; max-width:9.5rem;">
-              <option value="C" {{ 'selected' if v.get('Tipo_Documento_Conductor2', 'C') == 'C' else '' }}>Cédula Ciudadanía</option>
-              <option value="N" {{ 'selected' if v.get('Tipo_Documento_Conductor2') == 'N' else '' }}>Nit</option>
-              <option value="P" {{ 'selected' if v.get('Tipo_Documento_Conductor2') == 'P' else '' }}>Pasaporte</option>
-              <option value="E" {{ 'selected' if v.get('Tipo_Documento_Conductor2') == 'E' else '' }}>Cédula Extranjería</option>
-              <option value="T" {{ 'selected' if v.get('Tipo_Documento_Conductor2') == 'T' else '' }}>Tarjeta Identidad</option>
-              <option value="U" {{ 'selected' if v.get('Tipo_Documento_Conductor2') == 'U' else '' }}>NUIP</option>
-              <option value="D" {{ 'selected' if v.get('Tipo_Documento_Conductor2') == 'D' else '' }}>Carné Diplomático</option>
-              <option value="X" {{ 'selected' if v.get('Tipo_Documento_Conductor2') == 'X' else '' }}>Identificación Extranjera</option>
-              <option value="Y" {{ 'selected' if v.get('Tipo_Documento_Conductor2') == 'Y' else '' }}>Permiso Protección Temporal Venezuela</option>
-            </select>
-            <input type="text" name="Cedula_Conductor2" id="input_cedula_conductor2" value="{{ v.get('Cedula_Conductor2', '') }}" class="campo-clave" list="lista_conductores">
-            <button type="button" class="secundario" onclick="verificarPersona('input_cedula_conductor2', 'resultado_cedula_conductor2', document.getElementById('tipo_documento_conductor2').value)">🔍 Verificar</button>
-          </div>
-          <span id="resultado_cedula_conductor2" class="resultado-verificar"></span>
-        </div>
-      </div>
-    </details>
-
-    <div style="margin-top:0.9rem; padding-top:0.6rem; border-top:1px dashed #444;">
-      <div style="font-size:0.8rem; opacity:0.75; margin-bottom:0.3rem;">📋 Si "Verificar" dice que algo no está creado en el RNDC, complétalo aquí:</div>
-
-    <details class="nit-desplegable" id="bloque_placa_nueva" style="margin-top:0.6rem;">
-      <summary style="font-size:0.85rem;">¿La placa es nueva en el RNDC? (solo si el RNDC dice que el vehículo no existe)</summary>
-      <div class="contenido-nit" style="margin-top:0.5rem;">
-        <div class="fila">
-          <div>
-            <label>Tipo de vehículo (define el peso vacío)</label>
-            <select name="Tipo_Vehiculo_Nuevo">
-              <option value="">— Elegir —</option>
-              <option value="camioneta" {{ 'selected' if v.get('Tipo_Vehiculo_Nuevo') == 'camioneta' else '' }}>Camioneta (1.500 kg)</option>
-              <option value="camion" {{ 'selected' if v.get('Tipo_Vehiculo_Nuevo') == 'camion' else '' }}>Camión rígido de 2 ejes (2.000 kg)</option>
-              <option value="tractocamion" {{ 'selected' if v.get('Tipo_Vehiculo_Nuevo') == 'tractocamion' else '' }}>Tractocamión de 3 ejes (5.000 kg)</option>
-            </select>
-          </div>
-        </div>
-        <div class="fila">
-          <div>
-            <label>Modelo/año (opcional -- solo si el RNDC lo pide, ej. VEH060)</label>
-            <input type="text" name="Modelo_Vehiculo_Nuevo" value="{{ v.get('Modelo_Vehiculo_Nuevo', '') }}" placeholder="ej. 2006" maxlength="4">
-          </div>
-          <div>
-            <label>Combustible (opcional -- solo si el RNDC lo pide, ej. VEH200)</label>
-            <select name="Combustible_Vehiculo_Nuevo">
-              <option value="">— No especificar —</option>
-              <option value="1" {{ 'selected' if v.get('Combustible_Vehiculo_Nuevo') == '1' else '' }}>Gasolina</option>
-              <option value="2" {{ 'selected' if v.get('Combustible_Vehiculo_Nuevo') == '2' else '' }}>Gas</option>
-              <option value="3" {{ 'selected' if v.get('Combustible_Vehiculo_Nuevo') == '3' else '' }}>Diesel o ACPM</option>
-              <option value="4" {{ 'selected' if v.get('Combustible_Vehiculo_Nuevo') == '4' else '' }}>Gas/Gasolina</option>
-              <option value="5" {{ 'selected' if v.get('Combustible_Vehiculo_Nuevo') == '5' else '' }}>Eléctrico</option>
-              <option value="6" {{ 'selected' if v.get('Combustible_Vehiculo_Nuevo') == '6' else '' }}>Hidrógeno</option>
-              <option value="10" {{ 'selected' if v.get('Combustible_Vehiculo_Nuevo') == '10' else '' }}>Gasolina/Eléctrico</option>
-              <option value="11" {{ 'selected' if v.get('Combustible_Vehiculo_Nuevo') == '11' else '' }}>Diesel/Eléctrico</option>
-            </select>
-          </div>
-        </div>
-        <small style="opacity:0.75;">Si además el remolque es nuevo, se registra como semirremolque de 3 ejes (5.000 kg).</small>
-      </div>
-    </details>
-
-    <details class="nit-desplegable" id="bloque_titular_nuevo" style="margin-top:0.6rem;">
-      <summary style="font-size:0.85rem;">¿El titular es nuevo en el RNDC? (solo si "Verificar" dice que no existe)</summary>
-      <div class="contenido-nit" style="margin-top:0.5rem;">
-        <div class="fila">
-          <div>
-            <label>Nombre del titular</label>
-            <input type="text" name="Nombre_Titular" value="{{ v.get('Nombre_Titular', '') }}">
-          </div>
-          <div>
-            <label>Primer apellido</label>
-            <input type="text" name="Apellido1_Titular" value="{{ v.get('Apellido1_Titular', '') }}">
-          </div>
-        </div>
-        <div class="fila">
-          <div>
-            <label>Segundo apellido (opcional)</label>
-            <input type="text" name="Apellido2_Titular" value="{{ v.get('Apellido2_Titular', '') }}">
-          </div>
-          <div>
-            <label>Municipio del titular</label>
-            <input type="text" name="Municipio_Titular" value="{{ v.get('Municipio_Titular', '') }}">
-          </div>
-        </div>
-        <div class="fila">
-          <div style="flex:1;">
-            <label>Dirección (opcional -- si la deja en blanco, se usa el municipio)</label>
-            <input type="text" name="Direccion_Titular" value="{{ v.get('Direccion_Titular', '') }}">
-          </div>
-        </div>
-      </div>
-    </details>
-
-    <details class="nit-desplegable" id="bloque_conductor_nuevo" style="margin-top:0.6rem;">
-      <summary style="font-size:0.85rem;">¿El conductor es nuevo en el RNDC? (solo si "Verificar" dice que no existe)</summary>
-      <div class="contenido-nit" style="margin-top:0.5rem;">
-        <div class="fila">
-          <div>
-            <label>Nombre del conductor</label>
-            <input type="text" name="Nombre_Conductor" value="{{ v.get('Nombre_Conductor', '') }}">
-          </div>
-          <div>
-            <label>Primer apellido</label>
-            <input type="text" name="Apellido1_Conductor" value="{{ v.get('Apellido1_Conductor', '') }}">
-          </div>
-        </div>
-        <div class="fila">
-          <div>
-            <label>Segundo apellido (opcional)</label>
-            <input type="text" name="Apellido2_Conductor" value="{{ v.get('Apellido2_Conductor', '') }}">
-          </div>
-          <div>
-            <label>Municipio del conductor</label>
-            <input type="text" name="Municipio_Conductor" value="{{ v.get('Municipio_Conductor', '') }}">
-          </div>
-        </div>
-        <div class="fila">
-          <div style="flex:1;">
-            <label>Dirección (opcional -- si la deja en blanco, se usa el municipio)</label>
-            <input type="text" name="Direccion_Conductor" value="{{ v.get('Direccion_Conductor', '') }}">
-          </div>
-        </div>
-      </div>
-    </details>
-    </div>
-    </div>
 
     <div class="seccion">
     <h2 onclick="toggleSeccion(this)">Observaciones del manifiesto</h2>
     <label>Texto de Observaciones/Recomendaciones</label>
     <textarea name="Observaciones" rows="3" tabindex="25">{{ v.get('Observaciones', OBSERVACIONES_POR_DEFECTO) }}</textarea>
     </div>
-
-    <button type="submit" tabindex="32">Ejecutar ▶</button>
 
     <div class="seccion">
     <h2 onclick="toggleSeccion(this)">Credenciales del RNDC</h2>
@@ -574,15 +623,8 @@
       <input type="checkbox" name="Invisible" {{ 'checked' if v.get('Invisible') else '' }} tabindex="30">
       No mostrar el navegador (modo invisible, más limpio, pero si algo falla solo verás capturas de pantalla, no la ventana)
     </label>
-    <label class="check-multiparada" style="background:#241d08; border-color:#ff6a00;">
-      <input type="checkbox" name="ModoPractica" {{ 'checked' if v.get('ModoPractica') else '' }} tabindex="31">
-      🎓 Modo de práctica (hace todo igual, pero NO guarda nada real ni descarga PDF — para entrenar sin riesgo)
-    </label>
-    <label class="check-multiparada" style="background:#0a2a1a; border-color:#2ecc71;">
-      <input type="checkbox" name="UsarAPI" {{ 'checked' if v.get('UsarAPI', True) else '' }} tabindex="32">
-      ⚡ Usar Web Service en vez del navegador (más rápido; desmárcala solo si necesitas usar el navegador para este viaje en particular — "Récord/Cola" siempre va por el navegador)
-    </label>
     </div>
+
 
     <div style="font-size: 0.72rem; color: #666; margin: 0.6rem 0;">
       {% if sedes_reales %}✅{% else %}⚠️{% endif %} Sugerencias de ciudad: {{ sedes_reales|length if sedes_reales else 'lista genérica' }}{{ ' sedes reales' if sedes_reales else '' }}
@@ -594,6 +636,17 @@
       · <a href="#" onclick="actualizarConductores(); return false;" style="color:#ff6a00; text-decoration:none;">🔄 actualizar</a>
       <span id="estado_conductores" style="margin-left:0.4rem;"></span>
       <pre id="detalle_conductores" style="white-space:pre-wrap; font-size:0.7rem; color:#999; background:#1e1c1a; padding:0.6rem; border-radius:6px; margin-top:0.4rem; max-height:200px; overflow-y:auto;"></pre>
+    </div>
+    <div class="barra-acciones">
+      <label class="accion-check" for="chk_usar_api">
+        <input type="checkbox" id="chk_usar_api" name="UsarAPI" {{ 'checked' if v.get('UsarAPI', True) else '' }} tabindex="32">
+        <span title="Si lo desmarcas, este viaje se hace con el navegador (más lento). Récord siempre va por el navegador.">Usar Web Service <small>(más rápido)</small></span>
+      </label>
+      <label class="accion-check" for="chk_practica">
+        <input type="checkbox" id="chk_practica" name="ModoPractica" {{ 'checked' if v.get('ModoPractica') else '' }} tabindex="31">
+        <span>Modo de práctica <small>(no guarda nada real)</small></span>
+      </label>
+      <button type="submit" class="boton-ejecutar" tabindex="33">Ejecutar viaje <span aria-hidden="true">▶</span></button>
     </div>
   </form>
 
@@ -1206,29 +1259,9 @@ function toggleTipoViaje() {
         document.getElementById(id).style.display = esCola ? 'none' : '';
     });
 
-    // En Récord, Titular y Conductor SÍ son compartidos por toda la
-    // lista (a diferencia de Consecutivo), así que se suben a la fila
-    // de "Datos generales" — en las demás pestañas vuelven a su fila
-    // propia de siempre. Son los mismos campos (no una copia), solo se
-    // mueven de lugar en la página.
-    var filaGenerales = document.getElementById('fila_datos_generales');
-    var filaTitularConductor = document.getElementById('fila_titular_conductor');
-    var campoTitular = document.getElementById('campo_titular');
-    var campoConductor = document.getElementById('campo_cedula_conductor');
-    var bloqueConductor2 = document.getElementById('bloque_segundo_conductor');
-    if (esCola) {
-        filaGenerales.appendChild(campoTitular);
-        filaGenerales.appendChild(campoConductor);
-        // El segundo conductor no es un campo cortico como los de arriba
-        // (es un desplegable), así que en vez de meterlo EN la fila, se
-        // deja pegado justo debajo de ella — se ve mejor y sigue
-        // cumpliendo "debajo del conductor" en cualquier pestaña.
-        filaGenerales.insertAdjacentElement('afterend', bloqueConductor2);
-    } else {
-        filaTitularConductor.appendChild(campoTitular);
-        filaTitularConductor.appendChild(campoConductor);
-        filaTitularConductor.insertAdjacentElement('afterend', bloqueConductor2);
-    }
+    // Titular y Conductor viven siempre en la columna "Vehículo y personas"
+    // y se comparten en todas las pestañas (incluida Récord), así que ya no
+    // hace falta moverlos de lugar.
 
     if (esParadas && document.getElementById('lista_paradas').children.length === 0) {
         agregarParada();
