@@ -69,6 +69,9 @@
         <option value="remesa">Cumplido de remesa (el final)</option>
       </select>
 
+      <label>Consecutivo del manifiesto al que pertenecen *</label>
+      <input type="text" id="numero_manifiesto" placeholder="ej. AF49232">
+
       <label>Consecutivo(s) de la remesa (uno o varios, separados por coma o en líneas distintas)</label>
       <textarea id="remesas" rows="3" placeholder="ej. AF49232A, AF49232B"></textarea>
 
@@ -80,8 +83,8 @@
         {% endfor %}
       </select>
 
-      <label>Observaciones (opcional)</label>
-      <input type="text" id="observaciones" maxlength="200" placeholder="ej. se va a anular el manifiesto">
+      <label>Observaciones * (mínimo 20 caracteres, lo exige el RNDC) <span id="contador_obs" style="color:#888"></span></label>
+      <input type="text" id="observaciones" maxlength="200" oninput="contarObs()" placeholder="ej. Se anula para corregir el manifiesto del viaje">
 
       <label>Escribe <strong>ANULAR</strong> para confirmar</label>
       <input type="text" id="confirmacion" placeholder="ANULAR" autocomplete="off">
@@ -93,6 +96,11 @@
   </div>
 
 <script>
+function contarObs() {
+    var n = document.getElementById('observaciones').value.trim().length;
+    document.getElementById('contador_obs').textContent = '(' + n + '/20)';
+}
+
 async function anular() {
     var boton = document.getElementById('btn_anular');
     var resultado = document.getElementById('resultado');
@@ -101,8 +109,13 @@ async function anular() {
     var motivo = document.getElementById('motivo').value;
     var confirmacion = document.getElementById('confirmacion').value.trim();
 
-    if (!remesas || !motivo) {
-        alert('Escribe al menos una remesa y elige un motivo.');
+    var manifiesto = document.getElementById('numero_manifiesto').value.trim();
+    if (!remesas || !motivo || !manifiesto) {
+        alert('Escribe el manifiesto, al menos una remesa y elige un motivo.');
+        return;
+    }
+    if (document.getElementById('observaciones').value.trim().length < 20) {
+        alert('Las observaciones son obligatorias y deben tener mínimo 20 caracteres (el RNDC no acepta menos).');
         return;
     }
     if (confirmacion !== 'ANULAR') {
@@ -116,6 +129,7 @@ async function anular() {
     var datos = new FormData();
     datos.append('tipo', tipo);
     datos.append('remesas', remesas);
+    datos.append('numero_manifiesto', manifiesto);
     datos.append('motivo', motivo);
     datos.append('observaciones', document.getElementById('observaciones').value.trim());
     datos.append('confirmacion', confirmacion);

@@ -1457,7 +1457,7 @@ TIPOS_ANULACION_CUMPLIDO = {
 
 def anular_cumplido_remesa_api(usuario, password, nit_empresa, consecutivo_remesa, motivo,
                                 tipo="inicial", cargue_descargue=None,
-                                observaciones=None, log=None):
+                                observaciones=None, log=None, numero_manifiesto=None):
     """Anula el cumplido de UNA remesa. tipo="inicial" -> proceso 54 (Anular
     Cumplido Inicial de Remesa); tipo="remesa" -> proceso 28 (Anular Cumplido de
     Remesa). Va por el servidor general (rndcws), no por WS2. Devuelve la
@@ -1473,6 +1473,14 @@ def anular_cumplido_remesa_api(usuario, password, nit_empresa, consecutivo_remes
         raise ErrorRNDC(f"Motivo de anulación inválido: '{motivo}'. Debe ser uno de: "
                          f"{', '.join(f'{k} ({v})' for k, v in MOTIVOS_ANULACION_CUMPLIDO.items())}.")
     procesoid, nombre = TIPOS_ANULACION_CUMPLIDO[tipo]
+    # El RNDC exige el consecutivo del manifiesto (Error AC1022) y
+    # observaciones de MÍNIMO 20 caracteres (Error AC1052).
+    if not numero_manifiesto:
+        raise ErrorRNDC("Falta el consecutivo del manifiesto al que pertenece la remesa.")
+    if len((observaciones or "").strip()) < 20:
+        raise ErrorRNDC("Las observaciones son obligatorias y deben tener mínimo 20 caracteres "
+                         "(el RNDC no acepta menos).")
+    observaciones = observaciones.strip()
     # El RNDC no publica el nombre exacto de la variable del motivo para
     # estos procesos y ya rechazó "MOTIVOANULACIONCUMPLIDO" (Error 13: "no
     # se encuentra en Diccionario de Datos"). Un Error 13 significa que el
@@ -1492,6 +1500,7 @@ def anular_cumplido_remesa_api(usuario, password, nit_empresa, consecutivo_remes
         variables = (
             f"<NUMNITEMPRESATRANSPORTE>{nit_empresa}</NUMNITEMPRESATRANSPORTE>"
             f"<CONSECUTIVOREMESA>{consecutivo_remesa}</CONSECUTIVOREMESA>"
+            f"<NUMMANIFIESTOCARGA>{numero_manifiesto}</NUMMANIFIESTOCARGA>"
             f"<{nombre_motivo}>{motivo}</{nombre_motivo}>"
             + (f"<OBSERVACIONES>{observaciones}</OBSERVACIONES>" if incluir_observaciones else "")
         )
@@ -1515,7 +1524,7 @@ def anular_cumplido_remesa_api(usuario, password, nit_empresa, consecutivo_remes
                 # reintentar el mismo nombre de motivo sin observaciones
                 candidatos_motivo.insert(candidatos_motivo.index(nombre_motivo) + 1, nombre_motivo)
                 continue
-        raise ErrorRNDC(error, respuesta)
+        raise ErrorRNDC(f"{error} [variable de motivo usada: {nombre_motivo}]", respuesta)
     raise ErrorRNDC(
         "El RNDC no reconoció ninguno de los nombres probados para el motivo de anulación ("
         + ", ".join(probados[:6]) + "). Se necesita el nombre exacto de la variable del proceso "

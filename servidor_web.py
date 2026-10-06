@@ -1023,12 +1023,17 @@ def anular_cumplido_route():
     tipo = request.form.get("tipo", "inicial").strip()
     motivo = request.form.get("motivo", "").strip()
     observaciones = request.form.get("observaciones", "").strip()
+    numero_manifiesto = request.form.get("numero_manifiesto", "").strip().upper()
     confirmacion = request.form.get("confirmacion", "").strip()
     remesas = [r.strip().upper() for r in re.split(r"[,;\s]+", request.form.get("remesas", "")) if r.strip()]
     if tipo not in rndc_core.TIPOS_ANULACION_CUMPLIDO:
         return jsonify({"ok": False, "error": "Tipo de anulación no válido."})
     if not remesas or not motivo:
         return jsonify({"ok": False, "error": "Faltan el consecutivo de la remesa y/o el motivo."})
+    if not numero_manifiesto:
+        return jsonify({"ok": False, "error": "Falta el consecutivo del manifiesto de esas remesas."})
+    if len(observaciones) < 20:
+        return jsonify({"ok": False, "error": "Las observaciones son obligatorias y deben tener mínimo 20 caracteres (regla del RNDC)."})
     if confirmacion != "ANULAR":
         return jsonify({"ok": False, "error": "Hay que escribir ANULAR para confirmar -- no se mandó nada."})
     nit_empresa = rndc_core.FIJOS_REMESA["NUMIDPROPIETARIO"]
@@ -1037,7 +1042,8 @@ def anular_cumplido_route():
         try:
             rndc_core.anular_cumplido_remesa_api(
                 usuario_rndc, password_rndc, nit_empresa, remesa, motivo, tipo=tipo,
-                observaciones=observaciones or None, log=mensajes.append,
+                observaciones=observaciones, log=mensajes.append,
+                numero_manifiesto=numero_manifiesto,
             )
             resultados.append({"remesa": remesa, "ok": True})
         except Exception as e:
