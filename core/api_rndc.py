@@ -1303,8 +1303,8 @@ def anular_manifiesto_api(usuario, password, nit_empresa, numero_manifiesto, mot
     return respuesta
 
 
-def reimprimir_documento_api(usuario, password, tipo_documento, radicado, nombre_archivo, log=None,
-                               por="radicado"):
+def _reimprimir_documento_una_vez(usuario, password, tipo_documento, radicado, nombre_archivo, log=None,
+                                   por="radicado", invisible=False):
     """Descarga de nuevo el PDF de una Remesa o un Manifiesto YA
     creado, dado su radicado -- para cuando se perdió el PDF original o
     hace falta una copia extra. Abre un navegador solo para este paso
@@ -1320,7 +1320,7 @@ def reimprimir_documento_api(usuario, password, tipo_documento, radicado, nombre
     por_consecutivo = (por == "consecutivo")
     try:
         log(f"    Abriendo el navegador solo para reimprimir el PDF (buscando por {'consecutivo' if por_consecutivo else 'radicado'})...")
-        chrome_options = crear_opciones_chrome()
+        chrome_options = crear_opciones_chrome(carpeta_descargas=CARPETA_DESCARGAS, invisible=invisible)
         driver = crear_driver_con_limite(chrome_options, obtener_chromedriver_path())
         driver.set_page_load_timeout(25)
         from selenium.webdriver.support.ui import WebDriverWait
@@ -1373,6 +1373,21 @@ def reimprimir_documento_api(usuario, password, tipo_documento, radicado, nombre
                 pass
 
 
+def reimprimir_documento_api(usuario, password, tipo_documento, radicado, nombre_archivo, log=None,
+                               por="radicado"):
+    """Igual que antes, pero el navegador trabaja INVISIBLE (sin ventana). Si
+    así no se logra bajar el PDF, se reintenta una vez con la ventana
+    visible, como funcionaba antes."""
+    log = log or (lambda m: None)
+    archivo = _reimprimir_documento_una_vez(usuario, password, tipo_documento, radicado,
+                                             nombre_archivo, log, por, invisible=True)
+    if not archivo:
+        log("    No se logró en modo invisible; reintentando con el navegador visible...")
+        archivo = _reimprimir_documento_una_vez(usuario, password, tipo_documento, radicado,
+                                                 nombre_archivo, log, por, invisible=False)
+    return archivo
+
+
 def _limpiar_para_nombre(texto):
     """Deja solo letras, números, guion y guion bajo (para nombres de archivo)."""
     return "".join(c for c in str(texto or "") if c.isalnum() or c in "-_").upper()
@@ -1414,8 +1429,8 @@ def consultar_manifiesto_api(usuario, password, nit_empresa, consecutivo_manifie
     return {"placa": None, "remesas": []}
 
 
-def reimprimir_viaje_api(usuario, password, nit_empresa, consecutivo_manifiesto,
-                          remesas=None, placa=None, log=None):
+def _reimprimir_viaje_una_vez(usuario, password, nit_empresa, consecutivo_manifiesto,
+                               remesas=None, placa=None, log=None, invisible=False):
     """Descarga de una vez el PDF del manifiesto y los de todas sus remesas,
     con la placa en el nombre de cada archivo (ej. Manifiesto_AF49232_JYM305).
     Si no se dan las remesas o la placa, se intentan averiguar consultando
@@ -1446,7 +1461,7 @@ def reimprimir_viaje_api(usuario, password, nit_empresa, consecutivo_manifiesto,
     driver = None
     try:
         log("    Abriendo el navegador solo para reimprimir los PDF...")
-        chrome_options = crear_opciones_chrome()
+        chrome_options = crear_opciones_chrome(carpeta_descargas=CARPETA_DESCARGAS, invisible=invisible)
         driver = crear_driver_con_limite(chrome_options, obtener_chromedriver_path())
         driver.set_page_load_timeout(25)
         from selenium.webdriver.support.ui import WebDriverWait
@@ -1502,7 +1517,22 @@ def reimprimir_viaje_api(usuario, password, nit_empresa, consecutivo_manifiesto,
     return {"placa": placa or None, "remesas": remesas, "archivos": archivos, "faltantes": faltantes}
 
 
-def descargar_pdfs_del_viaje(usuario, password, v, tramos, radicado_manifiesto, log):
+def reimprimir_viaje_api(usuario, password, nit_empresa, consecutivo_manifiesto,
+                          remesas=None, placa=None, log=None):
+    """Primero con el navegador INVISIBLE; si no se baja ni un solo PDF,
+    se reintenta una vez con la ventana visible (como funcionaba antes).
+    La placa y las remesas averiguadas en el primer intento se reutilizan."""
+    log = log or (lambda m: None)
+    r = _reimprimir_viaje_una_vez(usuario, password, nit_empresa, consecutivo_manifiesto,
+                                   remesas, placa, log, invisible=True)
+    if not r["archivos"]:
+        log("    No se logró en modo invisible; reintentando con el navegador visible...")
+        r = _reimprimir_viaje_una_vez(usuario, password, nit_empresa, consecutivo_manifiesto,
+                                       r["remesas"] or remesas, r["placa"] or placa, log, invisible=False)
+    return r
+
+
+def _descargar_pdfs_del_viaje_una_vez(usuario, password, v, tramos, radicado_manifiesto, log, invisible=False):
     """Después de crear la(s) Remesa(s) y el Manifiesto por el Web
     Service, se abre un navegador SOLO para bajar los PDF (el Web
     Service no los entrega directamente) -- reutiliza exactamente la
@@ -1519,7 +1549,7 @@ def descargar_pdfs_del_viaje(usuario, password, v, tramos, radicado_manifiesto, 
     letras = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     try:
         log("    Abriendo el navegador solo para descargar los PDF...")
-        chrome_options = crear_opciones_chrome()
+        chrome_options = crear_opciones_chrome(carpeta_descargas=CARPETA_DESCARGAS, invisible=invisible)
         driver = crear_driver_con_limite(chrome_options, obtener_chromedriver_path())
         driver.set_page_load_timeout(25)
         from selenium.webdriver.support.ui import WebDriverWait
@@ -1569,6 +1599,18 @@ def descargar_pdfs_del_viaje(usuario, password, v, tramos, radicado_manifiesto, 
             except Exception:
                 pass
 
+    return archivos
+
+
+def descargar_pdfs_del_viaje(usuario, password, v, tramos, radicado_manifiesto, log):
+    """Baja los PDF del viaje recién creado con el navegador INVISIBLE; si no
+    se baja ninguno, reintenta una vez con la ventana visible."""
+    archivos = _descargar_pdfs_del_viaje_una_vez(usuario, password, v, tramos, radicado_manifiesto,
+                                                  log, invisible=True)
+    if not archivos:
+        log("    No se logró en modo invisible; reintentando con el navegador visible...")
+        archivos = _descargar_pdfs_del_viaje_una_vez(usuario, password, v, tramos, radicado_manifiesto,
+                                                      log, invisible=False)
     return archivos
 
 
