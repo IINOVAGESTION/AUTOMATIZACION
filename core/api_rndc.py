@@ -220,6 +220,37 @@ def _obtener_sedes(usuario, password, nit_empresa, log=None):
     return sedes
 
 
+# Códigos DANE de departamento (los 2 primeros dígitos del código de municipio
+# del RNDC, ej. 76863000 -> 76 = Valle del Cauca). Sirve para que, cuando se
+# escribe "VERSALLES VALLE DEL CAUCA", no se elija una sede llamada VERSALLES
+# que en realidad queda en otro departamento (ej. Santa Bárbara, Antioquia).
+_DEPARTAMENTOS_DANE = {
+    "05": ["ANTIOQUIA"], "08": ["ATLANTICO"], "11": ["BOGOTA D C", "BOGOTA DC", "BOGOTA", "D C", "DC", "CUNDINAMARCA D C"],
+    "13": ["BOLIVAR"], "15": ["BOYACA"], "17": ["CALDAS"], "18": ["CAQUETA"], "19": ["CAUCA"],
+    "20": ["CESAR"], "23": ["CORDOBA"], "25": ["CUNDINAMARCA"], "27": ["CHOCO"], "41": ["HUILA"],
+    "44": ["LA GUAJIRA", "GUAJIRA"], "47": ["MAGDALENA"], "50": ["META"], "52": ["NARINO"],
+    "54": ["NORTE DE SANTANDER", "NORTE SANTANDER", "N DE SANTANDER", "N SANTANDER"],
+    "63": ["QUINDIO"], "66": ["RISARALDA"], "68": ["SANTANDER"], "70": ["SUCRE"], "73": ["TOLIMA"],
+    "76": ["VALLE DEL CAUCA", "VALLE"], "81": ["ARAUCA"], "85": ["CASANARE"], "86": ["PUTUMAYO"],
+    "88": ["SAN ANDRES Y PROVIDENCIA", "SAN ANDRES"], "91": ["AMAZONAS"], "94": ["GUAINIA"],
+    "95": ["GUAVIARE"], "97": ["VAUPES"], "99": ["VICHADA"],
+}
+
+
+def _departamento_en_texto(texto):
+    """Si el texto termina con el nombre de un departamento (y antes de él hay
+    al menos una palabra, la ciudad), devuelve su código DANE de 2 dígitos;
+    si no, None. Ej: 'VERSALLES VALLE DEL CAUCA' -> '76'."""
+    limpio = "".join(c if c.isalnum() or c == " " else " " for c in quitar_tildes(str(texto).upper()))
+    palabras = limpio.split()
+    for n in range(min(4, len(palabras) - 1), 0, -1):
+        cola = " ".join(palabras[-n:])
+        for codigo, nombres in _DEPARTAMENTOS_DANE.items():
+            if cola in nombres:
+                return codigo
+    return None
+
+
 def buscar_sede(usuario, password, nit_empresa, texto_buscar, log=None):
     """Busca, entre las sedes YA registradas para nit_empresa (usa la
     caché de _obtener_sedes, no repite la consulta gigante), la que
@@ -240,9 +271,24 @@ def buscar_sede(usuario, password, nit_empresa, texto_buscar, log=None):
     veces los interpreta mal (quitándoles el '+' y leyéndolos como un
     código totalmente distinto)."""
     sedes = _obtener_sedes(usuario, password, nit_empresa, log=log)
+    departamento = _departamento_en_texto(texto_buscar)
 
     def normalizar(texto):
         return quitar_tildes(" ".join(texto.strip().upper().split()))
+
+    def del_departamento(coincidencias):
+        """Si el texto trae departamento, solo valen las sedes de ESE
+        departamento (según su código de municipio). Una sede sin código de
+        municipio no se puede verificar, así que no se descarta."""
+        if not departamento:
+            return coincidencias
+        validas = [s for s in coincidencias
+                   if not s["municipio"] or s["municipio"][:2] == departamento]
+        if not validas and coincidencias and log:
+            otros = sorted({s["municipio"][:2] for s in coincidencias if s["municipio"]})
+            log(f"    '{texto_buscar}': hay sede(s) con ese nombre pero en OTRO departamento "
+                f"(código {', '.join(otros)}), no en el {departamento} que pediste -- se descartan.")
+        return validas
 
     def elegir(coincidencias, motivo):
         limpias = [s for s in coincidencias if not s["codigo_sede"].startswith("+")]
@@ -261,17 +307,17 @@ def buscar_sede(usuario, password, nit_empresa, texto_buscar, log=None):
 
     for frase in frases_a_probar:
         frase_norm = normalizar(frase)
-        exactas = [s for s in sedes if normalizar(s["nombre"]) == frase_norm]
+        exactas = del_departamento([s for s in sedes if normalizar(s["nombre"]) == frase_norm])
         if exactas:
             return elegir(exactas, "coincidencia exacta")
 
     # Ninguna coincidencia exacta -- se cae a una coincidencia parcial con
     # el texto completo original, en cualquiera de los dos sentidos.
     texto_buscar_norm = normalizar(texto_buscar)
-    parciales = [
+    parciales = del_departamento([
         s for s in sedes
         if texto_buscar_norm in normalizar(s["nombre"]) or normalizar(s["nombre"]) in texto_buscar_norm
-    ]
+    ])
     if parciales:
         return elegir(parciales, "coincidencia parcial")
     return None
@@ -532,12 +578,14 @@ def crear_remesa_api(usuario, password, nit_empresa, consecutivo_remesa,
     sede_remitente = buscar_sede_con_respaldo(usuario, password, numid_remitente, nit_empresa, origen, log=log)
     if not sede_remitente:
         raise ErrorRNDC(f"No se encontró ninguna sede que contenga '{origen}' "
-                         f"para el remitente {numid_remitente}. Hay que crearla en el RNDC primero.")
+                         f"para el remitente {numid_remitente} (en el departamento indicado, si lo escribiste). "
+                         f"Revisa que la ciudad y el departamento estén bien escritos; si es correcto, hay que crearla en el RNDC primero.")
 
     sede_destinatario = buscar_sede_con_respaldo(usuario, password, numid_destinatario, nit_empresa, destino, log=log)
     if not sede_destinatario:
         raise ErrorRNDC(f"No se encontró ninguna sede que contenga '{destino}' "
-                         f"para el destinatario {numid_destinatario}. Hay que crearla en el RNDC primero.")
+                         f"para el destinatario {numid_destinatario} (en el departamento indicado, si lo escribiste). "
+                         f"Revisa que la ciudad y el departamento estén bien escritos; si es correcto, hay que crearla en el RNDC primero.")
 
     sede_propietario = buscar_sede(usuario, password, nit_empresa,
                                     sede_propietario_contiene, log=log)
