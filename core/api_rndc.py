@@ -237,6 +237,15 @@ _DEPARTAMENTOS_DANE = {
 }
 
 
+def _depto_de_municipio(codigo):
+    """Código DANE de departamento (2 dígitos) de un código de municipio del
+    RNDC. OJO: el RNDC guarda el código como número y le pierde el cero de
+    adelante (Barranquilla 08001000 llega como 8001000), así que primero se
+    rellena a 8 dígitos; si no, se leería 80 en vez de 08."""
+    digitos = "".join(c for c in str(codigo or "") if c.isdigit())
+    return digitos.zfill(8)[:2] if digitos else ""
+
+
 def _departamento_en_texto(texto):
     """Si el texto termina con el nombre de un departamento (y antes de él hay
     al menos una palabra, la ciudad), devuelve su código DANE de 2 dígitos;
@@ -276,16 +285,18 @@ def buscar_sede(usuario, password, nit_empresa, texto_buscar, log=None):
     def normalizar(texto):
         return quitar_tildes(" ".join(texto.strip().upper().split()))
 
-    def del_departamento(coincidencias):
+    def del_departamento(coincidencias, es_nombre_completo=False):
         """Si el texto trae departamento, solo valen las sedes de ESE
         departamento (según su código de municipio). Una sede sin código de
-        municipio no se puede verificar, así que no se descarta."""
-        if not departamento:
+        municipio no se puede verificar, así que no se descarta. Si el texto
+        es EXACTAMENTE el nombre de la sede (tal como lo ofrece la lista del
+        RNDC), no se filtra: ya es justo la que se escogió."""
+        if not departamento or es_nombre_completo:
             return coincidencias
         validas = [s for s in coincidencias
-                   if not s["municipio"] or s["municipio"][:2] == departamento]
+                   if not s["municipio"] or _depto_de_municipio(s["municipio"]) == departamento]
         if not validas and coincidencias and log:
-            otros = sorted({s["municipio"][:2] for s in coincidencias if s["municipio"]})
+            otros = sorted({_depto_de_municipio(s["municipio"]) for s in coincidencias if s["municipio"]})
             log(f"    '{texto_buscar}': hay sede(s) con ese nombre pero en OTRO departamento "
                 f"(código {', '.join(otros)}), no en el {departamento} que pediste -- se descartan.")
         return validas
@@ -305,9 +316,10 @@ def buscar_sede(usuario, password, nit_empresa, texto_buscar, log=None):
     # final de a una (el departamento casi siempre es la última palabra).
     frases_a_probar = [" ".join(palabras[:n]) for n in range(len(palabras), 0, -1)]
 
-    for frase in frases_a_probar:
+    for i_frase, frase in enumerate(frases_a_probar):
         frase_norm = normalizar(frase)
-        exactas = del_departamento([s for s in sedes if normalizar(s["nombre"]) == frase_norm])
+        exactas = del_departamento([s for s in sedes if normalizar(s["nombre"]) == frase_norm],
+                                    es_nombre_completo=(i_frase == 0))
         if exactas:
             return elegir(exactas, "coincidencia exacta")
 
