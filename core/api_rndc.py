@@ -45,6 +45,13 @@ WSDL_POR_SERVIDOR = {
 
 _clientes_cacheados = {}
 
+# Segundos que se espera la respuesta del RNDC en cada llamada. IMPORTANTE:
+# en zeep, Transport(timeout=...) solo vale para CARGAR el WSDL; el tiempo de
+# espera de las llamadas es "operation_timeout", y por defecto es None =
+# esperar PARA SIEMPRE. Antes la app se quedaba colgada para siempre (por
+# ejemplo en "Verificando...") cuando el RNDC no contestaba.
+TIMEOUT_OPERACION = 45
+
 
 class ErrorRNDC(Exception):
     """Se lanza cuando el RNDC responde con un <ErrorMSG> (o varios)."""
@@ -65,8 +72,7 @@ def _cliente_para(servidor):
     if servidor not in _clientes_cacheados:
         ruta_wsdl = os.path.join(CARPETA_WSDL, WSDL_POR_SERVIDOR[servidor])
         sesion = requests.Session()
-        sesion.timeout = 25
-        transporte = Transport(session=sesion, timeout=25)
+        transporte = Transport(session=sesion, timeout=25, operation_timeout=TIMEOUT_OPERACION)
         _clientes_cacheados[servidor] = Client(wsdl=ruta_wsdl, transport=transporte)
     return _clientes_cacheados[servidor]
 
@@ -99,7 +105,11 @@ def _llamar(usuario, password, tipo, procesoid, variables_xml, documento_xml="",
             return cliente.service.AtenderMensajeRNDC(Request=xml_pedido)
         except Exception as e:
             ultimo_error = e
-            if tipo == 3 and intento < intentos_maximos:
+            # Un timeout NO se reintenta (ya se esperó TIMEOUT_OPERACION
+            # segundos; repetir solo alarga la espera cuando el RNDC está
+            # caído). Los demás hipos de red sí se reintentan en consultas.
+            es_timeout = _ZEEP_DISPONIBLE and isinstance(e, requests.exceptions.Timeout)
+            if tipo == 3 and intento < intentos_maximos and not es_timeout:
                 time.sleep(1.5)
                 continue
             break
@@ -108,6 +118,23 @@ def _llamar(usuario, password, tipo, procesoid, variables_xml, documento_xml="",
     # quedaba un mensaje genérico tipo "Unknown fault occured". Se saca
     # todo lo que zeep sepa del fallo, para poder diagnosticarlo si se
     # repite.
+    if _ZEEP_DISPONIBLE and isinstance(ultimo_error, (requests.exceptions.Timeout,)):
+        aviso_escritura = (
+            " OJO: como era una solicitud de CREAR/MODIFICAR, puede que el RNDC sí la haya recibido; "
+            "revisa en el RNDC si quedó creada antes de repetirla."
+            if tipo != 3 else ""
+        )
+        raise ErrorRNDC(
+            f"El RNDC no respondió en {TIMEOUT_OPERACION} segundos (está lento o caído). "
+            f"Intenta de nuevo en unos minutos.{aviso_escritura}",
+            xml_pedido,
+        )
+    if _ZEEP_DISPONIBLE and isinstance(ultimo_error, requests.exceptions.ConnectionError):
+        raise ErrorRNDC(
+            "No se pudo conectar con el RNDC. Revisa tu conexión a internet; "
+            "si está bien, el RNDC puede estar caído: intenta de nuevo en unos minutos.",
+            xml_pedido,
+        )
     detalle = str(ultimo_error)
     for atributo in ("message", "code", "detail", "subcodes"):
         valor = getattr(ultimo_error, atributo, None)
@@ -1331,7 +1358,13 @@ def ejecutar_viaje_api(v, usuario, password, log):
         resumen.append(f"Manifiesto {v['Consecutivo']} -> radicado: {radicado_manifiesto}")
 
     except ErrorRNDC as e:
-        log(f"❌ El RNDC rechazó la solicitud: {e.mensaje}")
+        if e.mensaje.startswith(("El RNDC no respondió", "No se pudo conectar con el RNDC")):
+            log(f"❌ {e.mensaje}")
+            if resumen:
+                log("⚠️  Ya se había creado algo en el RNDC antes de este fallo (mira el resumen del viaje): "
+                    "revisa en el RNDC antes de volver a intentar para no duplicar.")
+        else:
+            log(f"❌ El RNDC rechazó la solicitud: {e.mensaje}")
         return {"ok": False, "error": e.mensaje, "resumen": resumen, "archivos": []}
 
     archivos = descargar_pdfs_del_viaje(usuario, password, v, tramos, radicado_manifiesto, log)
