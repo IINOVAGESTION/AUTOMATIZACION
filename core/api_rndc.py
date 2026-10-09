@@ -158,7 +158,7 @@ def _extraer_radicado_o_error(xml_respuesta):
 _cache_sedes = {}  # (usuario, nit) -> lista de sedes, para no repetir la consulta gigante
 
 
-def _obtener_sedes(usuario, password, nit_empresa, log=None):
+def _obtener_sedes(usuario, password, nit_empresa, log=None, forzar=False):
     """Trae TODAS las sedes registradas para nit_empresa (el Tercero del
     que se quieren las sedes -- puede ser la empresa misma, o un cliente
     remitente/destinatario distinto), una sola vez por corrida (se
@@ -172,6 +172,11 @@ def _obtener_sedes(usuario, password, nit_empresa, log=None):
     hay forma de saber de antemano cuál es el correcto solo con el
     número."""
     clave = (usuario, nit_empresa)
+    if forzar:
+        # "Actualizar ciudades" / una sede que no aparece: se vuelve a
+        # preguntar al RNDC en vez de usar la lista guardada (que puede ser
+        # vieja si la sede se creó después en la página del RNDC).
+        _cache_sedes.pop(clave, None)
     if clave in _cache_sedes:
         return _cache_sedes[clave]
 
@@ -207,6 +212,7 @@ def _obtener_sedes(usuario, password, nit_empresa, log=None):
                 "codigo_sede": doc.findtext("codsedetercero", default="").strip(),
                 "nombre": doc.findtext("nomsedetercero", default="").strip(),
                 "municipio": doc.findtext("codmunicipiorndc", default="").strip(),
+                "tipo_id": tipo_id,
             })
 
     if log:
@@ -260,7 +266,7 @@ def _departamento_en_texto(texto):
     return None
 
 
-def buscar_sede(usuario, password, nit_empresa, texto_buscar, log=None):
+def _buscar_sede_en(sedes, texto_buscar, log=None):
     """Busca, entre las sedes YA registradas para nit_empresa (usa la
     caché de _obtener_sedes, no repite la consulta gigante), la que
     coincida con texto_buscar. Usa la misma estrategia que ya usa
@@ -279,7 +285,6 @@ def buscar_sede(usuario, password, nit_empresa, texto_buscar, log=None):
     venir de una carga antigua de datos, y hay indicios de que el RNDC a
     veces los interpreta mal (quitándoles el '+' y leyéndolos como un
     código totalmente distinto)."""
-    sedes = _obtener_sedes(usuario, password, nit_empresa, log=log)
     departamento = _departamento_en_texto(texto_buscar)
 
     def normalizar(texto):
@@ -309,7 +314,13 @@ def buscar_sede(usuario, password, nit_empresa, texto_buscar, log=None):
                       f"que empiezan con '+']") if len(coincidencias) > 1 else ""
             log(f"    '{texto_buscar}' -> sede {elegida['codigo_sede']} "
                 f"({elegida['nombre']}, municipio {elegida['municipio']}) [{motivo}]{extra}")
-        return {"codigo_sede": elegida["codigo_sede"], "municipio": elegida["municipio"], "nombre": elegida["nombre"]}
+        # 'candidatas': todas las coincidencias, la elegida primero. Si el RNDC
+        # rechaza la elegida (REM180), crear_remesa_api prueba las demás.
+        candidatas = [elegida] + [c for c in limpias if c is not elegida] + \
+                     [c for c in coincidencias if c not in limpias and c is not elegida]
+        return {"codigo_sede": elegida["codigo_sede"], "municipio": elegida["municipio"],
+                "nombre": elegida["nombre"], "tipo_id": elegida.get("tipo_id"),
+                "candidatas": candidatas}
 
     palabras = texto_buscar.strip().split()
     # Primero se prueba con el texto completo, luego quitando palabras del
@@ -333,6 +344,21 @@ def buscar_sede(usuario, password, nit_empresa, texto_buscar, log=None):
     if parciales:
         return elegir(parciales, "coincidencia parcial")
     return None
+
+
+def buscar_sede(usuario, password, nit_empresa, texto_buscar, log=None):
+    """Busca la sede (ver _buscar_sede_en). Si no aparece en la lista
+    guardada, vuelve a pedir la lista al RNDC UNA vez antes de rendirse: así
+    una sede que se acaba de crear en la página del RNDC sí la toma la app."""
+    clave = (usuario, nit_empresa)
+    estaba_en_cache = clave in _cache_sedes
+    sede = _buscar_sede_en(_obtener_sedes(usuario, password, nit_empresa, log=log), texto_buscar, log=log)
+    if sede or not estaba_en_cache:
+        return sede
+    if log:
+        log(f"    '{texto_buscar}' no está en la lista guardada; actualizando las sedes desde el RNDC...")
+    return _buscar_sede_en(_obtener_sedes(usuario, password, nit_empresa, log=log, forzar=True),
+                            texto_buscar, log=log)
 
 
 def buscar_sede_con_respaldo(usuario, password, numid_principal, nit_empresa, texto_buscar, log=None):
@@ -360,7 +386,7 @@ def obtener_lista_sedes_empresa_api(usuario, password, nit_empresa, log=None):
     (ARCHIVO_SEDES), así que las sugerencias del formulario siguen
     funcionando igual. Devuelve la lista de nombres."""
     os.makedirs(os.path.dirname(ARCHIVO_SEDES) or ".", exist_ok=True)
-    sedes = _obtener_sedes(usuario, password, nit_empresa, log=log)
+    sedes = _obtener_sedes(usuario, password, nit_empresa, log=log, forzar=True)
     opciones = sorted(set(s["nombre"] for s in sedes if s["nombre"]))
     with open(ARCHIVO_SEDES, "w", encoding="utf-8") as f:
         json.dump(opciones, f, ensure_ascii=False, indent=2)
@@ -610,7 +636,8 @@ def crear_remesa_api(usuario, password, nit_empresa, consecutivo_remesa,
             f"Sede destinatario ({destino}, {numid_destinatario}): {sede_destinatario['codigo_sede']} | "
             f"Sede propietario: {sede_propietario['codigo_sede']}")
 
-    variables = f"""
+    def _enviar(sede_remitente, sede_destinatario):
+        variables = f"""
 <NUMNITEMPRESATRANSPORTE>{nit_empresa}</NUMNITEMPRESATRANSPORTE>
 <CONSECUTIVOREMESA>{consecutivo_remesa}</CONSECUTIVOREMESA>
 <CODOPERACIONTRANSPORTE>P</CODOPERACIONTRANSPORTE>
@@ -640,12 +667,44 @@ def crear_remesa_api(usuario, password, nit_empresa, consecutivo_remesa,
 <HORACITAPACTADADESCARGUEREMESA>10:00</HORACITAPACTADADESCARGUEREMESA>
 """.strip()
 
-    respuesta = _llamar(usuario, password, tipo=1, procesoid=3,
-                         variables_xml=variables, servidor="real_remesas")
-    radicado, error = _extraer_radicado_o_error(respuesta)
-    if error:
-        raise ErrorRNDC(error, respuesta)
-    return radicado
+        respuesta = _llamar(usuario, password, tipo=1, procesoid=3,
+                             variables_xml=variables, servidor="real_remesas")
+        radicado, error = _extraer_radicado_o_error(respuesta)
+        if error:
+            raise ErrorRNDC(error, respuesta)
+        return radicado
+
+    try:
+        return _enviar(sede_remitente, sede_destinatario)
+    except ErrorRNDC as primer_error:
+        # REM180: "el tipo y/o identificación del remitente/destinatario no
+        # coinciden con los reportados en la tabla de Terceros". Es un rechazo
+        # de validación (no se crea nada), así que es seguro probar con las
+        # OTRAS sedes que tienen el mismo nombre (puede haber varias, de
+        # distinto tipo de tercero) antes de rendirse.
+        if "REM180" not in str(primer_error):
+            raise
+        es_destinatario = "destinatario" in str(primer_error).lower()
+        rol = "destinatario" if es_destinatario else "remitente"
+        sede_mala = sede_destinatario if es_destinatario else sede_remitente
+        alternativas = [c for c in (sede_mala.get("candidatas") or [])
+                        if c["codigo_sede"] != sede_mala["codigo_sede"]]
+        if log:
+            todas = ", ".join(f"{c['codigo_sede']} (tipo {c.get('tipo_id')}, municipio {c['municipio']})"
+                              for c in (sede_mala.get("candidatas") or [sede_mala]))
+            log(f"    El RNDC rechazó la sede {sede_mala['codigo_sede']} del {rol} (REM180). "
+                f"Sedes con ese nombre: {todas}.")
+        for alt in alternativas:
+            if log:
+                log(f"    Probando con la otra sede {alt['codigo_sede']} (tipo {alt.get('tipo_id')}) del {rol}...")
+            try:
+                if es_destinatario:
+                    return _enviar(sede_remitente, alt)
+                return _enviar(alt, sede_destinatario)
+            except ErrorRNDC as e:
+                if "REM180" not in str(e):
+                    raise
+        raise primer_error
 
 
 def crear_manifiesto_api(usuario, password, nit_empresa, consecutivo_manifiesto,
