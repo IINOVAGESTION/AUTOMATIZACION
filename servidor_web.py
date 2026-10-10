@@ -215,7 +215,10 @@ def detalle_para_fila(v):
         etiqueta = "Ida y Regreso" if tipo == "IdaYRegreso" else "Multiparada"
         partes = [consecutivo, etiqueta, f"{origen} → {destino}"]
     else:
-        partes = [consecutivo, f"{(v.get('Origen') or '?').strip()} → {(v.get('Destino') or '?').strip()}"]
+        partes = [consecutivo]
+        if tipo == "Municipal":
+            partes.append("Municipal")
+        partes.append(f"{(v.get('Origen') or '?').strip()} → {(v.get('Destino') or '?').strip()}")
     return " · ".join(p for p in partes if p)
 
 
@@ -336,7 +339,7 @@ def trabajador_de_fondo():
                     )
                 elif (
                     trabajo["v"].get("UsarAPI")
-                    and trabajo["v"].get("TipoViaje") in ("Normal", "IdaYRegreso", "Multiparada")
+                    and trabajo["v"].get("TipoViaje") in ("Normal", "Municipal", "IdaYRegreso", "Multiparada")
                 ):
                     # Camino nuevo (Web Service) -- cubre viajes Normales,
                     # Ida y Regreso y Multiparada, con o sin segundo
@@ -537,6 +540,7 @@ def ejecutar():
     tipo_viaje = f.get("TipoViaje", "Normal")
     multiparada = tipo_viaje == "Multiparada"
     ida_y_regreso = tipo_viaje == "IdaYRegreso"
+    municipal = tipo_viaje == "Municipal"
     es_cola = tipo_viaje == "Cola"
 
     paradas = []
@@ -582,6 +586,7 @@ def ejecutar():
         "TipoViaje": tipo_viaje,
         "Multiparada": multiparada,
         "IdaYRegreso": ida_y_regreso,
+        "Municipal": municipal,
         "Paradas": paradas,
         "Cedula_Titular": f.get("Cedula_Titular", "").strip(),
         "Nombre_Titular": f.get("Nombre_Titular", "").strip(),
@@ -639,6 +644,7 @@ def ejecutar():
             "TipoViaje": "Normal",
             "Multiparada": False,
             "IdaYRegreso": False,
+            "Municipal": False,
             "Paradas": [],
             "Consecutivo": (item.get("consecutivo") or "").strip(),
             "Origen": (item.get("origen") or "").strip(),
@@ -678,6 +684,20 @@ def ejecutar():
     # El Flete también es obligatorio (menos en Récord, donde cada viaje
     # trae el suyo). Sin él, antes se llegaba a crear las Remesas y recién
     # al crear el Manifiesto salía un error raro.
+    # Viaje Municipal o Urbano: el remitente siempre va con NIT y el
+    # destinatario siempre con cédula (el manifiesto sale como "Viaje
+    # Municipal o Urbano"). Se fuerzan aquí para que no dependa de lo que
+    # haya quedado marcado en el formulario.
+    if municipal:
+        cedula_dest = "".join(c for c in v["NIT_Destinatario_Cliente"] if c.isdigit())
+        if not cedula_dest:
+            return ("Viaje Municipal: falta la cédula del destinatario (siempre va con cédula). "
+                    "No se envió nada."), 400
+        v["NIT_Destinatario_Cliente"] = cedula_dest
+        v["TipoID_Destinatario_Cliente"] = "C"
+        v["TipoID_Remitente_Cliente"] = "N"
+        ultimo_formulario.update(v)
+
     if not es_cola and not "".join(c for c in str(v.get("Flete") or "") if c.isdigit()).strip("0"):
         return "Falta el valor del flete: es obligatorio. No se envió nada.", 400
 

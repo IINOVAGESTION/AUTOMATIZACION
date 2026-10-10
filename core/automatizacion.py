@@ -461,6 +461,8 @@ def ejecutar_automatizacion(v, usuario, password, log, driver_compartido=None, w
                 tipo_manifiesto = "M"
             elif v["IdaYRegreso"]:
                 tipo_manifiesto = "I"
+            elif v.get("Municipal"):
+                tipo_manifiesto = "U"   # Viaje Municipal o Urbano
             else:
                 tipo_manifiesto = fm["TIPOMANIFIESTO"]
             set_select(driver, "dnn_ctr394_Manifiesto_NOMOPERACIONTRANSPORTE", tipo_manifiesto)

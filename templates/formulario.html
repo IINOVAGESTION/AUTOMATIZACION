@@ -281,6 +281,10 @@
         <span class="tarjeta-icono">🚚</span>
         <span class="tarjeta-titulo">Normal</span>
       </button>
+      <button type="button" class="pestana-tipo {{ 'seleccionada' if v.get('TipoViaje') == 'Municipal' else '' }}" data-tipo="Municipal" onclick="elegirTipoViaje('Municipal')" role="tab">
+        <span class="tarjeta-icono">🏙️</span>
+        <span class="tarjeta-titulo">Municipal</span>
+      </button>
       <button type="button" class="pestana-tipo {{ 'seleccionada' if v.get('TipoViaje') == 'IdaYRegreso' else '' }}" data-tipo="IdaYRegreso" onclick="elegirTipoViaje('IdaYRegreso')" role="tab">
         <span class="tarjeta-icono">↩️</span>
         <span class="tarjeta-titulo">Ida y Regreso</span>
@@ -1187,10 +1191,12 @@ function toggleTipoViaje() {
     var esParadas = (tipo === 'Multiparada' || tipo === 'IdaYRegreso');
     var esIdaYRegreso = (tipo === 'IdaYRegreso');
     var esCola = (tipo === 'Cola');
-    var esNormal = (tipo === 'Normal');
+    var esMunicipal = (tipo === 'Municipal');
+    var esNormal = (tipo === 'Normal' || esMunicipal);   // Municipal usa el mismo panel de ruta que Normal
 
     var descripciones = {
         Normal: 'Un viaje de un origen a un destino: se crea una remesa y su manifiesto.',
+        Municipal: 'Viaje dentro de la ciudad (urbano): una remesa y su manifiesto tipo "Viaje Municipal o Urbano". El remitente va con NIT y el destinatario SIEMPRE con cédula (obligatoria).',
         IdaYRegreso: 'Va a un destino y vuelve al origen: se crea una remesa por tramo y un solo manifiesto.',
         Multiparada: 'Varias ciudades en orden: se crea una remesa por tramo y un solo manifiesto.',
         Cola: 'Varios viajes de una vez, uno detrás de otro, con el mismo cliente, vehículo, titular y conductor.'
@@ -1203,6 +1209,25 @@ function toggleTipoViaje() {
     document.getElementById('paradas').classList.toggle('modo-ida-y-regreso', esIdaYRegreso);
     var etiquetaDestino = document.getElementById('etiqueta_destino_paradas');
     if (etiquetaDestino) etiquetaDestino.textContent = esIdaYRegreso ? 'Destino (vuelve al origen)' : 'Destino Final';
+
+    // Viaje Municipal: remitente con NIT, destinatario con cédula (obligatoria).
+    var selRem = document.querySelector('select[name=TipoID_Remitente_Cliente]');
+    var selDes = document.querySelector('select[name=TipoID_Destinatario_Cliente]');
+    var inpDes = document.getElementById('input_nit_destinatario');
+    if (esMunicipal) {
+        if (selRem) selRem.value = 'N';
+        if (selDes) selDes.value = 'C';
+        if (inpDes) inpDes.required = true;
+        window._municipalForzado = true;
+    } else {
+        if (inpDes) inpDes.required = false;
+        if (window._municipalForzado) {
+            // Se sale de Municipal: se devuelven a "Fijo" los tipos que se habían forzado.
+            if (selRem && selRem.value === 'N') selRem.value = '';
+            if (selDes && selDes.value === 'C') selDes.value = '';
+            window._municipalForzado = false;
+        }
+    }
 
     // En modo Récord, cada viaje trae su propio Consecutivo/Flete/
     // Anticipo/Fecha, así que esos campos generales se ocultan (siguen

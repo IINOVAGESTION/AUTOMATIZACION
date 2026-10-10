@@ -762,7 +762,7 @@ def crear_manifiesto_api(usuario, password, nit_empresa, consecutivo_manifiesto,
     consecutivo -- o una lista, para Multiparada/Ida y Regreso). Calcula
     el FOPAT automáticamente (0.1% del flete) si fopat_aplica es True.
     'tipo_operacion' es el código que espera el RNDC ("G" normal, "I"
-    Ida y Regreso, "M" Multiparada). El municipio de origen/destino se
+    Ida y Regreso, "M" Multiparada, "U" Viaje Municipal o Urbano). El municipio de origen/destino se
     busca en las sedes del remitente y del destinatario respectivamente
     (los mismos que se usaron para la Remesa) -- no siempre en las de la
     empresa, porque el viaje puede ser para un cliente distinto.
@@ -1140,7 +1140,9 @@ def ejecutar_viaje_api(v, usuario, password, log):
         fopat_aplica = bool(v.get("Placa_Remolque"))
         origen_manifiesto = tramos[0]["origen"]
         destino_manifiesto = tramos[-1]["destino"]
-        tipo_operacion = "M" if v.get("Multiparada") else ("I" if v.get("IdaYRegreso") else "G")
+        tipo_operacion = (
+            "M" if v.get("Multiparada") else ("I" if v.get("IdaYRegreso") else ("U" if v.get("Municipal") else "G"))
+        )
         # En Ida y Regreso, el punto intermedio (de retorno) es el destino
         # del primer tramo -- igual que hace Selenium.
         municipio_intermedio_contiene = (
