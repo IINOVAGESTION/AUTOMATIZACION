@@ -333,7 +333,12 @@ def trabajador_de_fondo():
                     _t["log"].append(mensaje)
 
             try:
-                if trabajo["v"].get("TipoViaje") == "Cola":
+                if trabajo["v"].get("TipoViaje") == "Cola" and trabajo["v"].get("UsarAPI"):
+                    log_trabajo("    (Récord: usando el Web Service en vez del navegador)")
+                    resultado = rndc_core.ejecutar_cola_api(
+                        trabajo["v"]["_viajes_cola"], trabajo["usuario"], trabajo["password"], log_trabajo
+                    )
+                elif trabajo["v"].get("TipoViaje") == "Cola":
                     resultado = rndc_core.ejecutar_cola(
                         trabajo["v"]["_viajes_cola"], trabajo["usuario"], trabajo["password"], log_trabajo
                     )

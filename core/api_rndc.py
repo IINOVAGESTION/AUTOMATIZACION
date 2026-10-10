@@ -1888,3 +1888,50 @@ def anular_cumplido_remesa_api(usuario, password, nit_empresa, consecutivo_remes
         "El RNDC no reconoció ninguno de los nombres probados para el motivo de anulación ("
         + ", ".join(probados[:6]) + "). Se necesita el nombre exacto de la variable del proceso "
         f"{procesoid}.")
+
+
+def ejecutar_cola_api(lista_de_viajes, usuario, password, log):
+    """Récord por Web Service: hace los viajes de la cola uno detrás de
+    otro con ejecutar_viaje_api (sin abrir Chrome para crear nada). Si uno
+    falla lo anota y sigue con el siguiente; si el RNDC no responde, se
+    detiene para no perder tiempo. Devuelve la misma forma que
+    ejecutar_cola (la versión con navegador)."""
+    resultados = []
+    total = len(lista_de_viajes)
+    for i, v in enumerate(lista_de_viajes, start=1):
+        consecutivo = v.get("Consecutivo", "?")
+        log("\n=========================================")
+        log(f"===  VIAJE {i}/{total} - Consecutivo {consecutivo}  ===")
+        log("=========================================")
+        try:
+            resultado = ejecutar_viaje_api(v, usuario, password, log)
+        except Exception as e:
+            log(f"❌ Error inesperado en el viaje {i}/{total} ({consecutivo}): {e}")
+            resultado = {"ok": False, "error": repr(e), "resumen": [], "archivos": []}
+        resultados.append({"consecutivo": consecutivo, **resultado})
+        error = str(resultado.get("error") or "")
+        if not resultado.get("ok") and error.startswith(("El RNDC no respondió", "No se pudo conectar con el RNDC")):
+            log(f"\n❌ El RNDC no responde. Se detiene la cola aquí: quedaron {total - i} viaje(s) sin hacer. "
+                "Revisa en el RNDC si el último alcanzó a crear algo antes de volver a intentar.")
+            break
+
+    log("\n================ RESUMEN DE LA COLA ================")
+    exitosos = [r for r in resultados if r.get("ok")]
+    fallidos = [r for r in resultados if not r.get("ok")]
+    log(f"✅ Viajes completados: {len(exitosos)}/{total}")
+    for r in exitosos:
+        for linea in r.get("resumen", []):
+            log(f"    {linea}")
+    if fallidos:
+        log(f"❌ Viajes con error: {len(fallidos)}/{total}")
+        for r in fallidos:
+            log(f"    Consecutivo {r['consecutivo']}: {r.get('error', 'error desconocido')}")
+    if len(resultados) < total:
+        log(f"⚠️  Sin hacer: {total - len(resultados)} viaje(s) por el corte.")
+    log("======================================================")
+
+    archivos_totales = []
+    for r in resultados:
+        archivos_totales.extend(r.get("archivos", []))
+    return {"ok": len(fallidos) == 0 and len(resultados) == total,
+            "resultados": resultados, "archivos": archivos_totales}

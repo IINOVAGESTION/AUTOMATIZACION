@@ -47,7 +47,7 @@ from core.documentos import descargar_pdf_documento
 from core.automatizacion import ejecutar_automatizacion, ejecutar_cola
 
 from core.api_rndc import (
-    ejecutar_viaje_api, obtener_lista_sedes_empresa_api, reimprimir_documento_api,
+    ejecutar_viaje_api, ejecutar_cola_api, obtener_lista_sedes_empresa_api, reimprimir_documento_api,
     anular_manifiesto_api, MOTIVOS_ANULACION_MANIFIESTO,
     reimprimir_viaje_api, consultar_manifiesto_api,
     anular_cumplido_remesa_api, MOTIVOS_ANULACION_CUMPLIDO, TIPOS_ANULACION_CUMPLIDO,
