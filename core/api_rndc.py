@@ -238,7 +238,7 @@ def _obtener_sedes(usuario, password, nit_empresa, log=None, forzar=False):
             sedes.append({
                 "codigo_sede": doc.findtext("codsedetercero", default="").strip(),
                 "nombre": doc.findtext("nomsedetercero", default="").strip(),
-                "municipio": doc.findtext("codmunicipiorndc", default="").strip(),
+                "municipio": _codigo_municipio_rndc(doc.findtext("codmunicipiorndc", default="").strip()),
                 "tipo_id": tipo_id,
             })
 
@@ -268,6 +268,18 @@ _DEPARTAMENTOS_DANE = {
     "88": ["SAN ANDRES Y PROVIDENCIA", "SAN ANDRES"], "91": ["AMAZONAS"], "94": ["GUAINIA"],
     "95": ["GUAVIARE"], "97": ["VAUPES"], "99": ["VICHADA"],
 }
+
+
+def _codigo_municipio_rndc(codigo):
+    """Código de municipio en su forma completa de 8 dígitos (ej. 05792000).
+    El listado de sedes del RNDC lo entrega como número y pierde el cero de
+    adelante (Tarso, Antioquia llega como 5792000). Al crear el manifiesto,
+    el RNDC compara el municipio destino con el de las remesas (MAN354:
+    "Debe asociar mínimo una Remesa con el mismo municipio destino"), así
+    que se manda siempre completo, como en los ejemplos de la guía
+    (11001000, 76001000)."""
+    digitos = "".join(c for c in str(codigo or "") if c.isdigit())
+    return digitos.zfill(8) if digitos else str(codigo or "").strip()
 
 
 def _depto_de_municipio(codigo):
@@ -661,7 +673,8 @@ def crear_remesa_api(usuario, password, nit_empresa, consecutivo_remesa,
     if log:
         log(f"    Sede remitente ({origen}, {numid_remitente}): {sede_remitente['codigo_sede']} | "
             f"Sede destinatario ({destino}, {numid_destinatario}): {sede_destinatario['codigo_sede']} | "
-            f"Sede propietario: {sede_propietario['codigo_sede']}")
+            f"Sede propietario: {sede_propietario['codigo_sede']} | "
+            f"Municipio destino de la remesa: {sede_destinatario['municipio']}")
 
     def _enviar(sede_remitente, sede_destinatario):
         variables = f"""
@@ -772,6 +785,8 @@ def crear_manifiesto_api(usuario, password, nit_empresa, consecutivo_manifiesto,
                          f"para el destinatario {numid_destinatario}, no se puede saber el municipio de destino.")
     municipio_origen = sede_origen["municipio"]
     municipio_destino = sede_destino["municipio"]
+    if log:
+        log(f"    Municipio del manifiesto: origen {municipio_origen} | destino {municipio_destino}")
 
     municipio_intermedio = None
     if municipio_intermedio_contiene:
