@@ -368,6 +368,15 @@ def trabajador_de_fondo():
                 trabajo["estado"] = "terminado"
                 trabajo["ok"] = resultado.get("ok")
                 trabajo["archivos"] = resultado.get("archivos", [])
+                # Si el viaje salió bien, el segundo conductor no se
+                # arrastra al siguiente viaje (el resto de datos sí se
+                # recuerdan). Si falló, se deja para poder corregir y
+                # reintentar sin volver a escribirlo.
+                cedula2 = (trabajo["v"].get("Cedula_Conductor2") or "").strip()
+                if resultado.get("ok") and cedula2 and \
+                        (ultimo_formulario.get("Cedula_Conductor2") or "").strip() == cedula2:
+                    ultimo_formulario["Cedula_Conductor2"] = ""
+                    ultimo_formulario["Tipo_Documento_Conductor2"] = "C"
 
             duracion = time.time() - trabajo["inicio"]
 
