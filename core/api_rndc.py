@@ -632,8 +632,27 @@ def crear_vehiculo_api(usuario, password, nit_empresa, placa, peso_vacio, config
         f"{f'<ANOFABRICACIONVEHICULOCARGA>{modelo}</ANOFABRICACIONVEHICULOCARGA>' if modelo else ''}"
         f"{f'<CODTIPOCOMBUSTIBLE>{combustible}</CODTIPOCOMBUSTIBLE>' if combustible else ''}"
     )
-    respuesta = _llamar(usuario, password, tipo=1, procesoid=12,
-                         variables_xml=variables, servidor="real_terceros")
+    # A veces el servidor del RNDC falla por dentro con un error de
+    # protocolo SOAP ("No active document", SOAP-ENV:Server) sin rechazar
+    # nada: no es culpa de los datos y al repetir pasa. Como pudo haber
+    # alcanzado a registrar la placa antes de fallar, primero se consulta
+    # si ya existe (así no se duplica) y solo si no existe se repite, una vez.
+    for intento in (1, 2):
+        try:
+            respuesta = _llamar(usuario, password, tipo=1, procesoid=12,
+                                 variables_xml=variables, servidor="real_terceros")
+            break
+        except ErrorRNDC as e:
+            if intento == 2 or not str(e.mensaje).startswith("El RNDC devolvió un error de protocolo"):
+                raise
+            if log:
+                log(f"    ⚠️  El servidor del RNDC falló por dentro al registrar la placa {placa} "
+                    f"({e.mensaje}). Verificando si quedó registrada y reintentando...")
+            time.sleep(3)
+            if vehiculo_existe(usuario, password, nit_empresa, placa) is True:
+                if log:
+                    log(f"    La placa {placa} sí quedó registrada.")
+                return None
     radicado, error = _extraer_radicado_o_error(respuesta)
     if error:
         raise ErrorRNDC(error, respuesta)
