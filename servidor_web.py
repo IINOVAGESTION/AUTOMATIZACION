@@ -746,6 +746,7 @@ def ejecutar():
         for c in a_revisar:
             if not consecutivo_en_rango(c, rango):
                 return (f"El consecutivo '{c}' no está en tu rango ({rango['texto']}). "
+                        f"(se permite una letra al final para correcciones, ej. {rango['prefijo']}{rango['desde']}A). "
                         f"Usa uno de tu rango o pídele a quien administra la hoja de usuarios que lo ajuste. "
                         f"No se envió nada."), 400
 

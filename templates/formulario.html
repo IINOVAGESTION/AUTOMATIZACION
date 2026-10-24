@@ -904,7 +904,7 @@ function rellenarConsecutivosDelRango() {
     // Récord: cada viaje vacío toma el siguiente número, en orden.
     var actual = RANGO_CONSEC.numero;
     document.querySelectorAll('#lista_cola .q_consecutivo').forEach(function (inp) {
-        var m = /^[A-Za-z]*(\d+)$/.exec(inp.value.trim());
+        var m = /^[A-Za-z]*(\d+)[A-Za-z]?$/.exec(inp.value.trim());
         if (m) { actual = Math.max(actual, parseInt(m[1], 10) + 1); return; }
         if (!inp.value.trim() && actual <= RANGO_CONSEC.hasta) {
             inp.value = RANGO_CONSEC.prefijo + actual;

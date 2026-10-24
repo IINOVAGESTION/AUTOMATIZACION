@@ -150,8 +150,9 @@ def obtener_rango_consecutivos(usuario):
 
 def consecutivo_en_rango(consecutivo, rango):
     """True si el consecutivo (ej. 'AF52877') tiene el prefijo del rango
-    y su número cae dentro de él."""
-    m = re.match(r"^([A-Za-z]*)(\d+)$", (consecutivo or "").strip())
+    y su número cae dentro de él. Se permite UNA letra al final (AF52881A)
+    para las correcciones del mismo consecutivo."""
+    m = re.match(r"^([A-Za-z]*)(\d+)[A-Za-z]?$", (consecutivo or "").strip())
     if not m:
         return False
     return m.group(1).upper() == rango["prefijo"] and rango["desde"] <= int(m.group(2)) <= rango["hasta"]
@@ -177,7 +178,7 @@ def siguiente_consecutivo(rango, ultimos_locales=()):
             pass
     maximo = rango["desde"] - 1
     for c in ultimos_locales:
-        m = re.match(r"^([A-Za-z]*)(\d+)$", (c or "").strip())
+        m = re.match(r"^([A-Za-z]*)(\d+)[A-Za-z]?$", (c or "").strip())
         if m and m.group(1).upper() == rango["prefijo"]:
             n = int(m.group(2))
             if rango["desde"] <= n <= rango["hasta"] and n > maximo:
