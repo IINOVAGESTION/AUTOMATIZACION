@@ -48,7 +48,10 @@ from backend.historial import (
     registrar_historial, buscar_consecutivo_hoy, sugerir_conductor_para_placa,
     calcular_estadisticas,
 )
-from backend.sheets import registrar_en_sheets, marcar_anulado_en_sheets, revisar_actualizacion, validar_usuario_app
+from backend.sheets import (
+    registrar_en_sheets, marcar_anulado_en_sheets, revisar_actualizacion, validar_usuario_app,
+    obtener_rango_consecutivos, consecutivo_en_rango, siguiente_consecutivo,
+)
 from backend import actualizador
 
 
@@ -377,6 +380,20 @@ def trabajador_de_fondo():
                         (ultimo_formulario.get("Cedula_Conductor2") or "").strip() == cedula2:
                     ultimo_formulario["Cedula_Conductor2"] = ""
                     ultimo_formulario["Tipo_Documento_Conductor2"] = "C"
+                # Con rango de consecutivos, tras un viaje exitoso el
+                # consecutivo se vacía: el formulario propone el siguiente.
+                if resultado.get("ok") and trabajo["v"].get("RangoConsecutivo"):
+                    if trabajo["v"].get("TipoViaje") == "Cola":
+                        try:
+                            import json as _json
+                            filas = _json.loads(ultimo_formulario.get("ColaJSON") or "[]")
+                            for fila in filas:
+                                fila["consecutivo"] = ""
+                            ultimo_formulario["ColaJSON"] = _json.dumps(filas)
+                        except Exception:
+                            pass
+                    elif (ultimo_formulario.get("Consecutivo") or "").strip() == (trabajo["v"].get("Consecutivo") or "").strip():
+                        ultimo_formulario["Consecutivo"] = ""
 
             duracion = time.time() - trabajo["inicio"]
 
@@ -436,6 +453,13 @@ def login():
         ok, mensaje_error, rndc_vinculado = validar_usuario_app(usuario, password)
         if ok:
             session["usuario_app"] = usuario
+            # Rango de consecutivos propio de este usuario (columna "Rango"
+            # de la hoja de usuarios); si no tiene, no hay límite.
+            rango = obtener_rango_consecutivos(usuario)
+            if rango:
+                session["rango_consecutivos"] = rango
+            else:
+                session.pop("rango_consecutivos", None)
             if rndc_vinculado:
                 session["usuario_rndc_vinculado"] = rndc_vinculado[0]
                 session["password_rndc_vinculado"] = rndc_vinculado[1]
@@ -480,6 +504,24 @@ def formulario():
         actualizacion=revisar_actualizacion(),
         VERSION_APP=VERSION_APP,
     )
+
+
+@app.route("/siguiente_consecutivo")
+def siguiente_consecutivo_route():
+    """Para el formulario: el rango de consecutivos de este usuario y el
+    siguiente número libre (o rango=None si no tiene rango asignado)."""
+    if "usuario_app" not in session:
+        return jsonify({"ok": False, "error": "No autenticado"}), 401
+    rango = session.get("rango_consecutivos")
+    if not rango:
+        return jsonify({"ok": True, "rango": None})
+    from backend.historial import consecutivos_usados_localmente
+    numero, origen = siguiente_consecutivo(rango, consecutivos_usados_localmente())
+    return jsonify({
+        "ok": True, "rango": rango, "numero": numero, "prefijo": rango["prefijo"],
+        "agotado": numero > rango["hasta"], "quedan": max(0, rango["hasta"] - numero + 1),
+        "origen": origen,
+    })
 
 
 @app.route("/actualizar_sedes", methods=["POST"])
@@ -642,6 +684,7 @@ def ejecutar():
         # registro en Google Sheets al final, y también lo heredan los
         # viajes de la cola de Récord (todos comparten este mismo dato).
         "usuario_app": session.get("usuario_app", ""),
+        "RangoConsecutivo": session.get("rango_consecutivos"),
     }
     usuario_rndc = session.get("usuario_rndc_vinculado") or f.get("usuario_rndc", "").strip()
     password_rndc = session.get("password_rndc_vinculado") or f.get("password_rndc", "").strip()
@@ -694,6 +737,17 @@ def ejecutar():
     # del formulario, para que no se pueda saltar de ninguna forma.
     if not (v.get("Cliente") or "").strip():
         return "Falta el Cliente: es obligatorio para poder hacer el viaje. No se envió nada.", 400
+
+    # Cada usuario solo puede usar consecutivos de SU rango (columna
+    # "Rango" de la hoja de usuarios). Si no tiene rango, no se revisa.
+    rango = v.get("RangoConsecutivo")
+    if rango:
+        a_revisar = [i["Consecutivo"] for i in lista_viajes_cola] if es_cola else [v["Consecutivo"]]
+        for c in a_revisar:
+            if not consecutivo_en_rango(c, rango):
+                return (f"El consecutivo '{c}' no está en tu rango ({rango['texto']}). "
+                        f"Usa uno de tu rango o pídele a quien administra la hoja de usuarios que lo ajuste. "
+                        f"No se envió nada."), 400
 
     # El Flete también es obligatorio (menos en Récord, donde cada viaje
     # trae el suyo). Sin él, antes se llegaba a crear las Remesas y recién

@@ -6,6 +6,7 @@ revisar si hay una versión más nueva publicada.
 import time
 import csv
 import io
+import re
 import requests
 from datetime import datetime
 
@@ -99,6 +100,89 @@ def marcar_anulado_en_sheets(consecutivo, log=print):
             log(f"    ⚠️ Google Sheets respondió algo inesperado al marcar la anulación: {texto[:150]}")
     except Exception as e:
         log(f"    ⚠️ No se pudo marcar la fila en Google Sheets (la anulación en el RNDC sí quedó hecha): {e}")
+
+
+# ---------------------------------------------------------------------
+# Rango de consecutivos de cada usuario (columna "Rango" de la hoja de
+# usuarios, ej. "AF52000-52999" o "52000-52999")
+# ---------------------------------------------------------------------
+
+def parsear_rango(texto):
+    """'AF52000-52999' (también 'AF52000-AF52999', '52000 a 52999') ->
+    {'prefijo': 'AF', 'desde': 52000, 'hasta': 52999, 'texto': 'AF52000-52999'}
+    o None si está vacío o no se entiende."""
+    m = re.match(r"^\s*([A-Za-z]*)\s*(\d+)\s*(?:-|–|—|a|hasta)\s*[A-Za-z]*\s*(\d+)\s*$", texto or "")
+    if not m:
+        return None
+    prefijo, desde, hasta = m.group(1).upper(), int(m.group(2)), int(m.group(3))
+    if hasta < desde:
+        return None
+    return {"prefijo": prefijo, "desde": desde, "hasta": hasta,
+            "texto": f"{prefijo}{desde}-{hasta}"}
+
+
+def obtener_rango_consecutivos(usuario):
+    """Lee de la hoja de usuarios la columna "Rango" del usuario y la
+    devuelve ya interpretada (o None si no tiene rango asignado, la
+    columna no existe, o algo falla -- en ese caso el usuario trabaja
+    como antes, sin límite)."""
+    try:
+        resp = requests.get(URL_HOJA_USUARIOS, timeout=10)
+        resp.raise_for_status()
+        filas = list(csv.reader(io.StringIO(resp.content.decode("utf-8-sig"))))
+        if len(filas) < 2:
+            return None
+        encabezado = [c.strip().lower() for c in filas[0]]
+        if "usuario" not in encabezado:
+            return None
+        idx_usuario = encabezado.index("usuario")
+        nombres = ("rango", "rango consecutivos", "rango_consecutivos", "rangoconsecutivos", "consecutivos")
+        idx_rango = next((encabezado.index(n) for n in nombres if n in encabezado), None)
+        if idx_rango is None:
+            return None
+        for fila in filas[1:]:
+            if len(fila) > max(idx_usuario, idx_rango) and fila[idx_usuario].strip() == usuario:
+                return parsear_rango(fila[idx_rango])
+    except Exception:
+        return None
+    return None
+
+
+def consecutivo_en_rango(consecutivo, rango):
+    """True si el consecutivo (ej. 'AF52877') tiene el prefijo del rango
+    y su número cae dentro de él."""
+    m = re.match(r"^([A-Za-z]*)(\d+)$", (consecutivo or "").strip())
+    if not m:
+        return False
+    return m.group(1).upper() == rango["prefijo"] and rango["desde"] <= int(m.group(2)) <= rango["hasta"]
+
+
+def siguiente_consecutivo(rango, ultimos_locales=()):
+    """Devuelve (numero_siguiente, origen). Primero le pregunta a la hoja
+    de Google (ve lo que hicieron TODAS las PCs); si el script de la hoja
+    aún no está actualizado o no responde, usa lo que recuerda este
+    equipo ('ultimos_locales': consecutivos usados aquí) y, si tampoco
+    hay nada, el primer número del rango."""
+    if URL_WEBHOOK_SHEETS.strip():
+        try:
+            resp = requests.get(
+                URL_WEBHOOK_SHEETS, timeout=10, allow_redirects=True,
+                params={"accion": "siguiente", "prefijo": rango["prefijo"],
+                        "desde": rango["desde"], "hasta": rango["hasta"]},
+            )
+            m = re.search(r"SIGUIENTE:(\d+)", resp.text or "")
+            if m:
+                return int(m.group(1)), "hoja"
+        except Exception:
+            pass
+    maximo = rango["desde"] - 1
+    for c in ultimos_locales:
+        m = re.match(r"^([A-Za-z]*)(\d+)$", (c or "").strip())
+        if m and m.group(1).upper() == rango["prefijo"]:
+            n = int(m.group(2))
+            if rango["desde"] <= n <= rango["hasta"] and n > maximo:
+                maximo = n
+    return maximo + 1, "local"
 
 
 def revisar_actualizacion():

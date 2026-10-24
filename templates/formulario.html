@@ -322,6 +322,7 @@
       <div id="campo_consecutivo">
         <label>Consecutivo</label>
         <input type="text" name="Consecutivo" id="input_consecutivo" value="{{ v.get('Consecutivo', '') }}" class="campo-clave" tabindex="1" oninput="verificarConsecutivo()">
+        <span id="info_rango_consecutivo" style="display:none; font-size:0.78rem; color:#999; margin-top:4px;"></span>
         <span id="aviso_consecutivo" style="display:none; align-items:center; gap:6px; background:rgba(255,106,0,0.14); border:1px solid #ff6a00; border-radius:6px; padding:6px 10px; margin-top:6px; font-size:0.82rem; color:#ff6a00;"></span>
       </div>
     </div>
@@ -891,6 +892,46 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 });
 
+// ---- Rango de consecutivos del usuario (si tiene uno en la hoja de usuarios) ----
+var RANGO_CONSEC = null;   // {prefijo, numero, hasta, agotado, quedan, texto}
+function rellenarConsecutivosDelRango() {
+    if (!RANGO_CONSEC || RANGO_CONSEC.agotado) return;
+    var campo = document.getElementById('input_consecutivo');
+    if (campo && !campo.value.trim()) {
+        campo.value = RANGO_CONSEC.prefijo + RANGO_CONSEC.numero;
+        verificarConsecutivo();
+    }
+    // Récord: cada viaje vacío toma el siguiente número, en orden.
+    var actual = RANGO_CONSEC.numero;
+    document.querySelectorAll('#lista_cola .q_consecutivo').forEach(function (inp) {
+        var m = /^[A-Za-z]*(\d+)$/.exec(inp.value.trim());
+        if (m) { actual = Math.max(actual, parseInt(m[1], 10) + 1); return; }
+        if (!inp.value.trim() && actual <= RANGO_CONSEC.hasta) {
+            inp.value = RANGO_CONSEC.prefijo + actual;
+            actual++;
+        }
+    });
+}
+function cargarRangoConsecutivos() {
+    fetch('{{ url_for("siguiente_consecutivo_route") }}')
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+            if (!d.ok || !d.rango) return;
+            RANGO_CONSEC = {prefijo: d.prefijo, numero: d.numero, hasta: d.rango.hasta,
+                            agotado: d.agotado, quedan: d.quedan, texto: d.rango.texto};
+            var info = document.getElementById('info_rango_consecutivo');
+            info.style.display = 'block';
+            info.style.color = d.agotado || d.quedan <= 20 ? '#ff6a00' : '#999';
+            info.textContent = d.agotado
+                ? '⚠️ Ya usaste todo tu rango (' + d.rango.texto + '). Pide que te asignen uno nuevo.'
+                : 'Tu rango: ' + d.rango.texto + ' · quedan ' + d.quedan
+                  + (d.quedan <= 20 ? ' (se está acabando)' : '');
+            rellenarConsecutivosDelRango();
+        })
+        .catch(function () {});
+}
+cargarRangoConsecutivos();
+
 let temporizadorConsecutivo = null;
 function verificarConsecutivo() {
     clearTimeout(temporizadorConsecutivo);
@@ -1336,6 +1377,7 @@ function agregarViajeCola(datos) {
     for (const campo of campos) {
         if (datos[campo] !== undefined) div.querySelector('.q_' + campo).value = datos[campo];
     }
+    rellenarConsecutivosDelRango();   // si el usuario tiene rango, los vacíos toman el siguiente
 }
 function agregarParada(datos) {
     datos = datos || {};

@@ -128,3 +128,19 @@ def calcular_estadisticas():
         "con_error": len(con_error_semana),
         "promedio_seg": round(promedio),
     }
+
+
+def consecutivos_usados_localmente():
+    """Todos los consecutivos que aparecen en el historial de este equipo
+    (respaldo para sugerir el siguiente si la hoja de Google no responde)."""
+    try:
+        with open(ARCHIVO_HISTORIAL, "r", encoding="utf-8") as f:
+            historial = json.load(f)
+    except Exception:
+        return []
+    usados = []
+    for r in historial:
+        m = re.search(r"Consecutivo\s+(\S+)", r.get("descripcion", ""))
+        if m:
+            usados.append(m.group(1).strip().upper())
+    return usados
