@@ -70,6 +70,37 @@ def registrar_en_sheets(v, resultado, log=print):
             f"el viaje sí quedó bien hecho): {e}")
 
 
+def marcar_anulado_en_sheets(consecutivo, log=print):
+    """Después de anular un manifiesto con éxito, le avisa a la hoja de
+    Google Sheets para que pinte de rojo la fila de ese consecutivo.
+    Primero comprueba (con un GET, que no escribe nada) que el script de
+    la hoja ya esté actualizado: uno viejo trataría el aviso como un
+    viaje nuevo y agregaría una fila de más. Nunca interrumpe nada."""
+    if not URL_WEBHOOK_SHEETS.strip() or not (consecutivo or "").strip():
+        return
+    try:
+        prueba = requests.get(URL_WEBHOOK_SHEETS, timeout=10, allow_redirects=True)
+        if "[soporta-anular]" not in (prueba.text or ""):
+            log("    ℹ️ La fila no se marcó en rojo en Google Sheets: el script de la hoja "
+                "todavía no está actualizado con la función de anulación.")
+            return
+        resp = requests.post(
+            URL_WEBHOOK_SHEETS,
+            json={"accion": "anular", "consecutivo": consecutivo.strip()},
+            timeout=10, allow_redirects=True,
+        )
+        texto = (resp.text or "").strip()
+        if "OK-ANULADO" in texto:
+            log(f"    📊 Fila del consecutivo {consecutivo} marcada en rojo en Google Sheets.")
+        elif "NO-ENCONTRADO" in texto:
+            log(f"    ℹ️ No encontré el consecutivo {consecutivo} en la hoja de Google Sheets "
+                f"(no se marcó nada en rojo).")
+        else:
+            log(f"    ⚠️ Google Sheets respondió algo inesperado al marcar la anulación: {texto[:150]}")
+    except Exception as e:
+        log(f"    ⚠️ No se pudo marcar la fila en Google Sheets (la anulación en el RNDC sí quedó hecha): {e}")
+
+
 def revisar_actualizacion():
     """Consulta la hoja de versión (con caché de 30 min) y devuelve
     {"hay_nueva": bool, "version": str, "enlace": str} o None si no hay

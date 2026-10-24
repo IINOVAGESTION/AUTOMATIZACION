@@ -48,7 +48,7 @@ from backend.historial import (
     registrar_historial, buscar_consecutivo_hoy, sugerir_conductor_para_placa,
     calcular_estadisticas,
 )
-from backend.sheets import registrar_en_sheets, revisar_actualizacion, validar_usuario_app
+from backend.sheets import registrar_en_sheets, marcar_anulado_en_sheets, revisar_actualizacion, validar_usuario_app
 from backend import actualizador
 
 
@@ -1022,6 +1022,7 @@ def anular_route():
             manifiesto_nuevo=manifiesto_nuevo or None,
             observaciones=observaciones or None, log=mensajes.append,
         )
+        marcar_anulado_en_sheets(numero_manifiesto, mensajes.append)
         return jsonify({"ok": True, "log": mensajes})
     except Exception as e:
         texto = str(e)
