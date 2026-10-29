@@ -6,6 +6,7 @@ errores, normalizar textos y números, manejar descargas, etc.
 import time
 import os
 import re
+import shutil
 import unicodedata
 from datetime import datetime, timedelta
 from selenium.webdriver.common.by import By
@@ -314,17 +315,74 @@ def esperar_nueva_descarga_en(carpeta, archivos_antes, timeout):
     return None
 
 
-def renombrar_descarga(carpeta, nombre_nuevo_sin_extension, archivos_antes, log, timeout=30):
+def carpetas_de_descarga_posibles(principal):
+    """Lista de carpetas donde Chrome pudo dejar un archivo descargado: la
+    que se le pidió ('principal') y, por si Chrome ignoró esa orden (pasa
+    a veces con el modo invisible o tras una actualización de Chrome), la
+    carpeta 'Descargas' real de Windows -- incluida la que OneDrive
+    redirige -- y las variantes comunes en español/inglés."""
+    candidatas = [principal]
+    home = os.path.expanduser("~")
+    if os.name == "nt":
+        try:
+            import winreg
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER,
+                                r"Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders") as k:
+                valor, _ = winreg.QueryValueEx(k, "{374DE290-123F-4565-9164-39C4925E467B}")
+                candidatas.append(os.path.expandvars(valor))
+        except Exception:
+            pass
+    for nombre in ("Downloads", "Descargas"):
+        candidatas.append(os.path.join(home, nombre))
+    try:
+        for d in os.listdir(home):
+            if d.lower().startswith("onedrive"):
+                for nombre in ("Downloads", "Descargas"):
+                    candidatas.append(os.path.join(home, d, nombre))
+    except Exception:
+        pass
+    vistas, resultado = set(), []
+    for c in candidatas:
+        try:
+            clave = os.path.normcase(os.path.abspath(c))
+        except Exception:
+            continue
+        if clave in vistas or not os.path.isdir(c):
+            continue
+        vistas.add(clave)
+        resultado.append(c)
+    return resultado
+
+
+def foto_de_carpetas(carpetas):
+    """{carpeta: conjunto de archivos que hay ahora} -- para detectar
+    después qué archivo nuevo apareció y en cuál carpeta."""
+    foto = {}
+    for c in carpetas:
+        try:
+            foto[c] = set(os.listdir(c))
+        except Exception:
+            foto[c] = set()
+    return foto
+
+
+def renombrar_descarga(carpeta, nombre_nuevo_sin_extension, archivos_antes, log, timeout=30,
+                        otras_carpetas_antes=None):
+    """Espera el archivo descargado en 'carpeta' y lo renombra. Si no
+    aparece ahí, lo busca en las otras carpetas posibles ('otras_carpetas_antes':
+    foto previa de cada una) y lo trae a 'carpeta' con el nombre nuevo."""
     archivo = esperar_nueva_descarga_en(carpeta, archivos_antes, timeout=timeout)
     carpeta_encontrada = carpeta
 
     if not archivo:
-        try:
-            archivos_antes_win = set(os.listdir(CARPETA_DESCARGAS_WINDOWS))
-        except FileNotFoundError:
-            archivos_antes_win = set()
-        archivo = esperar_nueva_descarga_en(CARPETA_DESCARGAS_WINDOWS, archivos_antes_win, timeout=5)
-        carpeta_encontrada = CARPETA_DESCARGAS_WINDOWS
+        for otra, antes in (otras_carpetas_antes or {}).items():
+            if os.path.normcase(os.path.abspath(otra)) == os.path.normcase(os.path.abspath(carpeta)):
+                continue
+            archivo = esperar_nueva_descarga_en(otra, antes, timeout=0.6)
+            if archivo:
+                carpeta_encontrada = otra
+                log(f"    ℹ️ Chrome dejó el archivo en '{otra}' en vez de '{carpeta}'; se mueve a la carpeta correcta.")
+                break
 
     if not archivo:
         log(f"⚠️  No se detectó ninguna descarga nueva para renombrar a '{nombre_nuevo_sin_extension}'.")
@@ -337,7 +395,7 @@ def renombrar_descarga(carpeta, nombre_nuevo_sin_extension, archivos_antes, log,
     if os.path.exists(destino):
         os.remove(destino)
 
-    os.rename(origen, destino)
+    shutil.move(origen, destino)   # también sirve entre carpetas/discos distintos
     log(f"✅ Archivo descargado y renombrado a: {destino}")
     return destino
 
