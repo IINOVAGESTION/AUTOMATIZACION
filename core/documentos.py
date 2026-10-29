@@ -155,6 +155,7 @@ def descargar_pdf_documento(driver, wait, url_reimprimir, radicado, nombre_archi
     puede volver a pedir cuando se quiera desde Reimprimir (el radicado ya
     existe y es válido)."""
     for intento in range(1, intentos + 1):
+        etapa = "abrir la página de Reimprimir"
         try:
             driver.get(url_reimprimir)
             # id_campo_radicado puede ser un solo id o una lista de ids
@@ -177,6 +178,7 @@ def descargar_pdf_documento(driver, wait, url_reimprimir, radicado, nombre_archi
                     "No se encontró la casilla de búsqueda en la página de Reimprimir "
                     f"(se buscó: {', '.join(candidatos)})."
                 )
+            etapa = "escribir el radicado"
             campo.clear()
             campo.send_keys(radicado)
             campo.send_keys(Keys.TAB)
@@ -190,7 +192,26 @@ def descargar_pdf_documento(driver, wait, url_reimprimir, radicado, nombre_archi
             archivos_antes = set(os.listdir(carpeta_descargas))
             otras_carpetas_antes = foto_de_carpetas(carpetas_de_descarga_posibles(carpeta_descargas))
             ventana_original = driver.current_window_handle
-            driver.find_element(By.ID, id_boton_imprimir).click()
+            etapa = "pulsar el botón de imprimir"
+            try:
+                # Mientras el RNDC arma el PDF, el clic puede quedarse
+                # "pensando" (Selenium espera a que la página termine). Se
+                # le da más margen y, si igual se pasa, se sigue esperando
+                # el archivo en vez de darlo por perdido.
+                driver.set_page_load_timeout(45)
+                driver.find_element(By.ID, id_boton_imprimir).click()
+            except TimeoutException:
+                log("    ℹ️ El RNDC está tardando en armar el PDF; se sigue esperando la descarga...")
+                try:
+                    driver.execute_script("window.stop()")
+                except Exception:
+                    pass
+            finally:
+                try:
+                    driver.set_page_load_timeout(25)
+                except Exception:
+                    pass
+            etapa = "esperar la descarga"
             resultado = renombrar_descarga(carpeta_descargas, nombre_archivo, archivos_antes, log,
                                             otras_carpetas_antes=otras_carpetas_antes)
             if resultado:
@@ -202,7 +223,7 @@ def descargar_pdf_documento(driver, wait, url_reimprimir, radicado, nombre_archi
             _diagnostico_descarga_fallida(driver, otras_carpetas_antes, nombre_archivo, log)
             log(f"    No se detectó la descarga (intento {intento}/{intentos})." + (" Reintentando..." if intento < intentos else ""))
         except (NoSuchElementException, UnexpectedAlertPresentException, TimeoutException) as e:
-            log(f"    ⚠️  Error al descargar el PDF (intento {intento}/{intentos}): {traducir_error(e)}")
+            log(f"    ⚠️  Error al descargar el PDF (intento {intento}/{intentos}) al {etapa}: {traducir_error(e)}")
             try:
                 alerta_pendiente = driver.switch_to.alert
                 alerta_pendiente.accept()

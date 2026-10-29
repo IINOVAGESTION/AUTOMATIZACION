@@ -116,6 +116,17 @@ def crear_driver_con_limite(chrome_options, chromedriver_path, timeout=45):
     except Exception:
         pass  # si esta versión de Selenium no lo soporta, se sigue igual (mejor sin esto que fallar aquí)
 
+    # En modo invisible Chrome se presenta al sitio como "HeadlessChrome".
+    # Algunos sitios tratan distinto (o frenan) a ese navegador; se le
+    # quita esa palabra para que se presente como un Chrome normal.
+    try:
+        agente = driver.execute_script("return navigator.userAgent")
+        if "HeadlessChrome" in agente:
+            driver.execute_cdp_cmd("Network.setUserAgentOverride",
+                                    {"userAgent": agente.replace("HeadlessChrome", "Chrome")})
+    except Exception:
+        pass
+
     return driver
 
 
@@ -135,6 +146,12 @@ def crear_opciones_chrome(carpeta_descargas=None, invisible=False):
             "download.prompt_for_download": False,
             "download.directory_upgrade": True,
             "plugins.always_open_pdf_externally": True,
+            # Que Chrome no frene descargas seguidas ("varias descargas
+            # automáticas") ni las marque como inseguras: en modo invisible
+            # no hay ventana donde aceptarlas y simplemente no bajan.
+            "profile.default_content_setting_values.automatic_downloads": 1,
+            "download_restrictions": 0,
+            "safebrowsing.enabled": False,
         })
     chrome_options.add_experimental_option("prefs", prefs)
     if invisible:
@@ -151,7 +168,7 @@ def crear_opciones_chrome(carpeta_descargas=None, invisible=False):
     chrome_options.add_argument("--disable-background-timer-throttling")
     chrome_options.add_argument("--disable-backgrounding-occluded-windows")
     chrome_options.add_argument("--disable-renderer-backgrounding")
-    chrome_options.add_argument("--disable-features=TranslateUI,Translate")
+    chrome_options.add_argument("--disable-features=TranslateUI,Translate,InsecureDownloadWarnings")
     chrome_options.add_argument("--log-level=3")  # menos texto de consola de Chrome
     chrome_options.add_experimental_option("excludeSwitches", ["enable-logging"])
 
