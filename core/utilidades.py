@@ -291,7 +291,7 @@ def set_autocomplete_municipio(driver, wait, field_id, texto_completo, log, indi
     return True
 
 
-def esperar_nueva_descarga_en(carpeta, archivos_antes, timeout):
+def esperar_nueva_descarga_en(carpeta, archivos_antes, timeout, solo_pdf=False):
     fin = time.time() + timeout
     while time.time() < fin:
         try:
@@ -311,7 +311,7 @@ def esperar_nueva_descarga_en(carpeta, archivos_antes, timeout):
         nuevos_pdf = [f for f in nuevos if f.lower().endswith(".pdf")]
         if nuevos_pdf and not hay_descargas_en_progreso:
             return nuevos_pdf[0]
-        if nuevos and not hay_descargas_en_progreso and time.time() > fin - 2:
+        if nuevos and not solo_pdf and not hay_descargas_en_progreso and time.time() > fin - 2:
             # Últimos 2 segundos del plazo: si apareció algo (aunque no
             # sea .pdf reconocible), se toma como respaldo en vez de
             # devolver nada.
@@ -372,18 +372,18 @@ def foto_de_carpetas(carpetas):
 
 
 def renombrar_descarga(carpeta, nombre_nuevo_sin_extension, archivos_antes, log, timeout=30,
-                        otras_carpetas_antes=None, silencioso=False):
+                        otras_carpetas_antes=None, silencioso=False, solo_pdf=False):
     """Espera el archivo descargado en 'carpeta' y lo renombra. Si no
     aparece ahí, lo busca en las otras carpetas posibles ('otras_carpetas_antes':
     foto previa de cada una) y lo trae a 'carpeta' con el nombre nuevo."""
-    archivo = esperar_nueva_descarga_en(carpeta, archivos_antes, timeout=timeout)
+    archivo = esperar_nueva_descarga_en(carpeta, archivos_antes, timeout=timeout, solo_pdf=solo_pdf)
     carpeta_encontrada = carpeta
 
     if not archivo:
         for otra, antes in (otras_carpetas_antes or {}).items():
             if os.path.normcase(os.path.abspath(otra)) == os.path.normcase(os.path.abspath(carpeta)):
                 continue
-            archivo = esperar_nueva_descarga_en(otra, antes, timeout=0.6)
+            archivo = esperar_nueva_descarga_en(otra, antes, timeout=0.1, solo_pdf=solo_pdf)
             if archivo:
                 carpeta_encontrada = otra
                 log(f"    ℹ️ Chrome dejó el archivo en '{otra}' en vez de '{carpeta}'; se mueve a la carpeta correcta.")
@@ -398,10 +398,16 @@ def renombrar_descarga(carpeta, nombre_nuevo_sin_extension, archivos_antes, log,
     origen = os.path.join(carpeta_encontrada, archivo)
     destino = os.path.join(carpeta, nombre_nuevo_sin_extension + extension)
 
-    if os.path.exists(destino):
-        os.remove(destino)
-
-    shutil.move(origen, destino)   # también sirve entre carpetas/discos distintos
+    try:
+        if os.path.exists(destino):
+            os.remove(destino)
+        shutil.move(origen, destino)   # también sirve entre carpetas/discos distintos
+    except (FileNotFoundError, PermissionError) as e:
+        # El archivo desapareció o sigue en uso (Chrome aún lo cierra): no se
+        # tumba todo el proceso; el que llama lo vuelve a intentar.
+        if not silencioso:
+            log(f"    ⚠️  No se pudo renombrar '{archivo}' todavía: {e}")
+        return None
     log(f"✅ Archivo descargado y renombrado a: {destino}")
     return destino
 

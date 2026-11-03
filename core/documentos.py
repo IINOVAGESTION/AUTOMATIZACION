@@ -16,7 +16,7 @@ from selenium.common.exceptions import (
 from .utilidades import (
     renombrar_descarga, traducir_error, carpetas_de_descarga_posibles, foto_de_carpetas,
 )
-from .config import obtener_carpeta_programa
+from .config import obtener_carpeta_programa, EXTENSIONES_TEMPORALES
 
 # Cuánto se espera, como máximo, a que aparezca el PDF después de pulsar
 # imprimir. El RNDC a veces tarda bastante en armarlo.
@@ -188,17 +188,45 @@ def _esperar_pagina_quieta(driver, timeout=10):
 
 
 
+def _avisar_archivos_raros(carpeta, archivos_antes, vistos, log):
+    """Si aparece un archivo nuevo que NO es PDF (ej. un .htm), lo deja en
+    el log con un pedazo de su contenido: suele ser la respuesta de error
+    del RNDC guardada como si fuera la descarga."""
+    import re as _re
+    try:
+        nuevos = set(os.listdir(carpeta)) - archivos_antes
+    except Exception:
+        return
+    for f in sorted(nuevos - vistos):
+        vistos.add(f)
+        if f.lower().endswith((".pdf",) + EXTENSIONES_TEMPORALES):
+            continue
+        try:
+            ruta = os.path.join(carpeta, f)
+            tamano = os.path.getsize(ruta)
+            with open(ruta, "rb") as fh:
+                crudo = fh.read(4000).decode("utf-8", errors="ignore")
+            texto = _re.sub(r"<[^>]+>", " ", crudo)
+            texto = _re.sub(r"\s+", " ", texto).strip()[:300]
+            log(f"    🔎 Apareció un archivo que no es PDF: '{f}' ({tamano} bytes). Contenido: {texto or '(vacío)'}")
+        except Exception:
+            log(f"    🔎 Apareció un archivo que no es PDF: '{f}' (ya no se pudo leer).")
+
+
 def _esperar_pdf(driver, ventana_original, url_reimprimir, carpeta, nombre, archivos_antes,
                  otras_carpetas_antes, log, maximo):
     """Espera el PDF hasta 'maximo' segundos mirando las dos formas en que
     puede llegar: como archivo descargado, o abierto en una ventana nueva
     (popup) de la que se guarda el contenido directamente."""
     fin = time.time() + maximo
+    vistos = set()
     while time.time() < fin:
-        resultado = renombrar_descarga(carpeta, nombre, archivos_antes, log, timeout=3,
-                                        otras_carpetas_antes=otras_carpetas_antes, silencioso=True)
+        resultado = renombrar_descarga(carpeta, nombre, archivos_antes, log, timeout=0.6,
+                                        otras_carpetas_antes=otras_carpetas_antes, silencioso=True,
+                                        solo_pdf=True)
         if resultado:
             return resultado
+        _avisar_archivos_raros(carpeta, archivos_antes, vistos, log)
         try:
             hay_ventana_nueva = len(driver.window_handles) > 1
         except Exception:
