@@ -18,6 +18,11 @@ from .utilidades import (
 )
 from .config import obtener_carpeta_programa
 
+# Cuánto se espera, como máximo, a que aparezca el PDF después de pulsar
+# imprimir. El RNDC a veces tarda bastante en armarlo.
+TIEMPO_MAXIMO_DESCARGA = 90
+
+
 def forzar_carpeta_descargas(driver, carpeta, log=None):
     """Le ordena a Chrome, directamente (no solo con la preferencia al
     abrirlo), que guarde lo que descargue en 'carpeta'. Con el modo
@@ -192,6 +197,7 @@ def descargar_pdf_documento(driver, wait, url_reimprimir, radicado, nombre_archi
             archivos_antes = set(os.listdir(carpeta_descargas))
             otras_carpetas_antes = foto_de_carpetas(carpetas_de_descarga_posibles(carpeta_descargas))
             ventana_original = driver.current_window_handle
+            inicio_espera = time.time()
             etapa = "pulsar el botón de imprimir"
             try:
                 # Mientras el RNDC arma el PDF, el clic puede quedarse
@@ -212,9 +218,12 @@ def descargar_pdf_documento(driver, wait, url_reimprimir, radicado, nombre_archi
                 except Exception:
                     pass
             etapa = "esperar la descarga"
+            log(f"    Esperando que el RNDC arme el PDF (hasta {TIEMPO_MAXIMO_DESCARGA} segundos)...")
             resultado = renombrar_descarga(carpeta_descargas, nombre_archivo, archivos_antes, log,
+                                            timeout=TIEMPO_MAXIMO_DESCARGA,
                                             otras_carpetas_antes=otras_carpetas_antes)
             if resultado:
+                log(f"    (el PDF tardó {time.time() - inicio_espera:.0f} segundos en aparecer)")
                 return resultado
             resultado = _rescatar_pdf_abierto_en_pantalla(
                 driver, ventana_original, url_reimprimir, carpeta_descargas, nombre_archivo, log)
