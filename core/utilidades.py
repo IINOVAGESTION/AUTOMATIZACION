@@ -291,18 +291,36 @@ def set_autocomplete_municipio(driver, wait, field_id, texto_completo, log, indi
     return True
 
 
-def esperar_nueva_descarga_en(carpeta, archivos_antes, timeout, solo_pdf=False):
+def archivos_nuevos_en(carpeta, archivos_antes, desde=None):
+    """Nombres de los archivos 'nuevos' de la carpeta: los que no estaban
+    antes y, si se da 'desde' (momento en que se pulsó imprimir), también
+    los que ya existían pero fueron reescritos después. Chrome (con la
+    carpeta forzada) puede SOBRESCRIBIR un 'REMESA.pdf' viejo en vez de
+    crear 'REMESA (1).pdf': por el nombre solo, esa descarga nunca se veía
+    como nueva y quedaba sin renombrar."""
+    try:
+        actuales = set(os.listdir(carpeta))
+    except (FileNotFoundError, NotADirectoryError):
+        return set()
+    nuevos = actuales - archivos_antes
+    if desde is not None:
+        for f in actuales & archivos_antes:
+            try:
+                if os.path.getmtime(os.path.join(carpeta, f)) >= desde:
+                    nuevos.add(f)
+            except OSError:
+                pass
+    return nuevos
+
+
+def esperar_nueva_descarga_en(carpeta, archivos_antes, timeout, solo_pdf=False, desde=None):
     fin = time.time() + timeout
     while time.time() < fin:
-        try:
-            archivos_ahora = set(os.listdir(carpeta))
-        except FileNotFoundError:
-            archivos_ahora = set()
         # Solo cuentan como "descarga en progreso" los archivos temporales
         # NUEVOS. Antes se miraba toda la carpeta: un .crdownload/.tmp viejo
         # (de una descarga cortada hace días) hacía creer que Chrome seguía
         # bajando algo y el PDF nuevo nunca se detectaba ni se renombraba.
-        nuevos_todos = archivos_ahora - archivos_antes
+        nuevos_todos = archivos_nuevos_en(carpeta, archivos_antes, desde)
         hay_descargas_en_progreso = any(f.endswith(EXTENSIONES_TEMPORALES) for f in nuevos_todos)
         nuevos = [f for f in nuevos_todos if not f.endswith(EXTENSIONES_TEMPORALES)]
         # Se prioriza un archivo que ya sea .pdf de verdad; si no hay
@@ -372,18 +390,18 @@ def foto_de_carpetas(carpetas):
 
 
 def renombrar_descarga(carpeta, nombre_nuevo_sin_extension, archivos_antes, log, timeout=30,
-                        otras_carpetas_antes=None, silencioso=False, solo_pdf=False):
+                        otras_carpetas_antes=None, silencioso=False, solo_pdf=False, desde=None):
     """Espera el archivo descargado en 'carpeta' y lo renombra. Si no
     aparece ahí, lo busca en las otras carpetas posibles ('otras_carpetas_antes':
     foto previa de cada una) y lo trae a 'carpeta' con el nombre nuevo."""
-    archivo = esperar_nueva_descarga_en(carpeta, archivos_antes, timeout=timeout, solo_pdf=solo_pdf)
+    archivo = esperar_nueva_descarga_en(carpeta, archivos_antes, timeout=timeout, solo_pdf=solo_pdf, desde=desde)
     carpeta_encontrada = carpeta
 
     if not archivo:
         for otra, antes in (otras_carpetas_antes or {}).items():
             if os.path.normcase(os.path.abspath(otra)) == os.path.normcase(os.path.abspath(carpeta)):
                 continue
-            archivo = esperar_nueva_descarga_en(otra, antes, timeout=0.1, solo_pdf=solo_pdf)
+            archivo = esperar_nueva_descarga_en(otra, antes, timeout=0.1, solo_pdf=solo_pdf, desde=desde)
             if archivo:
                 carpeta_encontrada = otra
                 log(f"    ℹ️ Chrome dejó el archivo en '{otra}' en vez de '{carpeta}'; se mueve a la carpeta correcta.")

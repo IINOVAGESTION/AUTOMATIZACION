@@ -15,6 +15,7 @@ from selenium.common.exceptions import (
 
 from .utilidades import (
     renombrar_descarga, traducir_error, carpetas_de_descarga_posibles, foto_de_carpetas,
+    archivos_nuevos_en,
 )
 from .config import obtener_carpeta_programa, EXTENSIONES_TEMPORALES
 
@@ -188,15 +189,12 @@ def _esperar_pagina_quieta(driver, timeout=10):
 
 
 
-def _avisar_archivos_raros(carpeta, archivos_antes, vistos, log):
+def _avisar_archivos_raros(carpeta, archivos_antes, vistos, log, desde=None):
     """Si aparece un archivo nuevo que NO es PDF (ej. un .htm), lo deja en
     el log con un pedazo de su contenido: suele ser la respuesta de error
     del RNDC guardada como si fuera la descarga."""
     import re as _re
-    try:
-        nuevos = set(os.listdir(carpeta)) - archivos_antes
-    except Exception:
-        return
+    nuevos = archivos_nuevos_en(carpeta, archivos_antes, desde)
     for f in sorted(nuevos - vistos):
         vistos.add(f)
         if f.lower().endswith((".pdf",) + EXTENSIONES_TEMPORALES):
@@ -214,7 +212,7 @@ def _avisar_archivos_raros(carpeta, archivos_antes, vistos, log):
 
 
 def _esperar_pdf(driver, ventana_original, url_reimprimir, carpeta, nombre, archivos_antes,
-                 otras_carpetas_antes, log, maximo):
+                 otras_carpetas_antes, log, maximo, desde=None):
     """Espera el PDF hasta 'maximo' segundos mirando las dos formas en que
     puede llegar: como archivo descargado, o abierto en una ventana nueva
     (popup) de la que se guarda el contenido directamente."""
@@ -223,10 +221,10 @@ def _esperar_pdf(driver, ventana_original, url_reimprimir, carpeta, nombre, arch
     while time.time() < fin:
         resultado = renombrar_descarga(carpeta, nombre, archivos_antes, log, timeout=0.6,
                                         otras_carpetas_antes=otras_carpetas_antes, silencioso=True,
-                                        solo_pdf=True)
+                                        solo_pdf=True, desde=desde)
         if resultado:
             return resultado
-        _avisar_archivos_raros(carpeta, archivos_antes, vistos, log)
+        _avisar_archivos_raros(carpeta, archivos_antes, vistos, log, desde)
         try:
             hay_ventana_nueva = len(driver.window_handles) > 1
         except Exception:
@@ -311,6 +309,7 @@ def descargar_pdf_documento(driver, wait, url_reimprimir, radicado, nombre_archi
             otras_carpetas_antes = foto_de_carpetas(carpetas_de_descarga_posibles(carpeta_descargas))
             ventana_original = driver.current_window_handle
             inicio_espera = time.time()
+            desde_mtime = inicio_espera - 1.0   # margen por si el reloj del archivo va un poco atrás
             etapa = "pulsar el botón de imprimir"
             try:
                 # Mientras el RNDC arma el PDF, el clic puede quedarse
@@ -334,7 +333,7 @@ def descargar_pdf_documento(driver, wait, url_reimprimir, radicado, nombre_archi
             log(f"    Esperando que el RNDC arme el PDF (hasta {TIEMPO_MAXIMO_DESCARGA} segundos)...")
             resultado = _esperar_pdf(driver, ventana_original, url_reimprimir, carpeta_descargas,
                                       nombre_archivo, archivos_antes, otras_carpetas_antes, log,
-                                      TIEMPO_MAXIMO_DESCARGA)
+                                      TIEMPO_MAXIMO_DESCARGA, desde_mtime)
             if resultado:
                 log(f"    (el PDF tardó {time.time() - inicio_espera:.0f} segundos en aparecer)")
                 return resultado
