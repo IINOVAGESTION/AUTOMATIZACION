@@ -117,7 +117,7 @@ def _rescatar_pdf_abierto_en_pantalla(driver, ventana_original, url_reimprimir, 
     return resultado
 
 
-def _diagnostico_descarga_fallida(driver, carpetas_antes, nombre, log):
+def _diagnostico_descarga_fallida(driver, carpetas_antes, nombre, log, estado_pagina=None):
     """Deja en el log lo necesario para entender POR QUÉ no bajó el
     archivo (versión de Chrome, dónde estaba el navegador, qué mensaje
     mostraba el sitio, qué había en las carpetas) y guarda una captura."""
@@ -134,6 +134,8 @@ def _diagnostico_descarga_fallida(driver, carpetas_antes, nombre, log):
             log("    🔎 Mensajes del sitio: " + " | ".join(mensajes[:3])[:300])
     except Exception:
         pass
+    if estado_pagina:
+        log(f"    🔎 Estado de la página: {estado_pagina}")
     for carpeta, antes in carpetas_antes.items():
         try:
             nuevos = sorted(set(os.listdir(carpeta)) - antes)
@@ -148,6 +150,30 @@ def _diagnostico_descarga_fallida(driver, carpetas_antes, nombre, log):
         log(f"    🔎 Captura guardada en: {ruta}")
     except Exception:
         pass
+
+
+
+def _esperar_pagina_quieta(driver, timeout=10):
+    """Espera a que la página termine de cargar y de hacer sus consultas
+    internas (ASP.NET 'postback') antes de pulsar un botón. Si se pulsa
+    'Imprimir' mientras la página todavía está recargándose por haber
+    escrito el radicado, el clic se pierde y nunca baja el PDF -- parece
+    que 'a veces baja y a veces no'. Devuelve True si se estabilizó."""
+    js = ("return document.readyState==='complete' && !(window.Sys && Sys.WebForms && "
+          "Sys.WebForms.PageRequestManager && Sys.WebForms.PageRequestManager.getInstance()"
+          ".get_isInAsyncPostBack());")
+    fin = time.time() + timeout
+    seguidas = 0
+    while time.time() < fin:
+        try:
+            quieta = bool(driver.execute_script(js))
+        except Exception:
+            quieta = True   # si no se puede preguntar, no se bloquea nada
+        seguidas = seguidas + 1 if quieta else 0
+        if seguidas >= 3:   # tranquila durante ~0.6 s seguidos
+            return True
+        time.sleep(0.2)
+    return False
 
 
 
@@ -188,10 +214,12 @@ def descargar_pdf_documento(driver, wait, url_reimprimir, radicado, nombre_archi
             campo.send_keys(radicado)
             campo.send_keys(Keys.TAB)
             time.sleep(1.1)
+            _esperar_pagina_quieta(driver)
 
             if id_boton_consultar:
                 driver.find_element(By.ID, id_boton_consultar).click()
                 time.sleep(1.2)
+                _esperar_pagina_quieta(driver)
 
             forzar_carpeta_descargas(driver, carpeta_descargas)
             archivos_antes = set(os.listdir(carpeta_descargas))
@@ -229,7 +257,21 @@ def descargar_pdf_documento(driver, wait, url_reimprimir, radicado, nombre_archi
                 driver, ventana_original, url_reimprimir, carpeta_descargas, nombre_archivo, log)
             if resultado:
                 return resultado
-            _diagnostico_descarga_fallida(driver, otras_carpetas_antes, nombre_archivo, log)
+            estado = None
+            try:
+                campo_ahora = driver.find_element(By.ID, candidatos[0]) if len(candidatos) == 1 else None
+                if campo_ahora is None:
+                    for cand in candidatos:
+                        hallados = driver.find_elements(By.ID, cand)
+                        if hallados:
+                            campo_ahora = hallados[0]
+                            break
+                boton_ahora = driver.find_element(By.ID, id_boton_imprimir)
+                estado = (f"radicado escrito='{campo_ahora.get_attribute('value') if campo_ahora else '?'}', "
+                          f"botón imprimir habilitado={boton_ahora.is_enabled()}, visible={boton_ahora.is_displayed()}")
+            except Exception:
+                pass
+            _diagnostico_descarga_fallida(driver, otras_carpetas_antes, nombre_archivo, log, estado)
             log(f"    No se detectó la descarga (intento {intento}/{intentos})." + (" Reintentando..." if intento < intentos else ""))
         except (NoSuchElementException, UnexpectedAlertPresentException, TimeoutException) as e:
             log(f"    ⚠️  Error al descargar el PDF (intento {intento}/{intentos}) al {etapa}: {traducir_error(e)}")
