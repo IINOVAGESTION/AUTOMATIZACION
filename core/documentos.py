@@ -73,6 +73,10 @@ def _bytes_pdf_de_url(driver, url):
         return None
 
 
+class _VentanaCargando(Exception):
+    pass
+
+
 def _rescatar_pdf_abierto_en_pantalla(driver, ventana_original, url_reimprimir, carpeta, nombre, log):
     """Si el RNDC, en vez de descargar el PDF, lo abrió en una pestaña
     nueva (o en la misma), lo guarda directamente desde ahí. Devuelve la
@@ -92,6 +96,10 @@ def _rescatar_pdf_abierto_en_pantalla(driver, ventana_original, url_reimprimir, 
             url = driver.current_url
             if not es_extra and url.rstrip("/") == (url_reimprimir or "").rstrip("/"):
                 continue
+            if es_extra and url in ("about:blank", ""):
+                # La ventana emergente todavía está cargando: no se cierra,
+                # se vuelve a mirar en la próxima ronda.
+                raise _VentanaCargando()
             datos = _bytes_pdf_de_url(driver, url)
             if datos:
                 destino = os.path.join(carpeta, nombre + ".pdf")
@@ -101,6 +109,8 @@ def _rescatar_pdf_abierto_en_pantalla(driver, ventana_original, url_reimprimir, 
                     f.write(datos)
                 log(f"✅ El RNDC abrió el PDF en pantalla en vez de descargarlo; se guardó directo en: {destino}")
                 resultado = destino
+        except _VentanaCargando:
+            continue   # sin cerrarla
         except Exception:
             pass
         if es_extra:
@@ -136,6 +146,7 @@ def _diagnostico_descarga_fallida(driver, carpetas_antes, nombre, log, estado_pa
         pass
     if estado_pagina:
         log(f"    🔎 Estado de la página: {estado_pagina}")
+    _actividad_de_red_reciente(driver, log)
     for carpeta, antes in carpetas_antes.items():
         try:
             nuevos = sorted(set(os.listdir(carpeta)) - antes)
@@ -174,6 +185,52 @@ def _esperar_pagina_quieta(driver, timeout=10):
             return True
         time.sleep(0.2)
     return False
+
+
+
+def _esperar_pdf(driver, ventana_original, url_reimprimir, carpeta, nombre, archivos_antes,
+                 otras_carpetas_antes, log, maximo):
+    """Espera el PDF hasta 'maximo' segundos mirando las dos formas en que
+    puede llegar: como archivo descargado, o abierto en una ventana nueva
+    (popup) de la que se guarda el contenido directamente."""
+    fin = time.time() + maximo
+    while time.time() < fin:
+        resultado = renombrar_descarga(carpeta, nombre, archivos_antes, log, timeout=3,
+                                        otras_carpetas_antes=otras_carpetas_antes, silencioso=True)
+        if resultado:
+            return resultado
+        try:
+            hay_ventana_nueva = len(driver.window_handles) > 1
+        except Exception:
+            hay_ventana_nueva = False
+        if hay_ventana_nueva:
+            resultado = _rescatar_pdf_abierto_en_pantalla(
+                driver, ventana_original, url_reimprimir, carpeta, nombre, log)
+            if resultado:
+                return resultado
+    log(f"⚠️  No se detectó ninguna descarga nueva para renombrar a '{nombre}'.")
+    return None
+
+
+def _actividad_de_red_reciente(driver, log, cuantas=8):
+    """Para el diagnóstico: las últimas peticiones de red que hizo la
+    página (dirección, tipo de contenido y código de respuesta)."""
+    import json
+    try:
+        eventos = driver.get_log("performance")
+    except Exception:
+        return
+    filas = []
+    for e in eventos:
+        try:
+            m = json.loads(e["message"])["message"]
+            if m.get("method") == "Network.responseReceived":
+                r = m["params"]["response"]
+                filas.append(f"{r.get('status')} {r.get('mimeType', '?')} {r.get('url', '')[:110]}")
+        except Exception:
+            continue
+    if filas:
+        log("    🔎 Últimas respuestas de red: " + " || ".join(filas[-cuantas:]))
 
 
 
@@ -247,15 +304,11 @@ def descargar_pdf_documento(driver, wait, url_reimprimir, radicado, nombre_archi
                     pass
             etapa = "esperar la descarga"
             log(f"    Esperando que el RNDC arme el PDF (hasta {TIEMPO_MAXIMO_DESCARGA} segundos)...")
-            resultado = renombrar_descarga(carpeta_descargas, nombre_archivo, archivos_antes, log,
-                                            timeout=TIEMPO_MAXIMO_DESCARGA,
-                                            otras_carpetas_antes=otras_carpetas_antes)
+            resultado = _esperar_pdf(driver, ventana_original, url_reimprimir, carpeta_descargas,
+                                      nombre_archivo, archivos_antes, otras_carpetas_antes, log,
+                                      TIEMPO_MAXIMO_DESCARGA)
             if resultado:
                 log(f"    (el PDF tardó {time.time() - inicio_espera:.0f} segundos en aparecer)")
-                return resultado
-            resultado = _rescatar_pdf_abierto_en_pantalla(
-                driver, ventana_original, url_reimprimir, carpeta_descargas, nombre_archivo, log)
-            if resultado:
                 return resultado
             estado = None
             try:

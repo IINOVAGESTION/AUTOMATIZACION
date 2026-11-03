@@ -372,7 +372,7 @@ def foto_de_carpetas(carpetas):
 
 
 def renombrar_descarga(carpeta, nombre_nuevo_sin_extension, archivos_antes, log, timeout=30,
-                        otras_carpetas_antes=None):
+                        otras_carpetas_antes=None, silencioso=False):
     """Espera el archivo descargado en 'carpeta' y lo renombra. Si no
     aparece ahí, lo busca en las otras carpetas posibles ('otras_carpetas_antes':
     foto previa de cada una) y lo trae a 'carpeta' con el nombre nuevo."""
@@ -390,7 +390,8 @@ def renombrar_descarga(carpeta, nombre_nuevo_sin_extension, archivos_antes, log,
                 break
 
     if not archivo:
-        log(f"⚠️  No se detectó ninguna descarga nueva para renombrar a '{nombre_nuevo_sin_extension}'.")
+        if not silencioso:
+            log(f"⚠️  No se detectó ninguna descarga nueva para renombrar a '{nombre_nuevo_sin_extension}'.")
         return None
 
     extension = os.path.splitext(archivo)[1]

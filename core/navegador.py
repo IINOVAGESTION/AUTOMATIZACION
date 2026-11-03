@@ -150,6 +150,9 @@ def crear_opciones_chrome(carpeta_descargas=None, invisible=False):
             # automáticas") ni las marque como inseguras: en modo invisible
             # no hay ventana donde aceptarlas y simplemente no bajan.
             "profile.default_content_setting_values.automatic_downloads": 1,
+            # Algunas páginas del RNDC abren el PDF en una ventana emergente
+            # (popup); en modo invisible Chrome la bloquea y no pasa nada.
+            "profile.default_content_setting_values.popups": 1,
             "download_restrictions": 0,
             "safebrowsing.enabled": False,
         })
@@ -171,5 +174,10 @@ def crear_opciones_chrome(carpeta_descargas=None, invisible=False):
     chrome_options.add_argument("--disable-features=TranslateUI,Translate,InsecureDownloadWarnings")
     chrome_options.add_argument("--log-level=3")  # menos texto de consola de Chrome
     chrome_options.add_experimental_option("excludeSwitches", ["enable-logging"])
+    if carpeta_descargas:
+        # Registro de la actividad de red: si una descarga falla, el
+        # diagnóstico puede mostrar qué pidió la página al pulsar "Imprimir".
+        chrome_options.set_capability("goog:loggingPrefs", {"performance": "ALL"})
+        chrome_options.add_experimental_option("perfLoggingPrefs", {"enableNetwork": True, "enablePage": False})
 
     return chrome_options
