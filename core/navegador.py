@@ -168,6 +168,15 @@ def crear_opciones_chrome(carpeta_descargas=None, invisible=False):
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--disable-extensions")
+    # Evita que Chrome baje por su cuenta paquetes de extensiones/componentes
+    # (se vio un archivo de 2.7 MB que empieza con "Cr24", un paquete de
+    # extensión, apareciendo en Descargas durante la espera del PDF).
+    chrome_options.add_argument("--disable-component-update")
+    chrome_options.add_argument("--disable-background-networking")
+    chrome_options.add_argument("--disable-default-apps")
+    chrome_options.add_argument("--disable-sync")
+    chrome_options.add_argument("--no-first-run")
+    chrome_options.add_argument("--no-default-browser-check")
     chrome_options.add_argument("--disable-background-timer-throttling")
     chrome_options.add_argument("--disable-backgrounding-occluded-windows")
     chrome_options.add_argument("--disable-renderer-backgrounding")
