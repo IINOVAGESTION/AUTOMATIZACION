@@ -271,7 +271,16 @@ def descargar_pdf_documento(driver, wait, url_reimprimir, radicado, nombre_archi
     for intento in range(1, intentos + 1):
         etapa = "abrir la página de Reimprimir"
         try:
-            driver.get(url_reimprimir)
+            try:
+                driver.get(url_reimprimir)
+            except TimeoutException:
+                # La página tardó en terminar de cargar: se corta la carga y se
+                # sigue con lo que ya llegó (casi siempre el formulario ya está).
+                log("    ℹ️ La página de Reimprimir tardó en cargar; se sigue con lo que ya apareció...")
+                try:
+                    driver.execute_script("window.stop()")
+                except Exception:
+                    pass
             # id_campo_radicado puede ser un solo id o una lista de ids
             # candidatos (se usa la primera casilla que exista en la página).
             candidatos = [id_campo_radicado] if isinstance(id_campo_radicado, str) else list(id_campo_radicado)

@@ -1520,7 +1520,7 @@ def _reimprimir_documento_una_vez(usuario, password, tipo_documento, radicado, n
     por_consecutivo = (por == "consecutivo")
     try:
         log(f"    Abriendo el navegador solo para reimprimir el PDF (buscando por {'consecutivo' if por_consecutivo else 'radicado'})...")
-        chrome_options = crear_opciones_chrome(carpeta_descargas=CARPETA_DESCARGAS, invisible=invisible)
+        chrome_options = crear_opciones_chrome(carpeta_descargas=CARPETA_DESCARGAS, invisible=invisible, carga_rapida=True)
         driver = crear_driver_con_limite(chrome_options, obtener_chromedriver_path())
         driver.set_page_load_timeout(25)
         from selenium.webdriver.support.ui import WebDriverWait
@@ -1659,7 +1659,7 @@ def _reimprimir_viaje_una_vez(usuario, password, nit_empresa, consecutivo_manifi
     remesas_a_bajar = None
     try:
         log("    Abriendo el navegador solo para reimprimir los PDF...")
-        chrome_options = crear_opciones_chrome(carpeta_descargas=CARPETA_DESCARGAS, invisible=invisible)
+        chrome_options = crear_opciones_chrome(carpeta_descargas=CARPETA_DESCARGAS, invisible=invisible, carga_rapida=True)
         driver = crear_driver_con_limite(chrome_options, obtener_chromedriver_path())
         driver.set_page_load_timeout(25)
         from selenium.webdriver.support.ui import WebDriverWait
@@ -1752,7 +1752,7 @@ def _descargar_pdfs_del_viaje_una_vez(usuario, password, v, tramos, radicado_man
     letras = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     try:
         log("    Abriendo el navegador solo para descargar los PDF...")
-        chrome_options = crear_opciones_chrome(carpeta_descargas=CARPETA_DESCARGAS, invisible=invisible)
+        chrome_options = crear_opciones_chrome(carpeta_descargas=CARPETA_DESCARGAS, invisible=invisible, carga_rapida=True)
         driver = crear_driver_con_limite(chrome_options, obtener_chromedriver_path())
         driver.set_page_load_timeout(25)
         from selenium.webdriver.support.ui import WebDriverWait

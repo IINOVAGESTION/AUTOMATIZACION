@@ -130,7 +130,7 @@ def crear_driver_con_limite(chrome_options, chromedriver_path, timeout=45):
     return driver
 
 
-def crear_opciones_chrome(carpeta_descargas=None, invisible=False):
+def crear_opciones_chrome(carpeta_descargas=None, invisible=False, carga_rapida=False):
     """Opciones de Chrome compartidas. Las imágenes quedan desactivadas
     (no hacen falta para nada de lo que hace el script, y cada página
     carga más rápido sin ellas).
@@ -139,6 +139,12 @@ def crear_opciones_chrome(carpeta_descargas=None, invisible=False):
     pero si algo falla no hay ventana que revisar a simple vista, solo
     las capturas debug_*.png que el script guarda automáticamente."""
     chrome_options = Options()
+    if carga_rapida:
+        # 'eager': la página se da por cargada cuando está lista su estructura,
+        # sin esperar imágenes/scripts lentos del sitio. La página de Reimprimir
+        # del RNDC a veces tardaba más de 25 s solo por esos recursos y se
+        # abandonaba aunque el botón ya estuviera ahí.
+        chrome_options.page_load_strategy = "eager"
     prefs = {"profile.managed_default_content_settings.images": 2}
     if carpeta_descargas:
         prefs.update({
