@@ -298,8 +298,13 @@ def esperar_nueva_descarga_en(carpeta, archivos_antes, timeout):
             archivos_ahora = set(os.listdir(carpeta))
         except FileNotFoundError:
             archivos_ahora = set()
-        hay_descargas_en_progreso = any(f.endswith(EXTENSIONES_TEMPORALES) for f in archivos_ahora)
-        nuevos = [f for f in (archivos_ahora - archivos_antes) if not f.endswith(EXTENSIONES_TEMPORALES)]
+        # Solo cuentan como "descarga en progreso" los archivos temporales
+        # NUEVOS. Antes se miraba toda la carpeta: un .crdownload/.tmp viejo
+        # (de una descarga cortada hace días) hacía creer que Chrome seguía
+        # bajando algo y el PDF nuevo nunca se detectaba ni se renombraba.
+        nuevos_todos = archivos_ahora - archivos_antes
+        hay_descargas_en_progreso = any(f.endswith(EXTENSIONES_TEMPORALES) for f in nuevos_todos)
+        nuevos = [f for f in nuevos_todos if not f.endswith(EXTENSIONES_TEMPORALES)]
         # Se prioriza un archivo que ya sea .pdf de verdad; si no hay
         # ninguno todavía, se sigue esperando en vez de tomar cualquier
         # cosa a medias.
