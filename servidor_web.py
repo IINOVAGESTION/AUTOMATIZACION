@@ -380,6 +380,27 @@ def trabajador_de_fondo():
                         (ultimo_formulario.get("Cedula_Conductor2") or "").strip() == cedula2:
                     ultimo_formulario["Cedula_Conductor2"] = ""
                     ultimo_formulario["Tipo_Documento_Conductor2"] = "C"
+                # Tras un viaje exitoso también se borran el cliente, el
+                # remolque y lo que se haya añadido a las observaciones
+                # (vuelve la observación fija). Solo si el formulario
+                # recordado sigue siendo el de este mismo viaje.
+                if resultado.get("ok"):
+                    for campo in ("Cliente", "Placa_Remolque"):
+                        valor = (trabajo["v"].get(campo) or "").strip()
+                        if valor and (ultimo_formulario.get(campo) or "").strip() == valor:
+                            ultimo_formulario[campo] = ""
+                    obs = (trabajo["v"].get("Observaciones") or "").strip()
+                    if (ultimo_formulario.get("Observaciones") or "").strip() == obs:
+                        ultimo_formulario.pop("Observaciones", None)
+                    if trabajo["v"].get("TipoViaje") == "Cola":
+                        try:
+                            import json as _json
+                            filas = _json.loads(ultimo_formulario.get("ColaJSON") or "[]")
+                            for fila in filas:
+                                fila["observaciones"] = ""
+                            ultimo_formulario["ColaJSON"] = _json.dumps(filas)
+                        except Exception:
+                            pass
                 # Con rango de consecutivos, tras un viaje exitoso el
                 # consecutivo se vacía: el formulario propone el siguiente.
                 if resultado.get("ok") and trabajo["v"].get("RangoConsecutivo"):
