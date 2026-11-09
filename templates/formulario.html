@@ -317,7 +317,7 @@
     <div class="fila" id="fila_datos_generales" style="margin-top:0.2rem;">
       <div id="campo_cliente">
         <label>Cliente <span class="asterisco" title="Obligatorio">*</span><span class="ayuda-icono" data-tip="La persona o empresa que pidió este manifiesto (no es el remitente ni el destinatario, sino quien contrató el servicio). Es obligatorio: sin cliente no se puede hacer el viaje.">i</span></label>
-        <input type="text" name="Cliente" value="{{ v.get('Cliente', '') }}" tabindex="8" required>
+        <input type="text" name="Cliente" value="{{ v.get('Cliente', '') }}" tabindex="2" required>
       </div>
       <div id="campo_consecutivo">
         <label>Consecutivo</label>
@@ -330,11 +330,11 @@
     <div class="fila">
       <div id="campo_flete">
         <label>Valor del flete <span class="asterisco" title="Obligatorio">*</span></label>
-        <input type="text" name="Flete" id="input_flete" value="{{ v.get('Flete', '') }}" class="campo-clave" tabindex="9" oninput="formatearMiles(this)" required>
+        <input type="text" name="Flete" id="input_flete" value="{{ v.get('Flete', '') }}" class="campo-clave" tabindex="7" oninput="formatearMiles(this)" required>
       </div>
       <div id="campo_anticipo">
         <label>Anticipo (opcional)<span class="ayuda-icono" data-tip="Valor que el cliente paga por adelantado antes de que salga el viaje. Déjalo vacío si no aplica para este viaje.">i</span></label>
-        <input type="text" name="Anticipo" value="{{ v.get('Anticipo', '') }}" tabindex="10">
+        <input type="text" name="Anticipo" value="{{ v.get('Anticipo', '') }}" tabindex="12">
       </div>
     </div>
     <div id="campo_observaciones" style="margin-top:0.2rem;">
@@ -346,8 +346,8 @@
     <section class="panel" id="panel_personas">
       <div class="panel-encabezado"><h2>Vehículo y personas</h2></div>
     <div class="fila" style="margin-top:0.2rem;">
-      <div id="campo_placa"><label>Placa</label><input type="text" name="Placa" id="input_placa" value="{{ v.get('Placa', '') }}" class="campo-clave" tabindex="2" oninput="sugerirConductor()"></div>
-      <div><label>Placa Remolque (solo tractocamión)<span class="ayuda-icono" data-tip="Si el vehículo es un tractocamión (lleva remolque), escribe aquí su placa. Esto también hace que se calcule automáticamente un pago adicional llamado FOPAT.">i</span></label><input type="text" name="Placa_Remolque" value="{{ v.get('Placa_Remolque', '') }}" tabindex="3"></div>
+      <div id="campo_placa"><label>Placa</label><input type="text" name="Placa" id="input_placa" value="{{ v.get('Placa', '') }}" class="campo-clave" tabindex="5" oninput="sugerirConductor()"></div>
+      <div><label>Placa Remolque (solo tractocamión)<span class="ayuda-icono" data-tip="Si el vehículo es un tractocamión (lleva remolque), escribe aquí su placa. Esto también hace que se calcule automáticamente un pago adicional llamado FOPAT.">i</span></label><input type="text" name="Placa_Remolque" value="{{ v.get('Placa_Remolque', '') }}" tabindex="6"></div>
     </div>
     <span id="aviso_conductor_sugerido" style="display:none; align-items:center; gap:8px; background:rgba(255,106,0,0.14); border:1px solid #ff6a00; border-radius:6px; padding:6px 10px; margin-bottom:0.75rem; font-size:0.82rem; color:#ff6a00;"></span>
     <details class="bloque-nuevo" id="bloque_placa_nueva">
@@ -391,7 +391,7 @@
       <div id="campo_titular">
         <label>Titular del manifiesto (Cédula/NIT) <span class="asterisco" title="Obligatorio">*</span></label>
         <div class="fila-verificar">
-          <input type="text" name="Cedula_Titular" id="input_cedula_titular" value="{{ v.get('Cedula_Titular', '') }}" required class="campo-clave" tabindex="12">
+          <input type="text" name="Cedula_Titular" id="input_cedula_titular" value="{{ v.get('Cedula_Titular', '') }}" required class="campo-clave" tabindex="4">
           <button type="button" class="secundario" onclick="verificarPersona('input_cedula_titular', 'resultado_cedula_titular', 'C')">🔍 Verificar</button>
         </div>
         <span id="resultado_cedula_titular" class="resultado-verificar"></span>
@@ -410,7 +410,7 @@
             <option value="X" {{ 'selected' if v.get('Tipo_Documento_Conductor') == 'X' else '' }}>Identificación Extranjera</option>
             <option value="Y" {{ 'selected' if v.get('Tipo_Documento_Conductor') == 'Y' else '' }}>Permiso Protección Temporal Venezuela</option>
           </select>
-          <input type="text" name="Cedula_Conductor" id="input_cedula_conductor" value="{{ v.get('Cedula_Conductor', '') }}" class="campo-clave" list="lista_conductores" tabindex="11">
+          <input type="text" name="Cedula_Conductor" id="input_cedula_conductor" value="{{ v.get('Cedula_Conductor', '') }}" class="campo-clave" list="lista_conductores" tabindex="3">
           <button type="button" class="secundario" onclick="verificarPersona('input_cedula_conductor', 'resultado_cedula_conductor', document.getElementById('tipo_documento_conductor').value)">🔍 Verificar</button>
         </div>
         <span id="resultado_cedula_conductor" class="resultado-verificar"></span>
@@ -449,7 +449,7 @@
       <div class="grid-ruta">
         <div>
           <label>Origen</label>
-          <input type="text" name="Origen" value="{{ v.get('Origen', '') }}" list="lista_ciudades" class="campo-clave" tabindex="4">
+          <input type="text" name="Origen" value="{{ v.get('Origen', '') }}" list="lista_ciudades" class="campo-clave" tabindex="8">
           <div class="nit-bajo-ciudad">
             <label>NIT/Cédula del Remitente (opcional)<span class="ayuda-icono" data-tip="Algunos clientes piden que el remitente aparezca con SU PROPIO NIT/cédula en vez del NIT fijo de la empresa. Déjalo vacío para usar el fijo de siempre.">i</span></label>
             <div class="fila-verificar">
@@ -469,7 +469,7 @@
         </div>
         <div>
           <label>Destino</label>
-          <input type="text" name="Destino" value="{{ v.get('Destino', '') }}" list="lista_ciudades" class="campo-clave" tabindex="5">
+          <input type="text" name="Destino" value="{{ v.get('Destino', '') }}" list="lista_ciudades" class="campo-clave" tabindex="9">
           <div class="nit-bajo-ciudad">
             <label>NIT/Cédula del Destinatario (opcional)<span class="ayuda-icono" data-tip="Algunos clientes piden que el destinatario aparezca con SU PROPIO NIT/cédula en vez del NIT fijo de la empresa. Déjalo vacío para usar el fijo de siempre.">i</span></label>
             <div class="fila-verificar">
@@ -487,8 +487,8 @@
             <span id="resultado_nit_destinatario" class="resultado-verificar"></span>
           </div>
         </div>
-        <div><label>Producto</label><input type="text" name="Producto" value="{{ v.get('Producto', '') }}" class="campo-clave" tabindex="6"></div>
-        <div><label>Peso (kg)</label><input type="text" name="Peso" value="{{ v.get('Peso', '') }}" class="campo-clave" tabindex="7" oninput="formatearMiles(this)"></div>
+        <div><label>Producto</label><input type="text" name="Producto" value="{{ v.get('Producto', '') }}" class="campo-clave" tabindex="10"></div>
+        <div><label>Peso (kg)</label><input type="text" name="Peso" value="{{ v.get('Peso', '') }}" class="campo-clave" tabindex="11" oninput="formatearMiles(this)"></div>
       </div>
     </div>
 
@@ -576,12 +576,12 @@
 
 
     <div style="font-size: 0.72rem; color: #666; margin: 0.6rem 0;">
-      {% if sedes_reales %}✅{% else %}⚠️{% endif %} Sugerencias de ciudad: {{ sedes_reales|length if sedes_reales else 'lista genérica' }}{{ ' sedes reales' if sedes_reales else '' }}
+      <span id="conteo_sedes">{% if sedes_reales %}✅{% else %}⚠️{% endif %} Sugerencias de ciudad: {{ sedes_reales|length if sedes_reales else 'lista genérica' }}{{ ' sedes reales' if sedes_reales else '' }}</span>
       · <a href="#" onclick="actualizarSedes(); return false;" style="color:#ff6a00; text-decoration:none;">🔄 actualizar</a>
       <span id="estado_sedes" style="margin-left:0.4rem;"></span>
     </div>
     <div style="font-size: 0.72rem; color: #666; margin: 0.6rem 0;">
-      {% if conductores_reales %}✅{% else %}⚠️{% endif %} Sugerencias de conductor: {{ conductores_reales|length if conductores_reales else 'ninguna todavía' }}{{ ' conductores reales' if conductores_reales else '' }}
+      <span id="conteo_conductores">{% if conductores_reales %}✅{% else %}⚠️{% endif %} Sugerencias de conductor: {{ conductores_reales|length if conductores_reales else 'ninguna todavía' }}{{ ' conductores reales' if conductores_reales else '' }}</span>
       · <a href="#" onclick="actualizarConductores(); return false;" style="color:#ff6a00; text-decoration:none;">🔄 actualizar</a>
       <span id="estado_conductores" style="margin-left:0.4rem;"></span>
       <pre id="detalle_conductores" style="white-space:pre-wrap; font-size:0.7rem; color:#999; background:#1e1c1a; padding:0.6rem; border-radius:6px; margin-top:0.4rem; max-height:200px; overflow-y:auto;"></pre>
@@ -900,6 +900,9 @@ function rellenarConsecutivosDelRango() {
     if (campo && !campo.value.trim()) {
         campo.value = RANGO_CONSEC.prefijo + RANGO_CONSEC.numero;
         verificarConsecutivo();
+        // Si el cursor ya está aquí, el número sugerido queda seleccionado
+        // (escribir encima lo reemplaza; Tab lo acepta).
+        if (document.activeElement === campo) campo.select();
     }
     // Récord: cada viaje vacío toma el siguiente número, en orden.
     var actual = RANGO_CONSEC.numero;
@@ -931,6 +934,20 @@ function cargarRangoConsecutivos() {
         .catch(function () {});
 }
 cargarRangoConsecutivos();
+
+// Al abrir el formulario (y al volver a él) el cursor queda en Consecutivo,
+// con su contenido seleccionado. Luego Tab recorre: Cliente > CC Conductor >
+// CC Propietario > Placa > Placa Remolque > Flete > Origen > Destino >
+// Producto > Peso (ese orden lo definen los tabindex de cada campo).
+function enfocarConsecutivo() {
+    var campo = document.getElementById('input_consecutivo');
+    if (campo && campo.offsetParent !== null) {
+        campo.focus();
+        campo.select();
+    }
+}
+enfocarConsecutivo();
+window.addEventListener('pageshow', function (ev) { if (ev.persisted) enfocarConsecutivo(); });
 
 let temporizadorConsecutivo = null;
 function verificarConsecutivo() {
@@ -1154,6 +1171,68 @@ async function actualizarCodigo() {
         estado.style.color = '#ff6b6b';
     }
 }
+
+// ---- Actualización automática de ciudades y conductores al iniciar ----
+// El programa las actualiza solo, en segundo plano, la primera vez que se
+// abre el formulario después de iniciarlo. Aquí solo se muestra el avance y
+// se refrescan las sugerencias SIN recargar la página (así no se pierde lo
+// que ya escribiste).
+var _listasYaRefrescadas = {sedes: false, conductores: false};
+function refrescarSugerencias() {
+    return fetch('{{ url_for("listas_actuales") }}')
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+            if (!d.ok) return;
+            var dl = document.getElementById('lista_ciudades');
+            if (d.sedes && d.sedes.length) {
+                dl.innerHTML = '';
+                d.sedes.forEach(function (s) {
+                    var o = document.createElement('option'); o.value = s; dl.appendChild(o);
+                });
+                document.getElementById('conteo_sedes').textContent =
+                    '✅ Sugerencias de ciudad: ' + d.sedes.length + ' sedes reales';
+            }
+            var dc = document.getElementById('lista_conductores');
+            var cedulas = Object.keys(d.conductores || {});
+            if (cedulas.length) {
+                dc.innerHTML = '';
+                cedulas.forEach(function (c) {
+                    var o = document.createElement('option'); o.value = c;
+                    o.textContent = d.conductores[c]; dc.appendChild(o);
+                });
+                document.getElementById('conteo_conductores').textContent =
+                    '✅ Sugerencias de conductor: ' + cedulas.length + ' conductores reales';
+            }
+        })
+        .catch(function () {});
+}
+function vigilarListasAutomaticas() {
+    fetch('{{ url_for("estado_listas_route") }}')
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+            if (!d.ok) return;
+            var textos = {
+                esperando: ' ⏳ esperando a que termine el viaje en curso para actualizar...',
+                corriendo: ' 🔄 actualizando automáticamente (en segundo plano, puedes seguir trabajando)...',
+                ok: ' ✅ actualizado al iniciar',
+                error: ' ⚠️ no se pudo actualizar solo (puedes darle a "actualizar")'
+            };
+            var sigue = false;
+            ['sedes', 'conductores'].forEach(function (clave) {
+                var est = d[clave];
+                var span = document.getElementById('estado_' + clave);
+                if (est === 'esperando' || est === 'corriendo') sigue = true;
+                if (span && textos[est]) span.textContent = textos[est];
+                if (est === 'ok' && !_listasYaRefrescadas[clave]) {
+                    _listasYaRefrescadas[clave] = true;
+                    refrescarSugerencias();
+                }
+            });
+            if (sigue) setTimeout(vigilarListasAutomaticas, 4000);
+        })
+        .catch(function () {});
+}
+vigilarListasAutomaticas();
 
 async function actualizarSedes() {
     var usuario = document.querySelector('input[name="usuario_rndc"]').value.trim();

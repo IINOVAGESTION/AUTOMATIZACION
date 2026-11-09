@@ -503,6 +503,7 @@ def logout():
 def formulario():
     if "usuario_app" not in session:
         return redirect(url_for("login"))
+    iniciar_actualizacion_automatica_de_listas()
     sedes_reales = []
     try:
         with open(rndc_core.ARCHIVO_SEDES, "r", encoding="utf-8") as f:
@@ -545,6 +546,21 @@ def siguiente_consecutivo_route():
     })
 
 
+def _traer_sedes(usuario_rndc, password_rndc, mensajes):
+    """Trae las sedes (ciudades) reales del RNDC y las guarda en el archivo.
+    Primero por el navegador (lee el desplegable real del sitio, con el
+    nombre completo "Ciudad Departamento" tal como aparece en el RNDC); si
+    eso falla (ej. Chrome no está listo en una PC nueva), cae al Web
+    Service como respaldo -- más rápido, pero sus nombres vienen más
+    cortos/inconsistentes (a veces sin el departamento)."""
+    try:
+        return rndc_core.obtener_lista_sedes_empresa(usuario_rndc, password_rndc, mensajes.append)
+    except Exception as e_navegador:
+        mensajes.append(f"(El navegador falló, probando por el Web Service: {e_navegador})")
+        nit_empresa = rndc_core.FIJOS_REMESA["NUMIDPROPIETARIO"]
+        return rndc_core.obtener_lista_sedes_empresa_api(usuario_rndc, password_rndc, nit_empresa, mensajes.append)
+
+
 @app.route("/actualizar_sedes", methods=["POST"])
 def actualizar_sedes():
     if "usuario_app" not in session:
@@ -555,20 +571,100 @@ def actualizar_sedes():
         return jsonify({"ok": False, "error": "Faltan tu usuario y contraseña del RNDC."})
     mensajes = []
     try:
-        # Primero por el navegador (lee el desplegable real del sitio, con
-        # el nombre completo "Ciudad Departamento" tal como aparece en el
-        # RNDC); si eso falla (ej. Chrome no está listo en una PC nueva),
-        # cae al Web Service como respaldo -- más rápido, pero sus nombres
-        # vienen más cortos/inconsistentes (a veces sin el departamento).
-        try:
-            opciones = rndc_core.obtener_lista_sedes_empresa(usuario_rndc, password_rndc, mensajes.append)
-        except Exception as e_navegador:
-            mensajes.append(f"(El navegador falló, probando por el Web Service: {e_navegador})")
-            nit_empresa = rndc_core.FIJOS_REMESA["NUMIDPROPIETARIO"]
-            opciones = rndc_core.obtener_lista_sedes_empresa_api(usuario_rndc, password_rndc, nit_empresa, mensajes.append)
+        opciones = _traer_sedes(usuario_rndc, password_rndc, mensajes)
         return jsonify({"ok": True, "cantidad": len(opciones)})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e), "log": mensajes})
+
+
+# ---------------------------------------------------------------------------
+# Actualización automática de ciudades y conductores al iniciar el programa.
+# Se hace UNA vez por cada vez que se abre el programa, en segundo plano, la
+# primera vez que alguien abre el formulario con su usuario del RNDC ya
+# vinculado. Espera a que no haya viajes en curso para no cruzarse con ellos.
+# ---------------------------------------------------------------------------
+estado_listas = {"sedes": "pendiente", "conductores": "pendiente"}
+_actualizacion_automatica_iniciada = False
+_candado_listas = threading.Lock()
+
+
+def _esperar_sin_viajes_en_curso(maximo_segundos=900):
+    """Espera (hasta 15 min) a que no haya viajes corriendo ni en fila."""
+    limite = time.time() + maximo_segundos
+    while time.time() < limite:
+        with candado:
+            ocupado = any(t["estado"] in ("pendiente", "corriendo") for t in trabajos)
+        if not ocupado:
+            return True
+        time.sleep(5)
+    return False
+
+
+def _actualizar_listas_en_segundo_plano(usuario_rndc, password_rndc):
+    for clave in ("sedes", "conductores"):
+        estado_listas[clave] = "esperando"
+    _esperar_sin_viajes_en_curso()
+    mensajes = []
+    estado_listas["sedes"] = "corriendo"
+    try:
+        _traer_sedes(usuario_rndc, password_rndc, mensajes)
+        estado_listas["sedes"] = "ok"
+    except Exception as e:
+        print(f"(Actualización automática de ciudades falló: {e})")
+        estado_listas["sedes"] = "error"
+    # Los conductores van DESPUÉS y solo si no entró un viaje mientras tanto
+    # (recorre muchas páginas del RNDC y puede tardar varios minutos).
+    _esperar_sin_viajes_en_curso()
+    estado_listas["conductores"] = "corriendo"
+    try:
+        cantidad = rndc_core.obtener_lista_conductores_empresa(usuario_rndc, password_rndc, mensajes.append)
+        estado_listas["conductores"] = "ok" if cantidad else "error"
+    except Exception as e:
+        print(f"(Actualización automática de conductores falló: {e})")
+        estado_listas["conductores"] = "error"
+
+
+def iniciar_actualizacion_automatica_de_listas():
+    """Arranca la actualización automática una sola vez por inicio del
+    programa, y solo si ya hay usuario/contraseña del RNDC vinculados."""
+    global _actualizacion_automatica_iniciada
+    usuario_rndc = session.get("usuario_rndc_vinculado")
+    password_rndc = session.get("password_rndc_vinculado")
+    if not usuario_rndc or not password_rndc:
+        return
+    with _candado_listas:
+        if _actualizacion_automatica_iniciada:
+            return
+        _actualizacion_automatica_iniciada = True
+    threading.Thread(
+        target=_actualizar_listas_en_segundo_plano,
+        args=(usuario_rndc, password_rndc), daemon=True,
+    ).start()
+
+
+@app.route("/estado_listas")
+def estado_listas_route():
+    if "usuario_app" not in session:
+        return jsonify({"ok": False, "error": "No autenticado"}), 401
+    return jsonify({"ok": True, **estado_listas})
+
+
+@app.route("/listas_actuales")
+def listas_actuales():
+    if "usuario_app" not in session:
+        return jsonify({"ok": False, "error": "No autenticado"}), 401
+    sedes, conductores = [], {}
+    try:
+        with open(rndc_core.ARCHIVO_SEDES, "r", encoding="utf-8") as f:
+            sedes = json.load(f)
+    except Exception:
+        pass
+    try:
+        with open(rndc_core.ARCHIVO_CONDUCTORES, "r", encoding="utf-8") as f:
+            conductores = json.load(f)
+    except Exception:
+        pass
+    return jsonify({"ok": True, "sedes": sedes, "conductores": conductores})
 
 
 @app.route("/actualizar_conductores", methods=["POST"])
