@@ -140,6 +140,16 @@ def _llamar(usuario, password, tipo, procesoid, variables_xml, documento_xml="",
         valor = getattr(ultimo_error, atributo, None)
         if valor:
             detalle += f" | {atributo}: {valor}"
+    # Cuando el RNDC está en mantenimiento no contesta SOAP sino una página
+    # web ("<title>Mantenimiento</title>"). No es un error de la app ni de
+    # los datos: solo hay que esperar. El mensaje empieza igual que el de
+    # "no respondió" para que las colas se detengan igual que con un RNDC caído.
+    if "mantenimiento" in detalle.lower() and "<html" in detalle.lower():
+        raise ErrorRNDC(
+            "El RNDC no respondió: está en MANTENIMIENTO en este momento (no es un error de la app "
+            "ni de los datos). Intenta de nuevo en unos minutos (esta solicitud no se procesó).",
+            xml_pedido,
+        )
     raise ErrorRNDC(
         f"El RNDC devolvió un error de protocolo (no un rechazo normal): {detalle}",
         xml_pedido,
