@@ -392,13 +392,35 @@ def trabajador_de_fondo():
                     obs = (trabajo["v"].get("Observaciones") or "").strip()
                     if (ultimo_formulario.get("Observaciones") or "").strip() == obs:
                         ultimo_formulario.pop("Observaciones", None)
+                    # Remitente y destinatario: se borran los NIT/cédulas y el
+                    # tipo vuelve a "Fijo" (el NIT fijo de la empresa) para
+                    # el siguiente manifiesto.
+                    for campo_nit, campo_tipo in (("NIT_Remitente_Cliente", "TipoID_Remitente_Cliente"),
+                                                  ("NIT_Destinatario_Cliente", "TipoID_Destinatario_Cliente")):
+                        if (ultimo_formulario.get(campo_nit) or "") == (trabajo["v"].get(campo_nit) or ""):
+                            ultimo_formulario[campo_nit] = ""
+                            ultimo_formulario[campo_tipo] = ""
+                    import json as _json
                     if trabajo["v"].get("TipoViaje") == "Cola":
                         try:
-                            import json as _json
                             filas = _json.loads(ultimo_formulario.get("ColaJSON") or "[]")
                             for fila in filas:
                                 fila["observaciones"] = ""
+                                for k in ("tipoid_rem", "nit_rem", "tipoid_des", "nit_des"):
+                                    fila[k] = ""
                             ultimo_formulario["ColaJSON"] = _json.dumps(filas)
+                        except Exception:
+                            pass
+                    elif trabajo["v"].get("TipoViaje") in ("Multiparada", "IdaYRegreso"):
+                        try:
+                            if ((ultimo_formulario.get("Consecutivo") or "").strip()
+                                    == (trabajo["v"].get("Consecutivo") or "").strip()):
+                                tramos = _json.loads(ultimo_formulario.get("ParadasJSON") or "[]")
+                                for t in tramos:
+                                    for k in ("TipoID_Remitente", "NIT_Remitente", "TipoID_Destinatario", "NIT_Destinatario"):
+                                        if k in t:
+                                            t[k] = ""
+                                ultimo_formulario["ParadasJSON"] = _json.dumps(tramos)
                         except Exception:
                             pass
                 # Con rango de consecutivos, tras un viaje exitoso el
