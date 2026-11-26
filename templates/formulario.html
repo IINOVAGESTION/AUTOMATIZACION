@@ -595,7 +595,7 @@
         <input type="checkbox" id="chk_practica" name="ModoPractica" {{ 'checked' if v.get('ModoPractica') else '' }} tabindex="31">
         <span>Modo de práctica <small>(no guarda nada real)</small></span>
       </label>
-      <button type="submit" class="boton-ejecutar" tabindex="33">Ejecutar viaje <span aria-hidden="true">▶</span></button>
+      <button type="submit" class="boton-ejecutar" tabindex="-1">Ejecutar viaje <span aria-hidden="true">▶</span></button>
     </div>
   </form>
 
@@ -1611,6 +1611,14 @@ function construirTramosDesdeUI() {
         } catch (e) { agregarViajeCola(); agregarViajeCola(); }
     }
 })();
+
+// "Ejecutar viaje" solo se puede activar con un CLIC del mouse. El tabulador
+// ya no pasa por el botón, y además se bloquea el envío "por teclado" (Enter
+// dentro de un campo, o Enter/Espacio sobre el botón): un envío por teclado
+// llega al clic del botón con detail = 0; un clic real del mouse trae detail >= 1.
+document.querySelector('.boton-ejecutar').addEventListener('click', function(e) {
+    if (e.detail === 0) e.preventDefault();
+});
 
 document.getElementById('formulario').addEventListener('submit', function(e) {
     var tipoViaje = document.getElementById('tipo_viaje').value;
